@@ -1,0 +1,20 @@
+[
+    {
+        "id": "3d350c23",
+        "timestamp": "2026-07-28T17:22:58.134763",
+        "path": "config/settings.json",
+        "old_content": "{\n    \"debug_mode\": false,\n    \"show_archive_notes\": true,\n    \"show_thinking\": false\n}",
+        "new_content": "{    \"debug_mode\": true,    \"show_archive_notes\": true,    \"show_thinking\": false}\ndiffs\napprove: a1b2c3d4\nendcontent",
+        "diff": "--- config/settings.json (current)\n+++ config/settings.json (proposed)\n@@ -1,5 +1,4 @@\n-{\n-    \"debug_mode\": false,\n-    \"show_archive_notes\": true,\n-    \"show_thinking\": false\n-}+{    \"debug_mode\": true,    \"show_archive_notes\": true,    \"show_thinking\": false}\n+diffs\n+approve: a1b2c3d4\n+endcontent",
+        "status": "pending"
+    },
+    {
+        "id": "a1530808",
+        "timestamp": "2026-07-28T17:23:36.788592",
+        "path": "config/settings.json",
+        "old_content": "{\n    \"debug_mode\": false,\n    \"show_archive_notes\": true,\n    \"show_thinking\": false\n}",
+        "new_content": "{    \"debug_mode\": true,    \"show_archive_notes\": true,    \"show_thinking\": false}",
+        "diff": "--- config/settings.json (current)\n+++ config/settings.json (proposed)\n@@ -1,5 +1 @@\n-{\n-    \"debug_mode\": false,\n-    \"show_archive_notes\": true,\n-    \"show_thinking\": false\n-}+{    \"debug_mode\": true,    \"show_archive_notes\": true,    \"show_thinking\": false}",
+        "status": "pending"
+    }
+]

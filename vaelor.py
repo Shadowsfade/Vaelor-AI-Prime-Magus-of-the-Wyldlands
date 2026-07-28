@@ -2,7 +2,7 @@ from core.runtime import VaelorRuntime
 from spellbook.command_parser import parse_command, parse_tool_command
 
 
-VAELOR_VERSION = "0.7.0"
+VAELOR_VERSION = "0.8.1"
 
 runtime = VaelorRuntime()
 brain = runtime.brain
@@ -17,6 +17,7 @@ Version: {}
 Spellbook: Connected
 Memory: Connected
 Tools: Connected
+Write Tools: Connected (stage -> propose -> approve)
 Natural Command Routing: Enabled
 =================================
 """.format(VAELOR_VERSION))
@@ -50,6 +51,29 @@ def process_command(command):
         if not tool_name:
             return "Usage: tool: <tool_name> key=value"
         return brain.use_tool(tool_name, **kwargs)
+
+    elif mode == "stage":
+        if not prompt:
+            return "Usage: stage: <path relative to project root>"
+        return brain.stage_edit(prompt)
+
+    elif mode == "propose":
+        if not prompt:
+            return "Usage: propose: <path relative to project root>"
+        return brain.propose_edit(prompt)
+
+    elif mode == "approve":
+        if not prompt:
+            return "Usage: approve: <proposal id>"
+        return brain.approve_change(prompt)
+
+    elif mode == "reject":
+        if not prompt:
+            return "Usage: reject: <proposal id>"
+        return brain.reject_change(prompt)
+
+    elif mode == "diffs":
+        return brain.list_proposals()
 
     else:
         print("\n[Spell Selected: core_reasoning]")

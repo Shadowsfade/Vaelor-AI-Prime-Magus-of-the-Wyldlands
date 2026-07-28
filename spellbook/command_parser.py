@@ -10,7 +10,8 @@ def clean_input(command):
 def parse_command(command):
     """
     Parses raw input into (mode, prompt).
-    mode is one of: "code", "remember", "fast", "think", "roadmap", "tool", "tools"
+    mode is one of: "code", "remember", "fast", "think", "roadmap",
+    "tool", "tools", "stage", "propose", "approve", "reject", "diffs"
     Shared by both the CLI and the API so behavior never drifts apart.
     """
     command = clean_input(command)
@@ -37,16 +38,26 @@ def parse_command(command):
     elif command_lower.startswith("tool:"):
         return "tool", command[5:].strip()
 
+    elif command_lower.startswith("stage:"):
+        return "stage", command[6:].strip()
+
+    elif command_lower.startswith("propose:"):
+        return "propose", command[8:].strip()
+
+    elif command_lower.startswith("approve:"):
+        return "approve", command[8:].strip()
+
+    elif command_lower.startswith("reject:"):
+        return "reject", command[7:].strip()
+
+    elif command_lower.startswith("diffs"):
+        return "diffs", ""
+
     else:
         return "think", command
 
 
 def parse_tool_command(prompt):
-    """
-    Parses a 'tool:' prompt into (tool_name, kwargs).
-    Format: tool: <tool_name> key=value key2=value2
-    Example: tool: file_reader path=vaelor.py
-    """
     parts = prompt.strip().split()
 
     if not parts:

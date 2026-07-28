@@ -72,6 +72,7 @@ def register_all_tools():
     """
     from .project_scanner import scan_project
     from .file_reader import read_file
+    from .file_editor import propose_edit
 
     registry.register(
         name="project_scanner",
@@ -85,6 +86,13 @@ def register_all_tools():
         description="Reads the contents of a single file inside the Vaelor project. Requires 'path' argument (relative to project root).",
         read_only=True,
         func=read_file
+    )
+
+    registry.register(
+        name="file_editor_propose",
+        description="Proposes an edit to a file and shows a diff. Writes NOTHING - a pending proposal must be applied with 'approve: <id>'. Best used via the dedicated 'propose:' CLI command for multi-line content.",
+        read_only=True,
+        func=propose_edit
     )
 
 

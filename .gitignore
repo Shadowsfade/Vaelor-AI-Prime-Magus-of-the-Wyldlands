@@ -4,3 +4,4 @@ __pycache__/
 .aider.chat.history.md
 .aider.tags.cache.v4/
 *.aider*
+.staging/

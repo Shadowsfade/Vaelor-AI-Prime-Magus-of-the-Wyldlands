@@ -15,6 +15,7 @@ class VaelorBrain:
     - archive recall
     - roadmap / self-awareness of project status
     - tool use (observe -> act, read-only for now)
+    - proposal-based write tools (stage -> propose -> approve/reject)
     """
 
     def __init__(self, runtime):
@@ -22,10 +23,6 @@ class VaelorBrain:
         self.memory = VaelorMemoryManager()
 
     def think(self, prompt):
-        """
-        Route a thought through Vaelor's primary reasoning system (14B).
-        Relevant memories are injected into context.
-        """
         memory_context = self.memory.build_context(prompt)
 
         enhanced_prompt = (
@@ -42,38 +39,24 @@ class VaelorBrain:
         return response
 
     def fast(self, prompt):
-        """
-        Route a thought through the lightweight fast model (3B).
-        No memory injection - kept minimal for speed.
-        """
         return cast_spell(
             "fast_thought",
             prompt
         )
 
     def create(self, prompt):
-        """
-        Route coding tasks through AiderSpell.
-        """
         return cast_spell(
             "code_forge",
             prompt
         )
 
     def remember(self, category, content):
-        """
-        Manually store archive knowledge.
-        """
         return self.memory.remember(
             category,
             content
         )
 
     def reflect(self, prompt):
-        """
-        Answer questions about Vaelor's own development status,
-        using the roadmap as grounding context.
-        """
         roadmap = self.runtime.roadmap
 
         roadmap_text = (
@@ -102,9 +85,6 @@ class VaelorBrain:
         )
 
     def list_tools(self):
-        """
-        Return the list of tools Vaelor currently has access to.
-        """
         tools = tool_registry.list_tools()
 
         if not tools:
@@ -118,7 +98,47 @@ class VaelorBrain:
         return "Available tools:\n" + "\n".join(lines)
 
     def use_tool(self, tool_name, **kwargs):
-        """
-        Execute a registered tool directly and return its raw result.
-        """
         return tool_registry.execute(tool_name, **kwargs)
+
+    def stage_edit(self, path):
+        """
+        Step 1 of the edit workflow. Creates a staging copy of a file
+        for the Architect to edit in Notepad. Writes only inside
+        .staging\\ - never touches the real project file.
+        """
+        from .tools.file_editor import stage_file
+        return stage_file(path)
+
+    def propose_edit(self, path):
+        """
+        Step 2 of the edit workflow. Reads the edited staging copy and
+        creates a pending proposal with a diff. Writes nothing to the
+        real project file.
+        """
+        from .tools.file_editor import propose_edit as _propose
+        return _propose(path)
+
+    def approve_change(self, proposal_id):
+        """
+        Apply a pending proposal. This is the only path that writes
+        a real project file, and it only runs when explicitly called.
+        """
+        from .tools.approval import approve_change as _approve
+        return _approve(proposal_id)
+
+    def reject_change(self, proposal_id):
+        from .tools.approval import reject_change as _reject
+        return _reject(proposal_id)
+
+    def list_proposals(self):
+        from .tools.proposals import list_pending
+        pending = list_pending()
+
+        if not pending:
+            return "No pending proposals."
+
+        lines = []
+        for p in pending:
+            lines.append(f"- {p['id']}: {p['path']} (proposed {p['timestamp']})")
+
+        return "Pending proposals:\n" + "\n".join(lines)
