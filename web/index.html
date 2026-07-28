@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vaelor — The Arcane Tome</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+    * { box-sizing: border-box; }
+
+    body {
+        margin: 0;
+        font-family: 'EB Garamond', serif;
+        background:
+            radial-gradient(ellipse at top left, rgba(80,50,20,0.25), transparent 60%),
+            radial-gradient(ellipse at bottom right, rgba(60,35,15,0.3), transparent 60%),
+            #e9d9b3;
+        color: #3b2a18;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        background-blend-mode: multiply;
+    }
+
+    body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background-image:
+            repeating-radial-gradient(circle at 20% 30%, rgba(90,60,20,0.05) 0, transparent 3px),
+            repeating-radial-gradient(circle at 70% 80%, rgba(90,60,20,0.05) 0, transparent 4px),
+            repeating-radial-gradient(circle at 50% 50%, rgba(60,40,10,0.04) 0, transparent 2px);
+        mix-blend-mode: multiply;
+    }
+
+    header {
+        padding: 18px 28px;
+        border-bottom: 3px double #7a5a2e;
+        background: linear-gradient(180deg, #d9c294, #c9ad74);
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        z-index: 1;
+    }
+
+    #orb {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: radial-gradient(circle at 35% 35%, #7fe89a, #1e5c33);
+        box-shadow: 0 0 8px 2px rgba(60,180,100,0.5);
+        flex-shrink: 0;
+        transition: box-shadow 0.3s ease;
+    }
+
+    #orb.thinking {
+        animation: breathe 1.4s ease-in-out infinite;
+    }
+
+    @keyframes breathe {
+        0%, 100% {
+            transform: scale(0.85);
+            box-shadow: 0 0 10px 3px rgba(60,220,100,0.5);
+        }
+        50% {
+            transform: scale(1.25);
+            box-shadow: 0 0 28px 12px rgba(60,220,100,0.9);
+        }
+    }
+
+    header h1 {
+        margin: 0;
+        font-family: 'Cinzel Decorative', serif;
+        font-size: 1.4rem;
+        color: #4a2f10;
+        letter-spacing: 1px;
+        text-shadow: 0 1px 0 rgba(255,255,255,0.3);
+    }
+
+    header p {
+        margin: 2px 0 0;
+        font-size: 0.85rem;
+        color: #6b4a20;
+        font-style: italic;
+    }
+
+    #chat {
+        flex: 1;
+        overflow-y: auto;
+        padding: 28px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        z-index: 1;
+    }
+
+    .msg {
+        max-width: 72%;
+        padding: 14px 18px;
+        border-radius: 4px;
+        line-height: 1.6;
+        white-space: pre-wrap;
+        font-size: 1.05rem;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+        border: 1px solid #a9895a;
+    }
+
+    .user {
+        align-self: flex-end;
+        background: linear-gradient(180deg, #f0e2bd, #e2cfa0);
+        color: #3b2a18;
+    }
+
+    .vaelor {
+        align-self: flex-start;
+        background: linear-gradient(180deg, #ecdcb0, #dcc793);
+        color: #2f2210;
+        border-left: 4px solid #7a5a2e;
+    }
+
+    .tag {
+        display: block;
+        font-family: 'Cinzel Decorative', serif;
+        font-size: 0.65rem;
+        color: #7a5a2e;
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+    }
+
+    #inputBar {
+        display: flex;
+        padding: 20px;
+        border-top: 3px double #7a5a2e;
+        background: linear-gradient(180deg, #c9ad74, #d9c294);
+        gap: 12px;
+        z-index: 1;
+    }
+
+    #inputBox {
+        flex: 1;
+        padding: 14px 18px;
+        border-radius: 4px;
+        border: 1px solid #7a5a2e;
+        background: #f4e8cf;
+        color: #3b2a18;
+        font-family: 'EB Garamond', serif;
+        font-size: 1.05rem;
+        outline: none;
+    }
+
+    #inputBox:focus {
+        border-color: #4a2f10;
+        box-shadow: 0 0 0 2px rgba(122,90,46,0.25);
+    }
+
+    #sendBtn {
+        padding: 12px 26px;
+        border-radius: 4px;
+        border: 1px solid #4a2f10;
+        background: linear-gradient(180deg, #5c3d1a, #3b2a18);
+        color: #e9d9b3;
+        font-family: 'Cinzel Decorative', serif;
+        font-size: 0.9rem;
+        letter-spacing: 1px;
+        cursor: pointer;
+    }
+
+    #sendBtn:hover {
+        background: linear-gradient(180deg, #6e4a20, #4a3520);
+    }
+
+    #sendBtn:disabled {
+        background: #9a8a6a;
+        cursor: not-allowed;
+    }
+
+    #errorBanner {
+        display: none;
+        background: #7a1f1f;
+        color: #f4e8cf;
+        padding: 10px 20px;
+        font-size: 0.85rem;
+        text-align: center;
+    }
+</style>
+</head>
+<body>
+
+<div id="errorBanner"></div>
+
+<header>
+    <div id="orb"></div>
+    <div>
+        <h1>The Tome of Vaelor</h1>
+        <p>Prime Magus of the Arcane Tower</p>
+    </div>
+</header>
+
+<div id="chat"></div>
+
+<div id="inputBar">
+    <input id="inputBox" type="text" placeholder="Speak your query into the tome... (code:, remember:, or simply ask)" autofocus />
+    <button id="sendBtn">Cast</button>
+</div>
+
+<script>
+const chat = document.getElementById('chat');
+const inputBox = document.getElementById('inputBox');
+const sendBtn = document.getElementById('sendBtn');
+const orb = document.getElementById('orb');
+const errorBanner = document.getElementById('errorBanner');
+
+function showError(text) {
+    errorBanner.textContent = text;
+    errorBanner.style.display = 'block';
+    console.error('[Vaelor UI]', text);
+}
+
+function addMessage(text, sender, tag) {
+    const div = document.createElement('div');
+    div.className = 'msg ' + sender;
+
+    if (tag) {
+        const tagEl = document.createElement('span');
+        tagEl.className = 'tag';
+        tagEl.textContent = tag;
+        div.appendChild(tagEl);
+    }
+
+    const textNode = document.createElement('span');
+    textNode.textContent = text;
+    div.appendChild(textNode);
+
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+    return div;
+}
+
+async function sendMessage() {
+    const message = inputBox.value.trim();
+    if (!message) return;
+
+    errorBanner.style.display = 'none';
+    addMessage(message, 'user');
+    inputBox.value = '';
+    sendBtn.disabled = true;
+    orb.classList.add('thinking');
+
+    const thinkingMsg = addMessage('...contemplating...', 'vaelor', 'thinking');
+
+    try {
+        const res = await fetch('/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: message })
+        });
+
+        if (!res.ok) {
+            throw new Error('Server responded with status ' + res.status);
+        }
+
+        const data = await res.json();
+        chat.removeChild(thinkingMsg);
+        addMessage(data.response, 'vaelor', data.mode);
+
+    } catch (err) {
+        chat.removeChild(thinkingMsg);
+        showError('Could not reach Vaelor: ' + err.message);
+    }
+
+    sendBtn.disabled = false;
+    orb.classList.remove('thinking');
+    inputBox.focus();
+}
+
+sendBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    sendMessage();
+});
+
+inputBox.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        sendMessage();
+    }
+});
+
+console.log('[Vaelor UI] Script loaded, listeners attached.');
+</script>
+
+</body>
+</html>

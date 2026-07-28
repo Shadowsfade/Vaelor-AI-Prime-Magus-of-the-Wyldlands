@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.pyc
+.aider.chat.history.md
+.aider.tags.cache.v4/
+*.aider*

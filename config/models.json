@@ -1,0 +1,32 @@
+{
+  "llm": {
+    "primary": {
+      "provider": "ollama",
+      "model": "vaelor-prime:latest",
+      "endpoint": "http://localhost:11434"
+    },
+
+    "coding": {
+      "provider": "ollama",
+      "model": "qwen2.5-coder:7b",
+      "endpoint": "http://localhost:11434"
+    },
+
+    "fast": {
+      "provider": "ollama",
+      "model": "qwen2.5:3b",
+      "endpoint": "http://localhost:11434"
+    }
+  },
+
+  "spells": {
+    "core_reasoning": "primary",
+    "code_forge": "coding",
+    "fast_thought": "fast",
+
+    "vision": null,
+    "image_generation": null,
+    "speech_to_text": null,
+    "text_to_speech": null
+  }
+}

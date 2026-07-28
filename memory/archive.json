@@ -1,0 +1,33 @@
+[
+    {
+        "timestamp": "2026-07-26T13:35:58.286855",
+        "category": "fact",
+        "content": "The Architect is building Vaelor inside Project Wyld."
+    },
+    {
+        "timestamp": "2026-07-26T13:43:06.619048",
+        "category": "fact",
+        "content": "The Architect prefers careful incremental development."
+    },
+    {
+        "id": "07081d54-4dfa-4429-9aea-0d4855328a9d",
+        "timestamp": "2026-07-27T18:35:53.822418",
+        "category": "fact",
+        "importance": 1,
+        "content": "I am currently building Vaelor with Claude's help"
+    },
+    {
+        "id": "8e9ecce1-454e-406b-b90f-32a62375b71d",
+        "timestamp": "2026-07-27T21:55:29.333427",
+        "category": "fact",
+        "importance": 1,
+        "content": "give me code snippets to copy and paste because I am not a good coder or indenter. if there is something I need to replace a snippet of, let's just replace the whole code block with the updated snippet so I don't mess anything up. I don't know how to do what you just asked me to do."
+    },
+    {
+        "id": "7406ee96-25aa-466e-bb6d-ded10d8c18db",
+        "timestamp": "2026-07-27T22:01:55.903572",
+        "category": "fact",
+        "importance": 1,
+        "content": "if you are missing information from me ask before asking me to do something without knowing."
+    }
+]

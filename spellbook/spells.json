@@ -1,0 +1,47 @@
+{
+  "spells": {
+    "DiagnosisSpell": {
+      "type": "system",
+      "description": "Checks Vaelor core systems and model availability",
+      "status": "active"
+    },
+    "ReasoningSpell": {
+      "type": "llm",
+      "model": "qwen2.5:14b",
+      "description": "Primary reasoning and analysis engine",
+      "status": "active"
+    },
+    "CodeForgeSpell": {
+      "type": "coding",
+      "model": "qwen2.5-coder:7b",
+      "description": "Software development and code generation",
+      "status": "active"
+    },
+    "FastThoughtSpell": {
+      "type": "llm",
+      "model": "qwen2.5:3b",
+      "description": "Fast lightweight responses",
+      "status": "active"
+    },
+    "VisionSpell": {
+      "type": "computer_vision",
+      "description": "Image understanding capability",
+      "status": "planned"
+    },
+    "ImageCreationSpell": {
+      "type": "image_generation",
+      "description": "Image generation capability",
+      "status": "planned"
+    },
+    "VoiceInputSpell": {
+      "type": "speech_to_text",
+      "description": "Voice command processing",
+      "status": "planned"
+    },
+    "VoiceOutputSpell": {
+      "type": "text_to_speech",
+      "description": "Vaelor voice synthesis",
+      "status": "planned"
+    }
+  }
+}

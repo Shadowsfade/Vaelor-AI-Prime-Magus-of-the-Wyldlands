@@ -1,0 +1,24 @@
+{
+    "current_version": "0.5.0",
+    "completed": [
+        "Ollama local inference connected",
+        "Spellbook routing (code_forge, core_reasoning, fast_thought)",
+        "Persistent memory system (remember/recall/build_context)",
+        "vaelor.py CLI wired to memory-aware brain",
+        "FastAPI backend serving /chat and /health",
+        "Web dashboard with parchment/arcane theme",
+        "Tailscale + SSH remote access from Legion Go"
+    ],
+    "in_progress": [
+        "fast_thought (3B model) not yet wired through brain.think() - currently all reasoning routes through the 14B model"
+    ],
+    "next_goals": [
+        "Tool calling architecture - lets Vaelor take real actions, not just generate text",
+        "Vision spell - image understanding",
+        "Image generation spell",
+        "Voice input/output spells",
+        "Guild architecture - Forge, Artisan, Builder, Engine, Archivist, Oracle, Seer, Wayfinder as external tool integrations",
+        "Public web access with authentication (currently Tailscale-only, private)"
+    ],
+    "hardware_constraints": "RTX 2060 6GB VRAM - only one VRAM-heavy model/tool should run at a time; concurrent image gen + voice + LLM will cause contention"
+}

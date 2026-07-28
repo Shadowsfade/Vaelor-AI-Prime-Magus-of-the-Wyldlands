@@ -1,0 +1,29 @@
+{
+  "name": "Vaelor",
+
+  "version": "0.4.0",
+
+  "ollama": {
+    "endpoint": "http://localhost:11434"
+  },
+
+  "models": {
+    "primary": "vaelor-prime:latest",
+    "coding": "qwen2.5-coder:7b",
+    "fast": "qwen2.5:3b"
+  },
+
+  "workspace": {
+    "path": "S:\\VeilorServer\\Workspace"
+  },
+
+  "aider": {
+    "enabled": true,
+    "auto_commits": true
+  },
+
+  "identity": {
+    "title": "The Arcane Archivist of the Wyldlands",
+    "world": "Project Wyld"
+  }
+}

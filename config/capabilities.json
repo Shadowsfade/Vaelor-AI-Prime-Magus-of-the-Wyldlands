@@ -1,0 +1,19 @@
+{
+    "tools": [
+        {
+            "name": "AiderSpell",
+            "type": "code_generation",
+            "description": "A coding assistant capable of creating, modifying, and organizing project files.",
+            "trigger": [
+                "create files",
+                "modify code",
+                "implement features"
+            ]
+        },
+        {
+            "name": "CoreReasoning",
+            "type": "conversation",
+            "description": "Vaelor's primary reasoning and knowledge engine."
+        }
+    ]
+}

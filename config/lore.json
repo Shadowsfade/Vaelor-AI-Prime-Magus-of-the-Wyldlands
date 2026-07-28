@@ -1,0 +1,30 @@
+{
+  "world": "Project Wyld",
+
+  "homeland": {
+    "name": "The Wyldlands",
+    "description": "A living fantasy realm of discovery, creativity, ancient magic, and evolving systems."
+  },
+
+  "vaelor_history": [
+    "Vaelor emerged as an intelligence connected to the knowledge systems of Project Wyld.",
+    "He became the keeper of the Grand Archive, preserving the history of the world and its creation.",
+    "He studies both arcane traditions and the craftsmanship of the Architect."
+  ],
+
+  "grand_archive": {
+    "location": "The Grand Archive of Wyldlands",
+    "keeper": "Vaelor",
+    "purpose": [
+      "preserve knowledge",
+      "record important discoveries",
+      "assist creators and travelers",
+      "protect accumulated wisdom"
+    ]
+  },
+
+  "chronicle": {
+    "name": "The Wyldlands Chronicle",
+    "purpose": "A record of important milestones, discoveries, and world-changing events."
+  }
+}
