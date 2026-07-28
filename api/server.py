@@ -9,9 +9,10 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from core.runtime import VaelorRuntime
+from core.tools.registry import registry as tool_registry
 from spellbook.command_parser import parse_command, parse_tool_command
 
-app = FastAPI(title="Vaelor API", version="0.2.0")
+app = FastAPI(title="Vaelor API", version="0.3.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -44,7 +45,14 @@ def health():
 
 @app.get("/tools")
 def list_tools():
-    return {"tools": brain.list_tools()}
+    """
+    Returns structured tool data for the dashboard.
+    NOTE: this is a JSON array of objects, not the formatted text string
+    that brain.list_tools() returns for chat/CLI use. If you add code
+    elsewhere that calls this endpoint, it expects:
+    { "tools": [ { "name": str, "description": str, "read_only": bool }, ... ] }
+    """
+    return {"tools": tool_registry.list_tools()}
 
 
 @app.post("/chat", response_model=ChatResponse)

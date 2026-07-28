@@ -59,6 +59,11 @@
         animation: breathe 1.4s ease-in-out infinite;
     }
 
+    #orb.offline {
+        background: radial-gradient(circle at 35% 35%, #e88a7f, #5c1e1e);
+        box-shadow: 0 0 8px 2px rgba(220,60,60,0.5);
+    }
+
     @keyframes breathe {
         0%, 100% {
             transform: scale(0.85);
@@ -86,6 +91,116 @@
         font-style: italic;
     }
 
+    #layout {
+        flex: 1;
+        display: flex;
+        min-height: 0;
+        z-index: 1;
+    }
+
+    #sidebar {
+        width: 280px;
+        flex-shrink: 0;
+        background: linear-gradient(180deg, #dccb9c, #cbb47f);
+        border-right: 3px double #7a5a2e;
+        padding: 20px 16px;
+        overflow-y: auto;
+    }
+
+    #sidebar h2 {
+        font-family: 'Cinzel Decorative', serif;
+        font-size: 0.85rem;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        color: #4a2f10;
+        margin: 0 0 10px;
+        padding-bottom: 6px;
+        border-bottom: 1px solid #7a5a2e;
+    }
+
+    .sidebar-section {
+        margin-bottom: 24px;
+    }
+
+    .status-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.85rem;
+        margin-bottom: 6px;
+        color: #3b2a18;
+    }
+
+    .status-row span:last-child {
+        font-weight: 600;
+    }
+
+    .status-online { color: #1e5c33; }
+    .status-offline { color: #7a1f1f; }
+
+    .tool-card {
+        background: rgba(244,232,207,0.6);
+        border: 1px solid #a9895a;
+        border-radius: 4px;
+        padding: 8px 10px;
+        margin-bottom: 8px;
+        font-size: 0.82rem;
+    }
+
+    .tool-card .tool-name {
+        font-weight: 700;
+        color: #3b2a18;
+    }
+
+    .tool-card .tool-badge {
+        display: inline-block;
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 1px 6px;
+        border-radius: 3px;
+        margin-left: 6px;
+    }
+
+    .badge-readonly {
+        background: #d3e8d5;
+        color: #1e5c33;
+    }
+
+    .badge-approval {
+        background: #f0d5b0;
+        color: #8a5a1a;
+    }
+
+    .tool-card .tool-desc {
+        margin-top: 4px;
+        color: #5a4526;
+        line-height: 1.4;
+    }
+
+    #refreshBtn {
+        width: 100%;
+        padding: 8px;
+        border-radius: 4px;
+        border: 1px solid #4a2f10;
+        background: linear-gradient(180deg, #5c3d1a, #3b2a18);
+        color: #e9d9b3;
+        font-family: 'EB Garamond', serif;
+        font-size: 0.85rem;
+        cursor: pointer;
+        margin-top: 8px;
+    }
+
+    #refreshBtn:hover {
+        background: linear-gradient(180deg, #6e4a20, #4a3520);
+    }
+
+    #mainColumn {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+
     #chat {
         flex: 1;
         overflow-y: auto;
@@ -93,7 +208,6 @@
         display: flex;
         flex-direction: column;
         gap: 18px;
-        z-index: 1;
     }
 
     .msg {
@@ -136,7 +250,6 @@
         border-top: 3px double #7a5a2e;
         background: linear-gradient(180deg, #c9ad74, #d9c294);
         gap: 12px;
-        z-index: 1;
     }
 
     #inputBox {
@@ -199,11 +312,41 @@
     </div>
 </header>
 
-<div id="chat"></div>
+<div id="layout">
+    <aside id="sidebar">
+        <div class="sidebar-section">
+            <h2>Archive Status</h2>
+            <div class="status-row">
+                <span>Connection</span>
+                <span id="statusConnection" class="status-offline">Checking...</span>
+            </div>
+            <div class="status-row">
+                <span>Name</span>
+                <span id="statusName">—</span>
+            </div>
+            <div class="status-row">
+                <span>Title</span>
+                <span id="statusTitle">—</span>
+            </div>
+        </div>
 
-<div id="inputBar">
-    <input id="inputBox" type="text" placeholder="Speak your query into the tome... (code:, remember:, or simply ask)" autofocus />
-    <button id="sendBtn">Cast</button>
+        <div class="sidebar-section">
+            <h2>Available Tools</h2>
+            <div id="toolList">
+                <p style="font-size:0.82rem; color:#5a4526;">Loading tools...</p>
+            </div>
+            <button id="refreshBtn">Refresh</button>
+        </div>
+    </aside>
+
+    <div id="mainColumn">
+        <div id="chat"></div>
+
+        <div id="inputBar">
+            <input id="inputBox" type="text" placeholder="Speak your query into the tome... (code:, remember:, tool:, or simply ask)" autofocus />
+            <button id="sendBtn">Cast</button>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -212,6 +355,11 @@ const inputBox = document.getElementById('inputBox');
 const sendBtn = document.getElementById('sendBtn');
 const orb = document.getElementById('orb');
 const errorBanner = document.getElementById('errorBanner');
+const statusConnection = document.getElementById('statusConnection');
+const statusName = document.getElementById('statusName');
+const statusTitle = document.getElementById('statusTitle');
+const toolList = document.getElementById('toolList');
+const refreshBtn = document.getElementById('refreshBtn');
 
 function showError(text) {
     errorBanner.textContent = text;
@@ -237,6 +385,61 @@ function addMessage(text, sender, tag) {
     chat.appendChild(div);
     chat.scrollTop = chat.scrollHeight;
     return div;
+}
+
+async function loadStatus() {
+    try {
+        const res = await fetch('/health');
+        if (!res.ok) throw new Error('status ' + res.status);
+        const data = await res.json();
+
+        statusConnection.textContent = 'Online';
+        statusConnection.className = 'status-online';
+        statusName.textContent = data.name || '—';
+        statusTitle.textContent = data.title || '—';
+        orb.classList.remove('offline');
+
+    } catch (err) {
+        statusConnection.textContent = 'Offline';
+        statusConnection.className = 'status-offline';
+        orb.classList.add('offline');
+    }
+}
+
+async function loadTools() {
+    toolList.innerHTML = '<p style="font-size:0.82rem; color:#5a4526;">Loading tools...</p>';
+
+    try {
+        const res = await fetch('/tools');
+        if (!res.ok) throw new Error('status ' + res.status);
+        const data = await res.json();
+        const tools = data.tools || [];
+
+        if (tools.length === 0) {
+            toolList.innerHTML = '<p style="font-size:0.82rem; color:#5a4526;">No tools registered.</p>';
+            return;
+        }
+
+        toolList.innerHTML = '';
+
+        tools.forEach(function(tool) {
+            const card = document.createElement('div');
+            card.className = 'tool-card';
+
+            const badgeClass = tool.read_only ? 'badge-readonly' : 'badge-approval';
+            const badgeText = tool.read_only ? 'read-only' : 'needs approval';
+
+            card.innerHTML =
+                '<span class="tool-name">' + tool.name + '</span>' +
+                '<span class="tool-badge ' + badgeClass + '">' + badgeText + '</span>' +
+                '<div class="tool-desc">' + tool.description + '</div>';
+
+            toolList.appendChild(card);
+        });
+
+    } catch (err) {
+        toolList.innerHTML = '<p style="font-size:0.82rem; color:#7a1f1f;">Could not load tools.</p>';
+    }
 }
 
 async function sendMessage() {
@@ -287,6 +490,15 @@ inputBox.addEventListener('keydown', function(e) {
         sendMessage();
     }
 });
+
+refreshBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    loadStatus();
+    loadTools();
+});
+
+loadStatus();
+loadTools();
 
 console.log('[Vaelor UI] Script loaded, listeners attached.');
 </script>
