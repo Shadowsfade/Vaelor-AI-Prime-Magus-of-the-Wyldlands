@@ -1,42 +1,12 @@
 {
   "spells": [
-    {
-      "name": "core_reasoning",
-      "type": "llm",
-      "model": "qwen2.5:14b",
-      "status": "active"
-    },
-    {
-      "name": "code_forge",
-      "type": "coding",
-      "model": "qwen2.5-coder:7b",
-      "status": "active"
-    },
-    {
-      "name": "fast_thought",
-      "type": "llm",
-      "model": "qwen2.5:3b",
-      "status": "active"
-    },
-    {
-      "name": "vision",
-      "type": "computer_vision",
-      "status": "planned"
-    },
-    {
-      "name": "image_creation",
-      "type": "image_generation",
-      "status": "planned"
-    },
-    {
-      "name": "voice_input",
-      "type": "speech_to_text",
-      "status": "planned"
-    },
-    {
-      "name": "voice_output",
-      "type": "text_to_speech",
-      "status": "planned"
-    }
+    { "name": "core_reasoning", "type": "llm", "model": "vaelor-prime:latest", "status": "active" },
+    { "name": "code_forge", "type": "coding", "model": "vaelor-prime:latest", "status": "active" },
+    { "name": "fast_thought", "type": "llm", "model": "vaelor-prime:latest", "status": "active" },
+    { "name": "vision", "type": "computer_vision", "status": "planned" },
+    { "name": "image_creation", "type": "image_generation", "status": "planned" },
+    { "name": "voice_input", "type": "speech_to_text", "status": "active" },
+    { "name": "voice_output", "type": "text_to_speech", "status": "active" },
+    { "name": "voice_call", "type": "realtime_call", "status": "active" }
   ]
 }

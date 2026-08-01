@@ -7,19 +7,19 @@
     },
     "ReasoningSpell": {
       "type": "llm",
-      "model": "qwen2.5:14b",
+      "model": "vaelor-prime:latest",
       "description": "Primary reasoning and analysis engine",
       "status": "active"
     },
     "CodeForgeSpell": {
       "type": "coding",
-      "model": "qwen2.5-coder:7b",
+      "model": "vaelor-prime:latest",
       "description": "Software development and code generation",
       "status": "active"
     },
     "FastThoughtSpell": {
       "type": "llm",
-      "model": "qwen2.5:3b",
+      "model": "vaelor-prime:latest",
       "description": "Fast lightweight responses",
       "status": "active"
     },
@@ -35,13 +35,18 @@
     },
     "VoiceInputSpell": {
       "type": "speech_to_text",
-      "description": "Voice command processing",
-      "status": "planned"
+      "description": "Browser Web Speech API voice input and live call listening",
+      "status": "active"
     },
     "VoiceOutputSpell": {
       "type": "text_to_speech",
-      "description": "Vaelor voice synthesis",
-      "status": "planned"
+      "description": "Wizard voice via free edge-tts (en-GB-RyanNeural)",
+      "status": "active"
+    },
+    "VoiceCallSpell": {
+      "type": "realtime_call",
+      "description": "Continuous voice call loop like ChatGPT/Claude/Gemini",
+      "status": "active"
     }
   }
 }

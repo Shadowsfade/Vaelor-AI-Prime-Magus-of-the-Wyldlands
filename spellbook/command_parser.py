@@ -11,7 +11,7 @@ def parse_command(command):
     """
     Parses raw input into (mode, prompt).
     mode is one of: "code", "remember", "fast", "think", "roadmap",
-    "tool", "tools", "stage", "propose", "approve", "reject", "diffs"
+    "tool", "tools", "stage", "propose", "approve", "reject", "diffs", "cleanup"
     Shared by both the CLI and the API so behavior never drifts apart.
     """
     command = clean_input(command)
@@ -31,6 +31,14 @@ def parse_command(command):
 
     elif command_lower.startswith("analyze:"):
         return "think", command[8:].strip()
+
+    elif command_lower.startswith("search:") or command_lower.startswith("web:"):
+        # web research shortcut
+        raw = command.split(":", 1)[1].strip() if ":" in command else ""
+        return "search", raw
+
+    elif command_lower.startswith("cleanup"):
+        return "cleanup", command[7:].strip()
 
     elif command_lower.startswith("tools"):
         return "tools", ""
@@ -72,3 +80,4 @@ def parse_tool_command(prompt):
             kwargs[key] = value
 
     return tool_name, kwargs
+

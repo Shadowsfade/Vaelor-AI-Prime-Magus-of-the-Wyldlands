@@ -29,5 +29,152 @@
         "category": "fact",
         "importance": 1,
         "content": "if you are missing information from me ask before asking me to do something without knowing."
+    },
+    {
+        "id": "f4311f8f-5719-488b-a2d7-e038d21e37fc",
+        "timestamp": "2026-07-29T08:55:10.714994",
+        "category": "fact",
+        "importance": 1,
+        "content": "LEGO1 SSH connection verified"
+    },
+    {
+        "id": "1bc3064b-a2ec-4705-b85f-727a8f0fe343",
+        "timestamp": "2026-07-29T09:46:14.450322",
+        "category": "fact",
+        "importance": 1,
+        "content": "Vaelor is running remotely through LEGO1 SSH from school"
+    },
+    {
+        "id": "3309ea3b-39f0-4105-a691-c42cd74e663e",
+        "timestamp": "2026-07-29T10:47:29.284133",
+        "category": "fact",
+        "importance": 1,
+        "content": "LEGO1 recovery test"
+    },
+    {
+        "id": "361d653b-b723-444c-a8c3-73395296b903",
+        "timestamp": "2026-07-29T11:28:18.697679",
+        "category": "fact",
+        "importance": 1,
+        "content": "The inventory system uses Unreal Data Assets"
+    },
+    {
+        "id": "1e4a23d5-df87-4839-bd1b-5f30cb8b9129",
+        "timestamp": "2026-07-29T11:34:19.207131",
+        "category": "rule",
+        "importance": 1,
+        "content": "Vaelor's internal Spellbook uses mana crystal terminology as a metaphor for tools and capabilities. The actual Wyldlands gameplay magic system should not be assumed to rely solely on mana crystals."
+    },
+    {
+        "id": "8abf66f2-3dd9-4aa3-a604-38d7cf3ce3a8",
+        "timestamp": "2026-07-29T13:46:30.350993",
+        "category": "rule",
+        "importance": 1,
+        "content": "Vaelor's internal Spellbook uses mana crystal terminology as a metaphor for tools and capabilities. The actual Wyldlands gameplay magic system should not be assumed to rely solely on mana crystals."
+    },
+    {
+        "id": "9ab7ce97-9214-41f2-83fd-ba3f90186929",
+        "timestamp": "2026-07-29T13:46:45.415959",
+        "category": "technical",
+        "importance": 1,
+        "content": "The inventory system uses Unreal Data Assets"
+    },
+    {
+        "id": "9c85c0d4-5352-4dcd-a7fb-263444190e18",
+        "timestamp": "2026-07-29T13:46:52.137654",
+        "category": "project",
+        "importance": 1,
+        "content": "The Architect is building Project Wyld"
+    },
+    {
+        "id": "3ded487f-87dd-4c6d-aaf1-411648d6e099",
+        "timestamp": "2026-07-29T14:02:58.684364",
+        "category": "project",
+        "importance": 1,
+        "content": "Project Wyld will use Unreal Data Assets for inventory design decisions."
+    },
+    {
+        "id": "d03e17bd-05d8-4ffa-b1ba-8220449b36a5",
+        "timestamp": "2026-07-29T14:03:05.379162",
+        "category": "technical",
+        "importance": 1,
+        "content": "The Wyldlands contains ancient creatures and magic systems that require careful lore design."
+    },
+    {
+        "id": "568d3e7a-a8c7-41cd-a835-fbc06aad2a50",
+        "timestamp": "2026-08-01T11:45:40.551928",
+        "category": "rule",
+        "importance": 1,
+        "content": "Never call the Architect Master; address them as Apprentice."
+    },
+    {
+        "id": "3198f19c-0e76-4ea6-9ea8-8383ee455f6a",
+        "timestamp": "2026-08-01T11:45:40.561444",
+        "category": "rule",
+        "importance": 1,
+        "content": "Prefer free local tools only (Ollama/LM Studio, edge-tts, DuckDuckGo). No paid APIs required."
+    },
+    {
+        "id": "22f8dd8d-23a4-499d-abe0-5841dbac8821",
+        "timestamp": "2026-08-01T11:45:40.568699",
+        "category": "project",
+        "importance": 1,
+        "content": "Vaelor lives at S:\\VeilorServer\\Workspace\\Core and serves WebUI on port 8000."
+    },
+    {
+        "id": "4b176190-8e70-4a99-985a-e341319924e9",
+        "timestamp": "2026-08-01T11:45:40.641830",
+        "category": "technical",
+        "importance": 1,
+        "content": "Voice call uses browser Web Speech STT + edge-tts wizard voice en-GB-RyanNeural via /call."
+    },
+    {
+        "id": "1ebca9e8-821f-472c-ba61-9eeec1188afa",
+        "timestamp": "2026-08-01T11:45:40.648831",
+        "category": "technical",
+        "importance": 1,
+        "content": "Web research tools: web_search and fetch_url; chat shortcut search: <query>."
+    },
+    {
+        "id": "c74deb87-53ce-4ad5-a9ab-047fc197c67c",
+        "timestamp": "2026-08-01T11:46:48.225843",
+        "category": "rule",
+        "importance": 1,
+        "content": "Prefer free local tools only (Ollama/LM Studio, edge-tts, DuckDuckGo)."
+    },
+    {
+        "id": "85d3c12e-19fa-41f3-8f1c-fd7e4bd16e25",
+        "timestamp": "2026-08-01T11:46:48.236866",
+        "category": "project",
+        "importance": 1,
+        "content": "Vaelor core path S:\\VeilorServer\\Workspace\\Core WebUI port 8000."
+    },
+    {
+        "id": "c0469f6c-ca8d-4b7c-823c-b6992d9f902b",
+        "timestamp": "2026-08-01T11:46:48.247864",
+        "category": "technical",
+        "importance": 1,
+        "content": "Voice call: browser Web Speech STT + edge-tts en-GB-RyanNeural /call."
+    },
+    {
+        "id": "30d25233-a549-4357-a616-19e471d140ab",
+        "timestamp": "2026-08-01T11:46:48.258866",
+        "category": "technical",
+        "importance": 1,
+        "content": "Web research via web_search/fetch_url and search: query shortcut."
+    },
+    {
+        "id": "22ddb288-3634-48b0-ba18-cb49628f8a34",
+        "timestamp": "2026-08-01T11:52:12.763566",
+        "category": "rule",
+        "importance": 1,
+        "content": "Prefer free local tools only (Ollama/LM Studio, edge-tts, Wikipedia/DDG). No paid APIs required."
+    },
+    {
+        "id": "941ce594-cd83-4285-b3b1-af6f36dd55ae",
+        "timestamp": "2026-08-01T11:52:12.774080",
+        "category": "project",
+        "importance": 1,
+        "content": "Vaelor core lives at S:\\VeilorServer\\Workspace\\Core and serves WebUI on port 8000."
     }
 ]

@@ -2,7 +2,7 @@ from core.runtime import VaelorRuntime
 from spellbook.command_parser import parse_command, parse_tool_command
 
 
-VAELOR_VERSION = "0.8.1"
+VAELOR_VERSION = "0.9.0"
 
 runtime = VaelorRuntime()
 brain = runtime.brain

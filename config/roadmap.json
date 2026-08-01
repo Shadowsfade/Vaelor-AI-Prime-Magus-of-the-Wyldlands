@@ -1,5 +1,5 @@
 {
-    "current_version": "0.5.0",
+    "current_version": "0.9.0",
     "completed": [
         "Ollama local inference connected",
         "Spellbook routing (code_forge, core_reasoning, fast_thought)",
@@ -7,18 +7,21 @@
         "vaelor.py CLI wired to memory-aware brain",
         "FastAPI backend serving /chat and /health",
         "Web dashboard with parchment/arcane theme",
-        "Tailscale + SSH remote access from Legion Go"
+        "Tailscale + SSH remote access from Legion Go",
+        "Tool calling architecture with approval workflow",
+        "Brain methods for tools/stage/propose/approve/reject",
+        "Voice output via free edge-tts wizard voice",
+        "Voice call mode (browser STT + edge-tts) like ChatGPT/Claude/Gemini",
+        "Arcane tome WebUI with opening book animation"
     ],
     "in_progress": [
-        "fast_thought (3B model) not yet wired through brain.think() - currently all reasoning routes through the 14B model"
+        "Optional local Whisper STT if browser speech unavailable"
     ],
     "next_goals": [
-        "Tool calling architecture - lets Vaelor take real actions, not just generate text",
-        "Vision spell - image understanding",
-        "Image generation spell",
-        "Voice input/output spells",
-        "Guild architecture - Forge, Artisan, Builder, Engine, Archivist, Oracle, Seer, Wayfinder as external tool integrations",
+        "Vision spell - image understanding via vaelor-prime vision",
+        "Image generation spell (free local when VRAM allows)",
+        "Guild architecture - Forge, Artisan, Builder, Engine, Archivist, Oracle, Seer, Wayfinder",
         "Public web access with authentication (currently Tailscale-only, private)"
     ],
-    "hardware_constraints": "RTX 2060 6GB VRAM - only one VRAM-heavy model/tool should run at a time; concurrent image gen + voice + LLM will cause contention"
+    "hardware_constraints": "RTX 2060 6GB VRAM - only one VRAM-heavy model/tool should run at a time; concurrent image gen + voice + LLM will cause contention. Voice TTS uses free cloud edge-tts (no VRAM). STT uses browser Web Speech API (no VRAM)."
 }

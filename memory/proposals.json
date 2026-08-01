@@ -6,7 +6,7 @@
         "old_content": "{\n    \"debug_mode\": false,\n    \"show_archive_notes\": true,\n    \"show_thinking\": false\n}",
         "new_content": "{    \"debug_mode\": true,    \"show_archive_notes\": true,    \"show_thinking\": false}\ndiffs\napprove: a1b2c3d4\nendcontent",
         "diff": "--- config/settings.json (current)\n+++ config/settings.json (proposed)\n@@ -1,5 +1,4 @@\n-{\n-    \"debug_mode\": false,\n-    \"show_archive_notes\": true,\n-    \"show_thinking\": false\n-}+{    \"debug_mode\": true,    \"show_archive_notes\": true,    \"show_thinking\": false}\n+diffs\n+approve: a1b2c3d4\n+endcontent",
-        "status": "pending"
+        "status": "rejected"
     },
     {
         "id": "a1530808",
@@ -15,6 +15,285 @@
         "old_content": "{\n    \"debug_mode\": false,\n    \"show_archive_notes\": true,\n    \"show_thinking\": false\n}",
         "new_content": "{    \"debug_mode\": true,    \"show_archive_notes\": true,    \"show_thinking\": false}",
         "diff": "--- config/settings.json (current)\n+++ config/settings.json (proposed)\n@@ -1,5 +1 @@\n-{\n-    \"debug_mode\": false,\n-    \"show_archive_notes\": true,\n-    \"show_thinking\": false\n-}+{    \"debug_mode\": true,    \"show_archive_notes\": true,    \"show_thinking\": false}",
-        "status": "pending"
+        "status": "rejected"
+    },
+    {
+        "id": "7ad8d169",
+        "timestamp": "2026-07-28T17:59:09.740002",
+        "path": "diagnostics.py",
+        "old_content": "[FILE MARKED FOR DELETION]",
+        "new_content": "",
+        "diff": "--- diagnostics.py (current)\n+++ diagnostics.py (proposed)\n@@ -1 +0,0 @@\n-[FILE MARKED FOR DELETION]",
+        "status": "rejected"
+    },
+    {
+        "id": "054ae34c",
+        "timestamp": "2026-07-28T17:59:09.748520",
+        "path": "test_brain.py",
+        "old_content": "[FILE MARKED FOR DELETION]",
+        "new_content": "",
+        "diff": "--- test_brain.py (current)\n+++ test_brain.py (proposed)\n@@ -1 +0,0 @@\n-[FILE MARKED FOR DELETION]",
+        "status": "rejected"
+    },
+    {
+        "id": "17c7fafd",
+        "timestamp": "2026-07-28T17:59:09.757061",
+        "path": "test_brain_memory.py",
+        "old_content": "[FILE MARKED FOR DELETION]",
+        "new_content": "",
+        "diff": "--- test_brain_memory.py (current)\n+++ test_brain_memory.py (proposed)\n@@ -1 +0,0 @@\n-[FILE MARKED FOR DELETION]",
+        "status": "rejected"
+    },
+    {
+        "id": "1961de7c",
+        "timestamp": "2026-07-28T17:59:09.765577",
+        "path": "test_config.py",
+        "old_content": "[FILE MARKED FOR DELETION]",
+        "new_content": "",
+        "diff": "--- test_config.py (current)\n+++ test_config.py (proposed)\n@@ -1 +0,0 @@\n-[FILE MARKED FOR DELETION]",
+        "status": "rejected"
+    },
+    {
+        "id": "e935ce75",
+        "timestamp": "2026-07-28T17:59:09.773612",
+        "path": "test_memory.py",
+        "old_content": "[FILE MARKED FOR DELETION]",
+        "new_content": "",
+        "diff": "--- test_memory.py (current)\n+++ test_memory.py (proposed)\n@@ -1 +0,0 @@\n-[FILE MARKED FOR DELETION]",
+        "status": "rejected"
+    },
+    {
+        "id": "475b29ea",
+        "timestamp": "2026-07-28T17:59:09.782818",
+        "path": "test_memory_manager.py",
+        "old_content": "[FILE MARKED FOR DELETION]",
+        "new_content": "",
+        "diff": "--- test_memory_manager.py (current)\n+++ test_memory_manager.py (proposed)\n@@ -1 +0,0 @@\n-[FILE MARKED FOR DELETION]",
+        "status": "rejected"
+    },
+    {
+        "id": "6279e939",
+        "timestamp": "2026-07-28T17:59:09.791923",
+        "path": "test_runtime.py",
+        "old_content": "[FILE MARKED FOR DELETION]",
+        "new_content": "",
+        "diff": "--- test_runtime.py (current)\n+++ test_runtime.py (proposed)\n@@ -1 +0,0 @@\n-[FILE MARKED FOR DELETION]",
+        "status": "rejected"
+    },
+    {
+        "id": "3ea87d4f",
+        "timestamp": "2026-07-28T17:59:09.800151",
+        "path": "api/__init__.py",
+        "old_content": "[FILE MARKED FOR DELETION]",
+        "new_content": "",
+        "diff": "--- api/__init__.py (current)\n+++ api/__init__.py (proposed)\n@@ -1 +0,0 @@\n-[FILE MARKED FOR DELETION]",
+        "status": "rejected"
+    },
+    {
+        "id": "1c914105",
+        "timestamp": "2026-07-28T17:59:09.808701",
+        "path": "core/session.py",
+        "old_content": "[FILE MARKED FOR DELETION]",
+        "new_content": "",
+        "diff": "--- core/session.py (current)\n+++ core/session.py (proposed)\n@@ -1 +0,0 @@\n-[FILE MARKED FOR DELETION]",
+        "status": "rejected"
+    },
+    {
+        "id": "e3b1ee73",
+        "timestamp": "2026-07-28T17:59:09.817207",
+        "path": "core/tools/approval.py",
+        "old_content": "[FILE MARKED FOR DELETION]",
+        "new_content": "",
+        "diff": "--- core/tools/approval.py (current)\n+++ core/tools/approval.py (proposed)\n@@ -1 +0,0 @@\n-[FILE MARKED FOR DELETION]",
+        "status": "rejected"
+    },
+    {
+        "id": "e0823c79",
+        "timestamp": "2026-07-28T17:59:09.826220",
+        "path": "core/tools/cleaner.py",
+        "old_content": "[FILE MARKED FOR DELETION]",
+        "new_content": "",
+        "diff": "--- core/tools/cleaner.py (current)\n+++ core/tools/cleaner.py (proposed)\n@@ -1 +0,0 @@\n-[FILE MARKED FOR DELETION]",
+        "status": "rejected"
+    },
+    {
+        "id": "eea25a4e",
+        "timestamp": "2026-07-28T17:59:09.835741",
+        "path": "core/tools/file_editor.py",
+        "old_content": "[FILE MARKED FOR DELETION]",
+        "new_content": "",
+        "diff": "--- core/tools/file_editor.py (current)\n+++ core/tools/file_editor.py (proposed)\n@@ -1 +0,0 @@\n-[FILE MARKED FOR DELETION]",
+        "status": "rejected"
+    },
+    {
+        "id": "37ee4188",
+        "timestamp": "2026-07-28T17:59:09.844255",
+        "path": "core/tools/file_reader.py",
+        "old_content": "[FILE MARKED FOR DELETION]",
+        "new_content": "",
+        "diff": "--- core/tools/file_reader.py (current)\n+++ core/tools/file_reader.py (proposed)\n@@ -1 +0,0 @@\n-[FILE MARKED FOR DELETION]",
+        "status": "rejected"
+    },
+    {
+        "id": "4095ec9d",
+        "timestamp": "2026-07-28T17:59:09.854783",
+        "path": "core/tools/project_scanner.py",
+        "old_content": "[FILE MARKED FOR DELETION]",
+        "new_content": "",
+        "diff": "--- core/tools/project_scanner.py (current)\n+++ core/tools/project_scanner.py (proposed)\n@@ -1 +0,0 @@\n-[FILE MARKED FOR DELETION]",
+        "status": "rejected"
+    },
+    {
+        "id": "10dd6a32",
+        "timestamp": "2026-07-28T17:59:09.862797",
+        "path": "core/tools/proposals.py",
+        "old_content": "[FILE MARKED FOR DELETION]",
+        "new_content": "",
+        "diff": "--- core/tools/proposals.py (current)\n+++ core/tools/proposals.py (proposed)\n@@ -1 +0,0 @@\n-[FILE MARKED FOR DELETION]",
+        "status": "rejected"
+    },
+    {
+        "id": "b3dc0e21",
+        "timestamp": "2026-07-28T17:59:09.873676",
+        "path": "core/tools/__init__.py",
+        "old_content": "[FILE MARKED FOR DELETION]",
+        "new_content": "",
+        "diff": "--- core/tools/__init__.py (current)\n+++ core/tools/__init__.py (proposed)\n@@ -1 +0,0 @@\n-[FILE MARKED FOR DELETION]",
+        "status": "rejected"
+    },
+    {
+        "id": "696328c8",
+        "timestamp": "2026-07-28T17:59:09.882701",
+        "path": "spellbook/aider_spell.py",
+        "old_content": "[FILE MARKED FOR DELETION]",
+        "new_content": "",
+        "diff": "--- spellbook/aider_spell.py (current)\n+++ spellbook/aider_spell.py (proposed)\n@@ -1 +0,0 @@\n-[FILE MARKED FOR DELETION]",
+        "status": "rejected"
+    },
+    {
+        "id": "15b17571",
+        "timestamp": "2026-07-28T17:59:09.891748",
+        "path": "spellbook/ollama_client.py",
+        "old_content": "[FILE MARKED FOR DELETION]",
+        "new_content": "",
+        "diff": "--- spellbook/ollama_client.py (current)\n+++ spellbook/ollama_client.py (proposed)\n@@ -1 +0,0 @@\n-[FILE MARKED FOR DELETION]",
+        "status": "rejected"
+    },
+    {
+        "id": "dfb4f292",
+        "timestamp": "2026-07-28T17:59:09.900778",
+        "path": "spellbook/router.py",
+        "old_content": "[FILE MARKED FOR DELETION]",
+        "new_content": "",
+        "diff": "--- spellbook/router.py (current)\n+++ spellbook/router.py (proposed)\n@@ -1 +0,0 @@\n-[FILE MARKED FOR DELETION]",
+        "status": "rejected"
+    },
+    {
+        "id": "fc0e41dc",
+        "timestamp": "2026-07-28T17:59:09.910298",
+        "path": "spellbook/spell_check.py",
+        "old_content": "[FILE MARKED FOR DELETION]",
+        "new_content": "",
+        "diff": "--- spellbook/spell_check.py (current)\n+++ spellbook/spell_check.py (proposed)\n@@ -1 +0,0 @@\n-[FILE MARKED FOR DELETION]",
+        "status": "rejected"
+    },
+    {
+        "id": "42eefbf6",
+        "timestamp": "2026-07-28T17:59:09.919381",
+        "path": "spellbook/__init__.py",
+        "old_content": "[FILE MARKED FOR DELETION]",
+        "new_content": "",
+        "diff": "--- spellbook/__init__.py (current)\n+++ spellbook/__init__.py (proposed)\n@@ -1 +0,0 @@\n-[FILE MARKED FOR DELETION]",
+        "status": "rejected"
+    },
+    {
+        "id": "3b44a4ce",
+        "timestamp": "2026-07-28T18:00:29.127375",
+        "path": "diagnostics.py",
+        "old_content": "[FILE MARKED FOR DELETION]",
+        "new_content": "",
+        "diff": "--- diagnostics.py (current)\n+++ diagnostics.py (proposed)\n@@ -1 +0,0 @@\n-[FILE MARKED FOR DELETION]",
+        "status": "rejected"
+    },
+    {
+        "id": "844a8b74",
+        "timestamp": "2026-07-28T18:00:29.136449",
+        "path": "test_brain.py",
+        "old_content": "[FILE MARKED FOR DELETION]",
+        "new_content": "",
+        "diff": "--- test_brain.py (current)\n+++ test_brain.py (proposed)\n@@ -1 +0,0 @@\n-[FILE MARKED FOR DELETION]",
+        "status": "rejected"
+    },
+    {
+        "id": "561e8860",
+        "timestamp": "2026-07-28T18:00:29.146000",
+        "path": "test_brain_memory.py",
+        "old_content": "[FILE MARKED FOR DELETION]",
+        "new_content": "",
+        "diff": "--- test_brain_memory.py (current)\n+++ test_brain_memory.py (proposed)\n@@ -1 +0,0 @@\n-[FILE MARKED FOR DELETION]",
+        "status": "rejected"
+    },
+    {
+        "id": "2264e250",
+        "timestamp": "2026-07-28T18:00:29.154167",
+        "path": "test_config.py",
+        "old_content": "[FILE MARKED FOR DELETION]",
+        "new_content": "",
+        "diff": "--- test_config.py (current)\n+++ test_config.py (proposed)\n@@ -1 +0,0 @@\n-[FILE MARKED FOR DELETION]",
+        "status": "rejected"
+    },
+    {
+        "id": "e69cdf6a",
+        "timestamp": "2026-07-28T18:00:29.163240",
+        "path": "test_memory.py",
+        "old_content": "[FILE MARKED FOR DELETION]",
+        "new_content": "",
+        "diff": "--- test_memory.py (current)\n+++ test_memory.py (proposed)\n@@ -1 +0,0 @@\n-[FILE MARKED FOR DELETION]",
+        "status": "rejected"
+    },
+    {
+        "id": "510b0b5f",
+        "timestamp": "2026-07-28T18:00:29.171842",
+        "path": "test_memory_manager.py",
+        "old_content": "[FILE MARKED FOR DELETION]",
+        "new_content": "",
+        "diff": "--- test_memory_manager.py (current)\n+++ test_memory_manager.py (proposed)\n@@ -1 +0,0 @@\n-[FILE MARKED FOR DELETION]",
+        "status": "rejected"
+    },
+    {
+        "id": "7f4f5d25",
+        "timestamp": "2026-07-28T18:00:29.179880",
+        "path": "test_runtime.py",
+        "old_content": "[FILE MARKED FOR DELETION]",
+        "new_content": "",
+        "diff": "--- test_runtime.py (current)\n+++ test_runtime.py (proposed)\n@@ -1 +0,0 @@\n-[FILE MARKED FOR DELETION]",
+        "status": "rejected"
+    },
+    {
+        "id": "2b229b4e",
+        "timestamp": "2026-07-28T18:00:29.188979",
+        "path": "api/__init__.py",
+        "old_content": "[FILE MARKED FOR DELETION]",
+        "new_content": "",
+        "diff": "--- api/__init__.py (current)\n+++ api/__init__.py (proposed)\n@@ -1 +0,0 @@\n-[FILE MARKED FOR DELETION]",
+        "status": "rejected"
+    },
+    {
+        "id": "49834190",
+        "timestamp": "2026-07-28T18:00:29.197999",
+        "path": "core/tools/__init__.py",
+        "old_content": "[FILE MARKED FOR DELETION]",
+        "new_content": "",
+        "diff": "--- core/tools/__init__.py (current)\n+++ core/tools/__init__.py (proposed)\n@@ -1 +0,0 @@\n-[FILE MARKED FOR DELETION]",
+        "status": "rejected"
+    },
+    {
+        "id": "6ce5bdad",
+        "timestamp": "2026-07-28T18:00:29.206542",
+        "path": "spellbook/__init__.py",
+        "old_content": "[FILE MARKED FOR DELETION]",
+        "new_content": "",
+        "diff": "--- spellbook/__init__.py (current)\n+++ spellbook/__init__.py (proposed)\n@@ -1 +0,0 @@\n-[FILE MARKED FOR DELETION]",
+        "status": "rejected"
     }
 ]

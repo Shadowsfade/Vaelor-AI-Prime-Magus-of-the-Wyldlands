@@ -5,3 +5,7 @@ __pycache__/
 .aider.tags.cache.v4/
 *.aider*
 .staging/
+# local test artifacts
+web/_*.mp3
+config/overnight_build.json
+.pytest_cache/

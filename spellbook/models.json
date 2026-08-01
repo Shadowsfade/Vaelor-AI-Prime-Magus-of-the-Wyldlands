@@ -5,28 +5,32 @@
       "model": "vaelor-prime:latest",
       "endpoint": "http://localhost:11434"
     },
-
     "coding": {
       "provider": "ollama",
-      "model": "qwen2.5-coder:7b",
+      "model": "vaelor-prime:latest",
       "endpoint": "http://localhost:11434"
     },
-
     "fast": {
       "provider": "ollama",
-      "model": "qwen2.5:3b",
+      "model": "vaelor-prime:latest",
       "endpoint": "http://localhost:11434"
     }
   },
-
   "spells": {
     "core_reasoning": "primary",
     "code_forge": "coding",
     "fast_thought": "fast",
-
     "vision": null,
     "image_generation": null,
-    "speech_to_text": null,
-    "text_to_speech": null
+    "speech_to_text": "browser_web_speech",
+    "text_to_speech": "edge_tts"
+  },
+  "voice": {
+    "tts_provider": "edge-tts",
+    "wizard_voice": "en-GB-RyanNeural",
+    "wizard_voice_fallback": "en-GB-ThomasNeural",
+    "rate": "-8%",
+    "pitch": "-5Hz",
+    "stt_provider": "browser_web_speech"
   }
 }
