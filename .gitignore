@@ -1,11 +1,29 @@
-.venv/
+# Python
 __pycache__/
-*.pyc
-.aider.chat.history.md
-.aider.tags.cache.v4/
-*.aider*
-.staging/
-# local test artifacts
-web/_*.mp3
-config/overnight_build.json
+*.py[cod]
+.venv/
 .pytest_cache/
+
+# Local runtime / secrets
+config/setup_complete.json
+config/overnight_build.json
+.staging/
+
+# Test / generated audio assets (do not publish)
+web/_*.mp3
+*.mp3
+*.wav
+*.ogg
+
+# Large model weights / binaries (never publish)
+*.gguf
+*.bin
+*.pt
+*.onnx
+Models/
+OllamaModels/
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store

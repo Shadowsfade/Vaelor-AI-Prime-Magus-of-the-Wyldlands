@@ -927,10 +927,157 @@ endCallBtn.onclick = endCall;
 muteTtsBtn.onclick = stopAudio;
 const muteMicBtnEl = document.getElementById('muteMicBtn');
 if(muteMicBtnEl) muteMicBtnEl.onclick = toggleMicMute;
-$('setupBtn').onclick=()=>openWizard(true);$('newSessionBtn').onclick=newSession;
-speakToggle.classList.add('active');streamToggle.classList.add('active');
-console.log('[Vaelor UI] polished tome ready');
+async function openWizard(force=false){
+  try{
+    const res = await fetch('/setup');
+    if(!res.ok){
+      if(force) showError('Setup grimoire endpoint not yet bound on this server build.');
+      return;
+    }
+    const data = await res.json();
+    if(data.setup_complete && !force) return;
+    const hw = data.hardware || {};
+    const rec = data.recommendation || {};
+    const providers = data.providers || [];
+    const backends = data.backends || {};
+    let selected = (backends.active_provider) || 'ollama';
+    let model = (rec.suggested_ollama_pulls && rec.suggested_ollama_pulls[0]) || (backends.primary_model) || 'vaelor-prime:latest';
+    const render = ()=>{
+      wizardCard.innerHTML = `
+  <h1>First Opening of the Archive</h1>
+  <p class="muted">Choose a free local mind for Vaelor. No paid APIs required.</p>
+  <h3>Hardware Reading</h3>
+  <div class="spell-card">CPU: ${escapeHtml(hw.cpu||'unknown')}<br>RAM: ${hw.ram_gb??'—'} GB<br>GPU VRAM: ${hw.vram_gb??'—'} GB<br>
+  <strong>Tier:</strong> ${escapeHtml(rec.tier||'—')} — ${escapeHtml(rec.recommended_primary||'')}<br>
+  <span class="muted">${escapeHtml(rec.notes||'')}</span></div>
+  <h3>Ollama vs LM Studio</h3>
+  <div class="wizard-grid" id="provGrid"></div>
+  <h3>Model</h3>
+  <input id="wizModel" value="${escapeHtml(model)}" style="width:100%;padding:10px;border:1px solid #8a6a2e;border-radius:4px;background:#faf0d8;font-family:IM Fell English,serif;font-size:1.05rem"/>
+  <p class="muted">Ollama online: <strong>${backends.ollama&&backends.ollama.ok?'yes':'no'}</strong> · LM Studio online: <strong>${backends.lmstudio&&backends.lmstudio.ok?'yes':'no'}</strong></p>
+  <p class="muted">Suggested pulls: ${(rec.suggested_ollama_pulls||[]).map(escapeHtml).join(', ')||'—'}</p>
+  <div class="wizard-actions">
+    <button class="btn" id="wizSkip">Skip for now</button>
+    <button class="btn active" id="wizSave">Seal Configuration</button>
+  </div>`;
+      const grid = wizardCard.querySelector('#provGrid');
+      providers.forEach(p=>{
+        const card = document.createElement('div');
+        card.className = 'provider-card'+(p.id===selected?' selected':'');
+        card.innerHTML = `<strong>${escapeHtml(p.name)}</strong><div class="muted">${escapeHtml(p.best_for||'')}</div><div><em>Pros</em><ul>${(p.pros||[]).slice(0,3).map(x=>'<li>'+escapeHtml(x)+'</li>').join('')}</ul><em>Cons</em><ul>${(p.cons||[]).slice(0,2).map(x=>'<li>'+escapeHtml(x)+'</li>').join('')}</ul></div>`;
+        card.onclick = ()=>{ selected = p.id; render(); };
+        grid.appendChild(card);
+      });
+      wizardCard.querySelector('#wizModel').oninput = e=>{ model = e.target.value; };
+      wizardCard.querySelector('#wizSkip').onclick = ()=>{ wizard.classList.remove('active'); };
+      wizardCard.querySelector('#wizSave').onclick = async ()=>{
+        model = wizardCard.querySelector('#wizModel').value.trim() || model;
+        await fetch('/setup/complete', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ provider:selected, model }) });
+        wizard.classList.remove('active');
+        loadStatus();
+        addMessage('The archive seals thy chosen path: '+selected+' / '+model, 'vaelor', 'setup');
+      };
+    };
+    render();
+    wizard.classList.add('active');
+  }catch(e){
+    if(force) showError('Setup grimoire unavailable on this build.');
+    console.warn('wizard', e);
+  }
+}
+
+async function openTome(){
+  if(tomeOpened) return;
+  tomeOpened = true;
+  if(closedBook) closedBook.classList.add('open');
+  setTimeout(async ()=>{
+    if(cover) cover.classList.add('hidden');
+    if(app) app.classList.add('visible');
+    try{
+      await Promise.all([
+        loadStatus(),
+        loadVoices(),
+        loadTools(),
+        loadSpells(),
+        loadProposals(),
+        loadSessions()
+      ]);
+    }catch(e){ console.warn('load', e); }
+    try{ await ensureSession(); }catch(_){}
+    try{ await openWizard(false); }catch(_){}
+    try{
+      const res = await fetch('/greeting');
+      if(res.ok){
+        const data = await res.json();
+        if(data.text) addMessage(data.text, 'vaelor', 'greeting');
+        if(data.audio_base64 && speakReplies) await playBase64Audio(data.audio_base64, data.audio_mime);
+      } else {
+        addMessage('Greetings, Apprentice. The Vaelor Archive awakens. The fires of knowledge burn brightly.', 'vaelor', 'greeting');
+      }
+    }catch(_){
+      addMessage('Greetings, Apprentice. The Vaelor Archive awakens. The fires of knowledge burn brightly.', 'vaelor', 'greeting');
+    }
+    if(inputBox) inputBox.focus();
+  }, 900);
+}
+
+// Core bindings
+if(cover){
+  cover.addEventListener('click', function(e){
+    // only if still closed
+    if(!tomeOpened) openTome();
+  });
+}
+if(closedBook){
+  closedBook.addEventListener('click', function(e){ e.preventDefault(); openTome(); });
+  closedBook.addEventListener('keydown', function(e){ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); openTome(); } });
+  closedBook.tabIndex = 0;
+  closedBook.setAttribute('role','button');
+  closedBook.style.cursor = 'pointer';
+}
+if(sendBtn) sendBtn.onclick = function(e){ e.preventDefault(); sendMessage(); };
+if(inputBox){
+  inputBox.addEventListener('keydown', function(e){
+    if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendMessage(); }
+  });
+}
+if(micBtn) micBtn.onclick = function(e){ e.preventDefault(); pushToTalk(); };
+if(imgBtn) imgBtn.onclick = function(){ if(imageInput) imageInput.click(); };
+if(imageInput){
+  imageInput.onchange = async function(){
+    for(const f of imageInput.files || []){ pendingImages.push(await fileToDataUrl(f)); }
+    imageInput.value = '';
+    renderImagePreview();
+  };
+}
+const refreshBtn = $('refreshBtn');
+if(refreshBtn) refreshBtn.onclick = function(){ loadStatus(); loadTools(); loadSpells(); loadProposals(); loadSessions(); };
+if(voiceSelect) voiceSelect.onchange = function(){ selectedVoice = voiceSelect.value; if(statusVoice) statusVoice.textContent = selectedVoice; };
+if(speakToggle) speakToggle.onclick = function(){
+  speakReplies = !speakReplies;
+  speakToggle.textContent = speakReplies ? 'Voice: On' : 'Voice: Off';
+  speakToggle.classList.toggle('active', speakReplies);
+  if(!speakReplies) stopAudio();
+};
+if(streamToggle) streamToggle.onclick = function(){
+  useStream = !useStream;
+  streamToggle.textContent = useStream ? 'Stream: On' : 'Stream: Off';
+  streamToggle.classList.toggle('active', useStream);
+};
+const setupBtn = $('setupBtn');
+if(setupBtn) setupBtn.onclick = function(){ openWizard(true); };
+const newSessionBtn = $('newSessionBtn');
+if(newSessionBtn) newSessionBtn.onclick = function(){ newSession(); };
+if(speakToggle) speakToggle.classList.add('active');
+if(streamToggle) streamToggle.classList.add('active');
+
+// Safety: if cover somehow already hidden, ensure app visible
+if(cover && cover.classList.contains('hidden') && app){ app.classList.add('visible'); tomeOpened = true; }
+
+console.log('[Vaelor UI] tome open handlers restored');
 </script>
 </body>
 </html>
+
+
 
