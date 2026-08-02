@@ -88,6 +88,12 @@ class VaelorBrain:
         return "\n\n".join(parts) + "\n\n"
 
     def think(self, prompt, session_id=None, images=None, use_web=None):
+        # Oz-like auto tool use for action requests (free local tools only)
+        if not images and self.wants_action(prompt):
+            try:
+                return self.act(prompt, session_id=session_id)
+            except Exception:
+                pass
         if use_web is None:
             use_web = self.needs_web(prompt)
         enhanced = (
@@ -185,6 +191,47 @@ class VaelorBrain:
         self.conversations.remember_turn(prompt, response, session_id=session_id)
         return response
 
+    
+
+    def wants_action(self, prompt: str) -> bool:
+        """Detect when the Apprentice wants Vaelor to DO work, not only talk."""
+        p = (prompt or "").lower().strip()
+        if not p:
+            return False
+        action_verbs = [
+            "run ", "execute", "install", "commit", "push", "pull", "clone",
+            "create file", "edit file", "modify", "fix", "debug", "search for",
+            "look up", "find where", "list files", "show git", "check status",
+            "delete", "rename", "build", "test ", "scan", "inspect",
+            "implement", "refactor", "write a", "make a", "set up", "setup",
+            "do everything", "take action", "use your tools", "agent:",
+            "shell:", "git:", "tool:", "unreal", "game",
+        ]
+        if any(v in p for v in action_verbs):
+            return True
+        if p.startswith(("please ", "can you ", "could you ", "i need you to ", "go ahead")) and any(
+            w in p for w in ["run", "fix", "create", "update", "check", "git", "shell", "file", "code", "install"]
+        ):
+            return True
+        return False
+    def act(self, goal, session_id=None, max_steps=6):
+        """Multi-step free-tool agent loop (shell/git/files/web)."""
+        from core.agent_loop import run_agent
+        from spellbook.spell_router import cast_spell
+
+        ctx = self._context_prefix(goal, use_web=False) + self._history_text(session_id, limit=4)
+
+        def ask_llm(prompt: str) -> str:
+            return cast_spell("core_reasoning", prompt)
+
+        result = run_agent(
+            goal=goal,
+            ask_llm=ask_llm,
+            max_steps=max_steps,
+            session_context=ctx,
+        )
+        self.conversations.remember_turn(f"[agent] {goal}", result, session_id=session_id)
+        return result
     def list_tools(self):
         from core.tools.registry import registry
         try:
@@ -269,3 +316,6 @@ class VaelorBrain:
         for item in candidates:
             lines.append(f"- {item['file']}: {item['reason']}")
         return "\n".join(lines)
+
+
+

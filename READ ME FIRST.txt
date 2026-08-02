@@ -1,0 +1,23 @@
+VAELOR (say: Vay-lore)
+======================
+Free AI companion that runs on YOUR computer.
+
+INSTALL (easiest)
+1. Double-click:  INSTALL.bat
+2. If Windows asks "Windows protected your PC", click More info -> Run anyway
+3. Wait until it says ALL DONE
+4. Double-click the new desktop icon:  Vaelor
+5. Click the closed book on the page that opens
+
+Full guide: INSTALL.md
+
+OPTIONAL (makes answers smarter)
+Install Ollama (free): https://ollama.com/download
+Then inside Vaelor click Setup.
+
+PROBLEMS?
+- Need internet the first time
+- Use Chrome or Edge if you want voice calling
+- Send the log file from your Temp folder starting with Vaelor-Install-
+
+Coders: see CODER_BRIEFING.md, CHANGELOG.md, README.md

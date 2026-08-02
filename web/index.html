@@ -60,6 +60,12 @@ body::after{
   transition: opacity 1.2s ease, visibility 1.2s ease;
 }
 #cover.hidden{opacity:0; visibility:hidden; pointer-events:none}
+#cover.boot-locked .book-closed{opacity:.35; filter:grayscale(.3); pointer-events:none}
+#cover.boot-locked .cover-hint{opacity:1}
+#cover .cover-hint.setup-wait{animation:pulse 1.6s ease-in-out infinite}
+#wizard{z-index:200}
+#wizard .model-ready{color:#1e6b38; font-weight:700}
+#wizard .model-missing{color:#8a2a2a; font-weight:700}
 .book-closed{
   width:min(440px,88vw); height:min(580px,80vh);
   perspective:1600px; cursor:pointer; z-index:2;
@@ -588,7 +594,7 @@ code{
             <code>tools</code> / <code>tool:</code><br>
             <code>stage:</code> / <code>propose:</code><br>
             <code>approve:</code> / <code>reject:</code><br>
-            <code>diffs</code> / <code>cleanup</code>
+            <code>diffs</code> / <code>cleanup</code><br><code>agent:</code> multi-step tools<br><code>shell:</code> command<br><code>git:</code> status|diff|commit...
           </div></div>
         </div>
       </aside>
@@ -927,39 +933,102 @@ endCallBtn.onclick = endCall;
 muteTtsBtn.onclick = stopAudio;
 const muteMicBtnEl = document.getElementById('muteMicBtn');
 if(muteMicBtnEl) muteMicBtnEl.onclick = toggleMicMute;
-async function openWizard(force=false){
+async function modelIsReady(data){
+  const b = (data && data.backends) || {};
+  const o = b.ollama || {};
+  const l = b.lmstudio || {};
+  const oModels = o.models || [];
+  const lModels = l.models || [];
+  const oReady = !!(o.running || o.ok) && oModels.length > 0;
+  const lReady = !!(l.running || l.ok) && lModels.length > 0;
+  return { ready: oReady || lReady, oReady, lReady, oModels, lModels, o, l };
+}
+
+function setCoverLocked(locked, hintText){
+  if(!cover) return;
+  if(locked){
+    cover.classList.add('boot-locked');
+    cover.classList.remove('hidden');
+  } else {
+    cover.classList.remove('boot-locked');
+  }
+  const hint = cover.querySelector('.cover-hint');
+  if(hint && hintText){
+    hint.textContent = hintText;
+    hint.classList.toggle('setup-wait', !!locked);
+  }
+  // while locked, do not allow opening tome
+  if(closedBook){
+    closedBook.style.pointerEvents = locked ? 'none' : 'auto';
+  }
+}
+
+async function openWizard(force=false, bootMode=false){
   try{
     const res = await fetch('/setup');
     if(!res.ok){
       if(force) showError('Setup grimoire endpoint not yet bound on this server build.');
-      return;
+      // if boot and setup missing, unlock cover anyway
+      if(bootMode) setCoverLocked(false, 'Touch the tome to open…');
+      return false;
     }
     const data = await res.json();
-    if(data.setup_complete && !force) return;
+    const status = await modelIsReady(data);
     const hw = data.hardware || {};
     const rec = data.recommendation || {};
     const providers = data.providers || [];
     const backends = data.backends || {};
-    let selected = (backends.active_provider) || 'ollama';
-    let model = (rec.suggested_ollama_pulls && rec.suggested_ollama_pulls[0]) || (backends.primary_model) || 'vaelor-prime:latest';
+    // prefer active detected provider
+    let selected = 'ollama';
+    if(status.lReady && !status.oReady) selected = 'lmstudio';
+    if(backends.active_provider) selected = backends.active_provider;
+    let model = (status.oModels[0]) || (status.lModels[0]) || (rec.suggested_ollama_pulls && rec.suggested_ollama_pulls[0]) || 'vaelor-prime:latest';
+
+    // If already complete and model ready and not forced, skip wizard UI
+    if(data.setup_complete && status.ready && !force && !bootMode){
+      setCoverLocked(false, 'Touch the tome to open…');
+      return true;
+    }
+    // Boot complete path: setup done + model ready → just unlock cover
+    if(bootMode && data.setup_complete && status.ready && !force){
+      setCoverLocked(false, 'Model detected. Touch the tome to open…');
+      return true;
+    }
+
     const render = ()=>{
+      const oOn = !!(backends.ollama && (backends.ollama.running || backends.ollama.ok));
+      const lOn = !!(backends.lmstudio && (backends.lmstudio.running || backends.lmstudio.ok));
+      const oModels = (backends.ollama && backends.ollama.models) || [];
+      const lModels = (backends.lmstudio && backends.lmstudio.models) || [];
+      const readyNow = (oOn && oModels.length) || (lOn && lModels.length);
+      const readyClass = readyNow ? 'model-ready' : 'model-missing';
+      const readyText = readyNow
+        ? ('Model detected: ' + ((oModels[0] || lModels[0] || model)))
+        : 'No local model detected yet. Install/start Ollama or LM Studio and pull a model.';
+
       wizardCard.innerHTML = `
-  <h1>First Opening of the Archive</h1>
-  <p class="muted">Choose a free local mind for Vaelor. No paid APIs required.</p>
-  <h3>Hardware Reading</h3>
+  <h1>${bootMode ? 'Vaelor Setup' : 'Archive Setup'}</h1>
+  <p class="muted">Free local setup only — no paid cloud required. Name is spoken <strong>Vay-lore</strong>.</p>
+  <h3>1) Your PC</h3>
   <div class="spell-card">CPU: ${escapeHtml(hw.cpu||'unknown')}<br>RAM: ${hw.ram_gb??'—'} GB<br>GPU VRAM: ${hw.vram_gb??'—'} GB<br>
-  <strong>Tier:</strong> ${escapeHtml(rec.tier||'—')} — ${escapeHtml(rec.recommended_primary||'')}<br>
+  <strong>Recommended:</strong> ${escapeHtml(rec.plain_english || rec.recommended_primary || '7B–9B Q4')}<br>
   <span class="muted">${escapeHtml(rec.notes||'')}</span></div>
-  <h3>Ollama vs LM Studio</h3>
+  <h3>2) Do you already have a free AI engine?</h3>
   <div class="wizard-grid" id="provGrid"></div>
-  <h3>Model</h3>
+  <h3>3) Model name</h3>
   <input id="wizModel" value="${escapeHtml(model)}" style="width:100%;padding:10px;border:1px solid #8a6a2e;border-radius:4px;background:#faf0d8;font-family:IM Fell English,serif;font-size:1.05rem"/>
-  <p class="muted">Ollama online: <strong>${backends.ollama&&backends.ollama.ok?'yes':'no'}</strong> · LM Studio online: <strong>${backends.lmstudio&&backends.lmstudio.ok?'yes':'no'}</strong></p>
-  <p class="muted">Suggested pulls: ${(rec.suggested_ollama_pulls||[]).map(escapeHtml).join(', ')||'—'}</p>
+  <p class="${readyClass}" id="wizReady">${escapeHtml(readyText)}</p>
+  <p class="muted">Ollama online: <strong>${oOn?'yes':'no'}</strong>${oModels.length?(' · '+oModels.slice(0,3).map(escapeHtml).join(', ')):''}<br>
+  LM Studio online: <strong>${lOn?'yes':'no'}</strong>${lModels.length?(' · '+lModels.slice(0,3).map(escapeHtml).join(', ')):''}</p>
+  <p class="muted">Suggested pulls: ${(rec.suggested_ollama_pulls||[]).map(escapeHtml).join(', ')||'llama3.2:3b, qwen2.5:7b'}</p>
   <div class="wizard-actions">
-    <button class="btn" id="wizSkip">Skip for now</button>
-    <button class="btn active" id="wizSave">Seal Configuration</button>
+    <button class="btn" id="wizRefresh">Recheck Model</button>
+    <button class="btn" id="wizOpenOllama">Ollama Download</button>
+    <button class="btn" id="wizOpenLM">LM Studio Download</button>
+    <button class="btn" id="wizSkip" ${readyNow?'':'title="You can skip, but chat may fail without a model"'}>Skip</button>
+    <button class="btn active" id="wizSave">${readyNow ? 'Continue to Tome Cover' : 'Save & Continue'}</button>
   </div>`;
+
       const grid = wizardCard.querySelector('#provGrid');
       providers.forEach(p=>{
         const card = document.createElement('div');
@@ -969,25 +1038,64 @@ async function openWizard(force=false){
         grid.appendChild(card);
       });
       wizardCard.querySelector('#wizModel').oninput = e=>{ model = e.target.value; };
-      wizardCard.querySelector('#wizSkip').onclick = ()=>{ wizard.classList.remove('active'); };
+      wizardCard.querySelector('#wizRefresh').onclick = async ()=>{
+        wizardCard.querySelector('#wizReady').textContent = 'Rechecking local model…';
+        await openWizard(true, bootMode);
+      };
+      wizardCard.querySelector('#wizOpenOllama').onclick = ()=> window.open('https://ollama.com/download', '_blank');
+      wizardCard.querySelector('#wizOpenLM').onclick = ()=> window.open('https://lmstudio.ai/', '_blank');
+      wizardCard.querySelector('#wizSkip').onclick = async ()=>{
+        // allow skip only unlocks cover; still mark incomplete unless model ready
+        wizard.classList.remove('active');
+        setCoverLocked(false, readyNow ? 'Model detected. Touch the tome to open…' : 'No model detected — touch tome anyway (chat may fail)…');
+      };
       wizardCard.querySelector('#wizSave').onclick = async ()=>{
         model = wizardCard.querySelector('#wizModel').value.trim() || model;
-        await fetch('/setup/complete', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ provider:selected, model }) });
+        try{
+          await fetch('/setup/complete', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ provider:selected, model }) });
+        }catch(_){}
+        // re-check readiness
+        let ready = readyNow;
+        try{
+          const again = await fetch('/setup');
+          if(again.ok){
+            const d2 = await again.json();
+            ready = (await modelIsReady(d2)).ready;
+          }
+        }catch(_){}
         wizard.classList.remove('active');
-        loadStatus();
-        addMessage('The archive seals thy chosen path: '+selected+' / '+model, 'vaelor', 'setup');
+        if(ready){
+          setCoverLocked(false, 'Model detected. Touch the tome to open…');
+        } else {
+          setCoverLocked(false, 'Setup saved. Touch the tome to open…');
+        }
       };
     };
+
     render();
     wizard.classList.add('active');
+    // keep cover visible but locked behind wizard
+    if(cover){
+      cover.classList.remove('hidden');
+      setCoverLocked(true, 'Complete setup first…');
+    }
+    return false;
   }catch(e){
     if(force) showError('Setup grimoire unavailable on this build.');
     console.warn('wizard', e);
+    setCoverLocked(false, 'Touch the tome to open…');
+    return false;
   }
 }
 
 async function openTome(){
   if(tomeOpened) return;
+  // Block opening until cover unlocked (model/setup path)
+  if(cover && cover.classList.contains('boot-locked')){
+    showError('Complete setup and detect a local model first.');
+    openWizard(true, true);
+    return;
+  }
   tomeOpened = true;
   if(closedBook) closedBook.classList.add('open');
   setTimeout(async ()=>{
@@ -1003,8 +1111,8 @@ async function openTome(){
         loadSessions()
       ]);
     }catch(e){ console.warn('load', e); }
-    try{ await ensureSession(); }catch(_){}
-    try{ await openWizard(false); }catch(_){}
+    try{ await ensureSession(); }catch(_){ }
+    // do NOT open wizard here — setup already happened at boot
     try{
       const res = await fetch('/greeting');
       if(res.ok){
@@ -1019,6 +1127,30 @@ async function openTome(){
     }
     if(inputBox) inputBox.focus();
   }, 900);
+}
+
+async function bootInstallerFlow(){
+  // First paint: cover locked + setup page
+  setCoverLocked(true, 'Starting setup…');
+  if(app) app.classList.remove('visible');
+  if(cover) cover.classList.remove('hidden');
+  try{
+    const res = await fetch('/setup');
+    if(!res.ok) throw new Error('setup missing');
+    const data = await res.json();
+    const status = await modelIsReady(data);
+    if(data.setup_complete && status.ready){
+      // Already configured with a model → show clickable tome cover only
+      wizard.classList.remove('active');
+      setCoverLocked(false, 'Model detected. Touch the tome to open…');
+      return;
+    }
+    // Need setup UI first
+    await openWizard(true, true);
+  }catch(e){
+    console.warn('bootInstallerFlow', e);
+    setCoverLocked(false, 'Touch the tome to open…');
+  }
 }
 
 // Core bindings
@@ -1071,13 +1203,65 @@ if(newSessionBtn) newSessionBtn.onclick = function(){ newSession(); };
 if(speakToggle) speakToggle.classList.add('active');
 if(streamToggle) streamToggle.classList.add('active');
 
-// Safety: if cover somehow already hidden, ensure app visible
-if(cover && cover.classList.contains('hidden') && app){ app.classList.add('visible'); tomeOpened = true; }
+
+
+// ===== Desktop shell integration (Vaelor.exe / ?desktop=1) =====
+(function desktopMode(){
+  try {
+    const params = new URLSearchParams(location.search || '');
+    const isDesktop = params.get('desktop') === '1' || params.get('mode') === 'desktop';
+    window.VAELOR_DESKTOP = !!isDesktop;
+    if (!isDesktop) return;
+    document.documentElement.classList.add('vaelor-desktop');
+    document.body.classList.add('vaelor-desktop');
+    speakReplies = true;
+    if (speakToggle) {
+      speakToggle.textContent = 'Voice: On';
+      speakToggle.classList.add('active');
+    }
+    const style = document.createElement('style');
+    style.textContent = `
+      body.vaelor-desktop { user-select: text; }
+      body.vaelor-desktop #cover .cover-hint::after {
+        content: ' · Desktop Archive';
+        opacity: .75;
+      }
+      body.vaelor-desktop header { -webkit-app-region: drag; }
+      body.vaelor-desktop header button,
+      body.vaelor-desktop header select,
+      body.vaelor-desktop header input,
+      body.vaelor-desktop header textarea { -webkit-app-region: no-drag; }
+    `;
+    document.head.appendChild(style);
+
+    async function desktopAutoOpen(){
+      try {
+        const res = await fetch('/setup');
+        if (res.ok) {
+          const data = await res.json();
+          const st = await modelIsReady(data);
+          if (!(data.setup_complete && st.ready) && data.setup_complete === false) {
+            await openWizard(true, true);
+            return;
+          }
+        }
+        setCoverLocked(false, 'The Archive answers… opening the tome');
+        setTimeout(() => { try { openTome(); } catch(e) { console.warn(e); } }, 700);
+      } catch (e) {
+        setCoverLocked(false, 'Touch the tome to open…');
+        setTimeout(() => { try { openTome(); } catch(_){} }, 900);
+      }
+    }
+    setTimeout(desktopAutoOpen, 350);
+  } catch (e) { console.warn('desktopMode', e); }
+})();
 
 console.log('[Vaelor UI] tome open handlers restored');
 </script>
 </body>
 </html>
+
+
 
 
 

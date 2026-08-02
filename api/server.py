@@ -1,5 +1,6 @@
 import sys
 import os
+import re
 import io
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -12,11 +13,12 @@ from pydantic import BaseModel
 from typing import Optional
 
 from core.runtime import VaelorRuntime
+from core.setup_wizard import wizard_state, mark_complete, try_install_ollama_winget, try_pull_ollama_model, detect_backends
 from core.tools.registry import registry as tool_registry
 from spellbook.command_parser import parse_command, parse_tool_command
 from spellbook.voice import synthesize_speech, list_wizard_voices, get_voice_settings
 
-app = FastAPI(title="Vaelor API", version="0.9.0")
+app = FastAPI(title="Vaelor API", version="1.1.0-alpha")
 
 app.add_middleware(
     CORSMiddleware,
@@ -112,6 +114,45 @@ def route_message(message: str, session_id=None, images=None):
         response = brain.list_proposals()
 
     
+    
+    elif mode == "agent":
+        response = brain.act(prompt or message, session_id=session_id)
+
+    elif mode == "shell":
+        cmd = prompt or ""
+        confirm = "no"
+        if "confirm=yes" in cmd.lower():
+            confirm = "yes"
+            cmd = re.sub(r"\|?\s*confirm=yes", "", cmd, flags=re.I).strip()
+        response = brain.use_tool("shell_exec", command=cmd, confirm=confirm)
+
+    elif mode == "git":
+        parts = (prompt or "").strip().split(None, 1)
+        sub = (parts[0].lower() if parts else "status")
+        rest = parts[1] if len(parts) > 1 else ""
+        if sub == "status":
+            response = brain.use_tool("git_status")
+        elif sub == "diff":
+            response = brain.use_tool("git_diff")
+        elif sub == "log":
+            response = brain.use_tool("git_log")
+        elif sub == "branch":
+            response = brain.use_tool("git_branch")
+        elif sub == "remote":
+            response = brain.use_tool("git_remote")
+        elif sub == "add":
+            response = brain.use_tool("git_add", path=rest or ".", confirm="yes" if "confirm=yes" in rest.lower() else "no")
+        elif sub == "commit":
+            conf = "yes" if "confirm=yes" in rest.lower() else "no"
+            msg = re.sub(r"confirm=yes", "", rest, flags=re.I).strip()
+            response = brain.use_tool("git_commit", message=msg, confirm=conf)
+        elif sub == "push":
+            response = brain.use_tool("git_push", confirm="yes" if "confirm=yes" in rest.lower() else "no")
+        elif sub == "pull":
+            response = brain.use_tool("git_pull", confirm="yes" if "confirm=yes" in rest.lower() else "no")
+        else:
+            response = "Usage: git: status|diff|log|branch|remote|add|commit|push|pull (mutating needs confirm=yes)"
+
     elif mode == "search":
         q = prompt or message
         research = brain.research(q)
@@ -164,13 +205,16 @@ def health():
         "status": "online",
         "name": runtime.name,
         "title": runtime.title,
-        "version": "0.9.0",
+        "version": "1.1.0-alpha",
         "voice": {
             "enabled": True,
             "provider": "edge-tts",
             "default_voice": settings.get("voice"),
             "stt": "browser_web_speech",
+            "wizard_voice": settings.get("voice"),
+            "theme": "arcane_tome",
         },
+        "ui": {"theme": "arcane_tome", "desktop_capable": True},
     }
 
 
@@ -331,5 +375,37 @@ WEB_DIR = os.path.join(
     "web",
 )
 
+
+
+@app.get("/setup")
+def setup_get():
+    return wizard_state()
+
+
+@app.get("/setup/backends")
+def setup_backends():
+    return detect_backends()
+
+
+@app.post("/setup/complete")
+def setup_complete(payload: dict):
+    provider = (payload or {}).get("provider", "ollama")
+    model = (payload or {}).get("model", "llama3.2:3b")
+    return mark_complete(provider, model)
+
+
+@app.post("/setup/install_ollama")
+def setup_install_ollama():
+    return {"result": try_install_ollama_winget()}
+
+
+@app.post("/setup/pull_model")
+def setup_pull_model(payload: dict):
+    model = (payload or {}).get("model", "llama3.2:3b")
+    return {"result": try_pull_ollama_model(model)}
+
+
 app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")
+
+
 

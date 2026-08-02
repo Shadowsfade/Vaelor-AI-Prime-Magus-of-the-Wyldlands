@@ -37,6 +37,15 @@ def parse_command(command):
         raw = command.split(":", 1)[1].strip() if ":" in command else ""
         return "search", raw
 
+    elif command_lower.startswith("agent:"):
+        return "agent", command.split(":",1)[1].strip() if ":" in command else ""
+
+    elif command_lower.startswith("shell:"):
+        return "shell", command.split(":",1)[1].strip() if ":" in command else ""
+
+    elif command_lower.startswith("git:"):
+        return "git", command.split(":",1)[1].strip() if ":" in command else ""
+
     elif command_lower.startswith("cleanup"):
         return "cleanup", command[7:].strip()
 
@@ -80,4 +89,5 @@ def parse_tool_command(prompt):
             kwargs[key] = value
 
     return tool_name, kwargs
+
 
