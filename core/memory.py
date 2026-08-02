@@ -41,7 +41,7 @@ class VaelorMemory:
         with open(
             MEMORY_FILE,
             "r",
-            encoding="utf-8"
+            encoding="utf-8-sig"
         ) as file:
 
             return json.load(file)

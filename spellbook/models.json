@@ -32,5 +32,14 @@
     "rate": "-8%",
     "pitch": "-5Hz",
     "stt_provider": "browser_web_speech"
+  },
+  "provider": "ollama",
+  "backends": {
+    "ollama": {
+      "endpoint": "http://localhost:11434"
+    },
+    "lmstudio": {
+      "endpoint": "http://localhost:1234"
+    }
   }
 }

@@ -1,0 +1,41 @@
+{
+  "mode": "admin",
+  "profile": "full_access_os_safe",
+  "comment": "Portable defaults. Installer rewrites paths for THIS machine only.",
+  "auto_confirm_mutations": true,
+  "allow_git_push": true,
+  "allow_force_push": false,
+  "allow_admin_shell": true,
+  "allow_installs": true,
+  "workspace_only_cwd": false,
+  "sandbox_enforced": false,
+  "require_sandbox_paths_in_commands": false,
+  "default_cwd": "",
+  "allowed_roots": [],
+  "protected_roots": [
+    "C:\\Windows",
+    "C:\\Windows\\System32",
+    "C:\\Windows\\SysWOW64",
+    "C:\\Windows\\WinSxS",
+    "C:\\Recovery",
+    "C:\\Boot",
+    "C:\\EFI"
+  ],
+  "protected_delete_roots": [
+    "C:\\Windows",
+    "C:\\Windows\\System32",
+    "C:\\Windows\\SysWOW64",
+    "C:\\Windows\\WinSxS",
+    "C:\\Program Files",
+    "C:\\Program Files (x86)",
+    "C:\\ProgramData",
+    "C:\\Recovery",
+    "C:\\Boot",
+    "C:\\EFI",
+    "C:\\Users\\Public",
+    "C:\\Users\\Default"
+  ],
+  "allowed_user_profile": "",
+  "audit_log": "memory/audit_log.jsonl",
+  "max_timeout_seconds": 1800
+}

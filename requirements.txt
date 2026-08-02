@@ -6,3 +6,5 @@ requests>=2.32
 psutil>=5.9
 edge-tts>=6.1.9
 anyio>=4.0
+
+pywebview>=5.0

@@ -1,52 +1,14 @@
 {
   "spells": {
-    "DiagnosisSpell": {
-      "type": "system",
-      "description": "Checks Vaelor core systems and model availability",
-      "status": "active"
-    },
-    "ReasoningSpell": {
-      "type": "llm",
-      "model": "vaelor-prime:latest",
-      "description": "Primary reasoning and analysis engine",
-      "status": "active"
-    },
-    "CodeForgeSpell": {
-      "type": "coding",
-      "model": "vaelor-prime:latest",
-      "description": "Software development and code generation",
-      "status": "active"
-    },
-    "FastThoughtSpell": {
-      "type": "llm",
-      "model": "vaelor-prime:latest",
-      "description": "Fast lightweight responses",
-      "status": "active"
-    },
-    "VisionSpell": {
-      "type": "computer_vision",
-      "description": "Image understanding capability",
-      "status": "planned"
-    },
-    "ImageCreationSpell": {
-      "type": "image_generation",
-      "description": "Image generation capability",
-      "status": "planned"
-    },
-    "VoiceInputSpell": {
-      "type": "speech_to_text",
-      "description": "Browser Web Speech API voice input and live call listening",
-      "status": "active"
-    },
-    "VoiceOutputSpell": {
-      "type": "text_to_speech",
-      "description": "Wizard voice via free edge-tts (en-GB-RyanNeural)",
-      "status": "active"
-    },
-    "VoiceCallSpell": {
-      "type": "realtime_call",
-      "description": "Continuous voice call loop like ChatGPT/Claude/Gemini",
-      "status": "active"
-    }
+    "DiagnosisSpell": { "type": "system", "description": "Checks Vaelor core systems and model availability", "status": "active" },
+    "ReasoningSpell": { "type": "llm", "model": "vaelor-prime:latest", "description": "Primary reasoning engine", "status": "active" },
+    "CodeForgeSpell": { "type": "coding", "model": "vaelor-prime:latest", "description": "Code generation", "status": "active" },
+    "FastThoughtSpell": { "type": "llm", "model": "vaelor-prime:latest", "description": "Fast responses", "status": "active" },
+    "AgentLoopSpell": { "type": "agent", "description": "Multi-step free-tool autonomy loop (shell/git/files/web)", "status": "active" },
+    "ShellSpell": { "type": "system", "description": "Controlled shell execution with safety gates", "status": "active" },
+    "GitSpell": { "type": "system", "description": "Git status/diff/log and confirm-gated write/push", "status": "active" },
+    "VisionSpell": { "type": "computer_vision", "description": "Image understanding", "status": "active" },
+    "VoiceCallSpell": { "type": "realtime_call", "description": "Voice call loop STT+TTS", "status": "active" },
+    "WebResearchSpell": { "type": "research", "description": "Free Wikipedia/DDG research", "status": "active" }
   }
 }

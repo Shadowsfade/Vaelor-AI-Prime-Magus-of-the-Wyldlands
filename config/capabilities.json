@@ -1,19 +1,10 @@
 {
-    "tools": [
-        {
-            "name": "AiderSpell",
-            "type": "code_generation",
-            "description": "A coding assistant capable of creating, modifying, and organizing project files.",
-            "trigger": [
-                "create files",
-                "modify code",
-                "implement features"
-            ]
-        },
-        {
-            "name": "CoreReasoning",
-            "type": "conversation",
-            "description": "Vaelor's primary reasoning and knowledge engine."
-        }
-    ]
+  "tools": [
+    { "name": "CoreReasoning", "type": "conversation", "description": "Primary reasoning engine." },
+    { "name": "AgentLoop", "type": "autonomy", "description": "Multi-step tool-using agent (free local tools only)." },
+    { "name": "ShellExec", "type": "system", "description": "Controlled shell commands with confirm gates." },
+    { "name": "GitOps", "type": "vcs", "description": "Git read + confirm-gated write/push." },
+    { "name": "WebResearch", "type": "research", "description": "Free web research tools." },
+    { "name": "AiderSpell", "type": "code_generation", "description": "Optional coding assistant integration." }
+  ]
 }
