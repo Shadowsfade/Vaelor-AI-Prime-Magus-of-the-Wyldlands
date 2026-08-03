@@ -1,10 +1,33 @@
 {
+  "version": "1.1.2-alpha",
   "tools": [
-    { "name": "CoreReasoning", "type": "conversation", "description": "Primary reasoning engine." },
-    { "name": "AgentLoop", "type": "autonomy", "description": "Multi-step tool-using agent (free local tools only)." },
-    { "name": "ShellExec", "type": "system", "description": "Controlled shell commands with confirm gates." },
-    { "name": "GitOps", "type": "vcs", "description": "Git read + confirm-gated write/push." },
-    { "name": "WebResearch", "type": "research", "description": "Free web research tools." },
-    { "name": "AiderSpell", "type": "code_generation", "description": "Optional coding assistant integration." }
+    {
+      "name": "FileCRUD",
+      "description": "list/read/write/patch/delete/mkdir under allowed roots; OS core protected"
+    },
+    {
+      "name": "ShellAdmin",
+      "description": "shell_exec with admin/trusted auto-approve; OS wipe blocked"
+    },
+    {
+      "name": "GitOps",
+      "description": "git read/write/push (no force)"
+    },
+    {
+      "name": "WebResearch",
+      "description": "free web_search/fetch_url"
+    },
+    {
+      "name": "AgentLoop",
+      "description": "multi-step TOOL/FINAL with auto-confirm in admin"
+    },
+    {
+      "name": "ConsoleHomebrew",
+      "description": "game-console-only verified public CFW/homebrew guides"
+    },
+    {
+      "name": "UnrealHelpers",
+      "description": "optional UE/Epic detect"
+    }
   ]
 }

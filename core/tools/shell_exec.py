@@ -193,6 +193,8 @@ def shell_exec(command: str = "", cwd: str = "", timeout: int = DEFAULT_TIMEOUT,
     # admin/trusted: auto confirm mutations
     mode = (cfg.get("mode") or "admin").lower()
     mutating = _is_mutating(command)
+    if mutating and mode in ("trusted", "admin"):
+        confirm = "yes"
     if mutating and mode == "supervised" and str(confirm).lower() not in ("yes", "true", "1", "y"):
         return f"Refused: supervised mode needs confirm=yes\nCommand: {command}"
 

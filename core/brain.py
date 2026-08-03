@@ -205,7 +205,7 @@ class VaelorBrain:
             "delete", "rename", "build", "test ", "scan", "inspect",
             "implement", "refactor", "write a", "make a", "set up", "setup",
             "do everything", "take action", "use your tools", "agent:",
-            "shell:", "git:", "tool:", "unreal", "game",
+            "shell:", "git:", "tool:", "unreal", "game", "homebrew", "cfw", "modchip", "console",
         ]
         if any(v in p for v in action_verbs):
             return True

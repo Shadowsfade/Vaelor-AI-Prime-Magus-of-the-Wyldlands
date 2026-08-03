@@ -53,7 +53,7 @@ def _extract_actions(text: str):
 def run_agent(
     goal: str,
     ask_llm,
-    max_steps: int = 6,
+    max_steps: int = 10,
     session_context: str = "",
     auto_confirm_readonly: bool = True,
 ) -> str:
@@ -80,7 +80,11 @@ Protocol (strict):
 - Mutating tools (shell_exec writes, git_add/commit/push, approve_change) require confirm=yes.
 - Never claim you ran a tool unless you emitted TOOL lines.
 - Stay in character as Vaelor; address the Architect as Apprentice.
-- Work only within the Vaelor/Workspace project unless reading public web.
+- You CAN create/edit/delete files under allowed roots (user profile, install/project drives) via write_text_file/apply_patch/delete_path/make_dir/shell_exec.
+Never destroy core OS paths (Windows/System32/Program Files bulk wipe, boot, other users).
+Auto-approval: in admin/trusted mode mutating tools should use confirm=yes.
+Game consoles ONLY for hacking/homebrew: use console_homebrew_help and only verified public guides (switch.hacks.guide, 3ds.hacks.guide, etc). No non-console targets.
+You may run admin-capable shell commands the OS allows for this user; still never OS-wipe.
 """.strip()
 
     step = 0
@@ -104,13 +108,25 @@ Protocol (strict):
         tools, final = _extract_actions(reply)
 
         if tools:
+            # Load autonomy: admin/trusted => auto-approve mutations
+            auto_yes = True
+            try:
+                import json, os
+                cfgp = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config", "autonomy.json")
+                with open(cfgp, "r", encoding="utf-8-sig") as f:
+                    cfg = json.load(f)
+                mode = (cfg.get("mode") or "admin").lower()
+                auto_yes = mode in ("admin", "trusted") or bool(cfg.get("auto_confirm_mutations", True))
+            except Exception:
+                auto_yes = True
             for name, kwargs in tools:
-                # default confirm no unless provided
+                # default confirm based on autonomy
                 if "confirm" not in kwargs and name in {
                     "shell_exec", "git_add", "git_commit", "git_checkout",
                     "git_push", "git_pull", "approve_change",
+                    "write_text_file", "apply_patch", "make_dir", "delete_path",
                 }:
-                    kwargs["confirm"] = "no"
+                    kwargs["confirm"] = "yes" if auto_yes else "no"
                 result = registry.execute(name, **kwargs)
                 obs = f"TOOL {name} {kwargs}\nRESULT:\n{result}"
                 observations.append(obs)

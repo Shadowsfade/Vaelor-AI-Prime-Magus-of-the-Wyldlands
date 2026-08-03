@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.1.2-alpha] — 2026-08-03
+### Added
+- File CRUD tools (list/read/write/patch/delete/mkdir) under allowed roots; OS core protected
+- Admin/trusted **auto-approve** for mutating tools in agent loop + shell_exec
+- Console homebrew desk: game-consoles-only via verified public guides
+### Changed
+- Agent loop max_steps 10; proactive file/console action triggers
+---
+
 ## [1.1.1-alpha] — 2026-08-03
 
 ### Fixed

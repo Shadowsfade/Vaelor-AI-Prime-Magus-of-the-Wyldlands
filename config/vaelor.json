@@ -1,6 +1,6 @@
 {
   "name": "Vaelor",
-  "version": "1.1.1-alpha",
+  "version": "1.1.2-alpha",
   "ollama": {
     "endpoint": "http://localhost:11434"
   },
