@@ -193,6 +193,17 @@ class VaelorBrain:
 
     
 
+
+    def build_system_prompt(self) -> str:
+        """ReAct system prompt with full dynamic tool inventory."""
+        from core.agent_loop import build_react_system_prompt
+        from core.tools.registry import registry
+        try:
+            self._ensure_web_tools()
+        except Exception:
+            pass
+        return build_react_system_prompt(registry.specs_for_prompt())
+
     def wants_action(self, prompt: str) -> bool:
         """Detect when the Apprentice wants Vaelor to DO work, not only talk."""
         p = (prompt or "").lower().strip()
@@ -214,24 +225,36 @@ class VaelorBrain:
         ):
             return True
         return False
-    def act(self, goal, session_id=None, max_steps=6):
-        """Multi-step free-tool agent loop (shell/git/files/web)."""
+    def act(self, goal, session_id=None, max_steps=12):
+        """Autonomous ReAct coding worker loop (tools + self-correct + verify)."""
         from core.agent_loop import run_agent
         from spellbook.spell_router import cast_spell
 
-        ctx = self._context_prefix(goal, use_web=False) + self._history_text(session_id, limit=4)
+        react = self.build_system_prompt()
+        ctx = (
+            react
+            + "\n\n"
+            + self._context_prefix(goal, use_web=False)
+            + self._history_text(session_id, limit=4)
+        )
 
         def ask_llm(prompt: str) -> str:
-            return cast_spell("core_reasoning", prompt)
+            g = (goal or "").lower()
+            spell = "code_forge" if any(
+                k in g for k in ("implement", "refactor", "fix", "test", "code", "patch", "file")
+            ) else "core_reasoning"
+            return cast_spell(spell, prompt)
 
         result = run_agent(
             goal=goal,
             ask_llm=ask_llm,
-            max_steps=max_steps,
+            max_steps=max_steps or 12,
             session_context=ctx,
+            require_verification=True,
         )
         self.conversations.remember_turn(f"[agent] {goal}", result, session_id=session_id)
         return result
+
     def list_tools(self):
         from core.tools.registry import registry
         try:

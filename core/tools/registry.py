@@ -19,10 +19,18 @@ class ToolRegistry:
     def get(self, name):
         return self._tools.get(name)
     def specs_for_prompt(self):
-        lines = []
-        for t in self._tools.values():
-            flag = "read-only" if t.read_only else "mutating"
-            lines.append(f"- {t.name} [{flag}]: {t.description}")
+        lines = ["# Registered tools (" + str(len(self._tools)) + ") — invoke via ACTION:/TOOL lines"]
+        # group mutating vs read
+        reads = [t for t in self._tools.values() if t.read_only]
+        muts = [t for t in self._tools.values() if not t.read_only]
+        lines.append("## Read-only")
+        for t in sorted(reads, key=lambda x: x.name):
+            lines.append(f"- {t.name}: {t.description}")
+        lines.append("## Mutating (admin auto-confirm=yes)")
+        for t in sorted(muts, key=lambda x: x.name):
+            lines.append(f"- {t.name}: {t.description}")
+        lines.append("Format: ACTION: tool_name key=value key2=\"quoted\"")
+        lines.append("Or JSON: ACTION: tool_name {\"key\":\"value\"}")
         return "\n".join(lines)
     def execute(self, name, **kwargs):
         tool = self.get(name)
@@ -32,6 +40,8 @@ class ToolRegistry:
             return tool.run(**kwargs)
         except Exception as e:
             return f"Tool '{name}' failed: {e}"
+    def names(self):
+        return sorted(self._tools.keys())
 
 registry = ToolRegistry()
 
@@ -111,6 +121,15 @@ def register_all_tools():
         registry.register("console_scope_guard", "Confirm target is game-console homebrew scope.", True, console_scope_guard)
     except Exception as e:
         print("console register fail", e)
+
+
+    try:
+        from .diagnostics_tools import system_status, check_port, process_list
+        registry.register("system_status", "Host CPU/RAM/disk and toolchain which.", True, system_status)
+        registry.register("check_port", "Check if TCP port open. port=8000 host=localhost", True, check_port)
+        registry.register("process_list", "List processes. query= limit=30", True, process_list)
+    except Exception as e:
+        print("diagnostics register fail", e)
 
     try:
         from .unreal_tools import unreal_status, unreal_open_epic_download, unreal_launch_epic
