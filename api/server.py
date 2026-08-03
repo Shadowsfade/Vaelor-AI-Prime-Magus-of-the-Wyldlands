@@ -336,12 +336,15 @@ def sessions_delete(session_id: str):
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
-    mode, response = route_message(
-        request.message,
-        session_id=request.session_id,
-        images=request.images,
-    )
-    return ChatResponse(mode=mode, response=response, session_id=request.session_id)
+    try:
+        mode, response = route_message(
+            request.message,
+            session_id=request.session_id,
+            images=request.images,
+        )
+        return ChatResponse(mode=mode, response=response, session_id=request.session_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"chat failed: {e}")
 
 
 @app.post("/chat/stream")

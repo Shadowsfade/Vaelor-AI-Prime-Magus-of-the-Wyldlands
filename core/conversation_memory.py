@@ -17,27 +17,47 @@ class VaelorConversationMemory:
         if not os.path.exists(SESSIONS_FILE):
             self._save_sessions([])
 
+    def _load_json_file(self, path, default):
+        try:
+            with open(path, "r", encoding="utf-8-sig") as f:
+                raw = f.read().strip()
+            if not raw:
+                return default
+            data = json.loads(raw)
+            # conversations must be a list of turns
+            if path.endswith("conversations.json") and isinstance(data, dict):
+                return default
+            return data
+        except Exception:
+            try:
+                self._write_json_file(path, default)
+            except Exception:
+                pass
+            return default
+
+    def _write_json_file(self, path, data):
+        with open(path, "w", encoding="utf-8", newline="\n") as f:
+            json.dump(data, f, indent=4)
+
     def _load_turns(self):
-        with open(CONVERSATION_FILE, "r", encoding="utf-8-sig") as f:
-            return json.load(f)
+        data = self._load_json_file(CONVERSATION_FILE, [])
+        return data if isinstance(data, list) else []
 
     def _save_turns(self, data):
-        with open(CONVERSATION_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=4)
+        self._write_json_file(CONVERSATION_FILE, data)
 
     def _load_sessions(self):
-        with open(SESSIONS_FILE, "r", encoding="utf-8-sig") as f:
-            return json.load(f)
+        data = self._load_json_file(SESSIONS_FILE, [])
+        return data if isinstance(data, list) else []
 
     def _save_sessions(self, data):
-        with open(SESSIONS_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=4)
+        self._write_json_file(SESSIONS_FILE, data)
 
     def ensure_session(self, session_id=None, title=None):
         sessions = self._load_sessions()
         if session_id:
             for s in sessions:
-                if s["id"] == session_id:
+                if s.get("id") == session_id:
                     return s
         new_id = session_id or str(uuid.uuid4())[:12]
         session = {
@@ -51,7 +71,11 @@ class VaelorConversationMemory:
         return session
 
     def list_sessions(self, limit=30):
-        sessions = sorted(self._load_sessions(), key=lambda s: s.get("updated_at", ""), reverse=True)
+        sessions = sorted(
+            self._load_sessions(),
+            key=lambda s: s.get("updated_at", ""),
+            reverse=True,
+        )
         return sessions[:limit]
 
     def remember_turn(self, prompt, response, session_id=None):
@@ -61,11 +85,11 @@ class VaelorConversationMemory:
             session = self.ensure_session(session_id)
             sid = session["id"]
             if session.get("title") in (None, "Archive Dialogue") and prompt:
-                session["title"] = (prompt[:48] + "…") if len(prompt) > 48 else prompt
+                session["title"] = (prompt[:48] + "...") if len(prompt) > 48 else prompt
                 session["updated_at"] = datetime.now().isoformat()
                 sessions = self._load_sessions()
                 for i, s in enumerate(sessions):
-                    if s["id"] == sid:
+                    if s.get("id") == sid:
                         sessions[i] = session
                 self._save_sessions(sessions)
         turn = {
