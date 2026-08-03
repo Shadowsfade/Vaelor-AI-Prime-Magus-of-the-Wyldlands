@@ -2,6 +2,7 @@ import sys
 import os
 import re
 import io
+import json
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -10,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from typing import Optional
+from typing import Any, List, Optional
 
 from core.runtime import VaelorRuntime
 from core.setup_wizard import wizard_state, mark_complete, try_install_ollama_winget, try_pull_ollama_model, detect_backends
@@ -18,7 +19,7 @@ from core.tools.registry import registry as tool_registry
 from spellbook.command_parser import parse_command, parse_tool_command
 from spellbook.voice import synthesize_speech, list_wizard_voices, get_voice_settings
 
-app = FastAPI(title="Vaelor API", version="1.1.0-alpha")
+app = FastAPI(title="Vaelor API", version="1.1.1-alpha")
 
 app.add_middleware(
     CORSMiddleware,
@@ -35,11 +36,14 @@ class ChatRequest(BaseModel):
     message: str
     speak: bool = False
     voice: Optional[str] = None
+    session_id: Optional[str] = None
+    images: Optional[List[Any]] = None
 
 
 class ChatResponse(BaseModel):
     mode: str
     response: str
+    session_id: Optional[str] = None
 
 
 class ProposalActionRequest(BaseModel):
@@ -56,6 +60,12 @@ class CallRequest(BaseModel):
     transcript: str
     voice: Optional[str] = None
     mode: str = "call"  # call uses slightly shorter, spoken replies
+    session_id: Optional[str] = None
+
+
+class SessionCreateRequest(BaseModel):
+    title: Optional[str] = None
+    session_id: Optional[str] = None
 
 
 def route_message(message: str, session_id=None, images=None):
@@ -193,7 +203,7 @@ def route_message(message: str, session_id=None, images=None):
         )
 
     else:
-        response = brain.think(prompt)
+        response = brain.think(prompt, session_id=session_id, images=images)
 
     return mode, response
 
@@ -205,7 +215,7 @@ def health():
         "status": "online",
         "name": runtime.name,
         "title": runtime.title,
-        "version": "1.1.0-alpha",
+        "version": "1.1.1-alpha",
         "voice": {
             "enabled": True,
             "provider": "edge-tts",
@@ -277,10 +287,112 @@ def voice_speak(request: SpeakRequest):
     )
 
 
+@app.get("/sessions")
+def sessions_list():
+    """List archive dialogues for the tome sidebar."""
+    try:
+        sessions = brain.conversations.list_sessions(limit=40)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"sessions list failed: {e}")
+    return {"sessions": sessions}
+
+
+@app.post("/sessions")
+def sessions_create(request: SessionCreateRequest = None):
+    """Create or ensure a dialogue session."""
+    request = request or SessionCreateRequest()
+    try:
+        session = brain.conversations.ensure_session(
+            session_id=request.session_id,
+            title=request.title,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"session create failed: {e}")
+    return session
+
+
+@app.get("/sessions/{session_id}")
+def sessions_get(session_id: str):
+    """Load one dialogue and its turns for the UI."""
+    try:
+        sessions = brain.conversations.list_sessions(limit=200)
+        session = next((s for s in sessions if s.get("id") == session_id), None)
+        if not session:
+            session = brain.conversations.ensure_session(session_id=session_id)
+        turns = brain.conversations.recall_recent(limit=200, session_id=session_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"session load failed: {e}")
+    return {"session": session, "turns": turns}
+
+
+@app.delete("/sessions/{session_id}")
+def sessions_delete(session_id: str):
+    try:
+        brain.conversations.clear_session(session_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"session delete failed: {e}")
+    return {"status": "ok", "session_id": session_id}
+
+
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
-    mode, response = route_message(request.message, session_id=getattr(request, "session_id", None), images=getattr(request, "images", None))
-    return ChatResponse(mode=mode, response=response)
+    mode, response = route_message(
+        request.message,
+        session_id=request.session_id,
+        images=request.images,
+    )
+    return ChatResponse(mode=mode, response=response, session_id=request.session_id)
+
+
+@app.post("/chat/stream")
+def chat_stream(request: ChatRequest):
+    """SSE stream for tome UI Stream: On mode."""
+    message = (request.message or "").strip()
+    if not message:
+        raise HTTPException(status_code=400, detail="Empty message")
+
+    mode, prompt = parse_command(message)
+
+    # Non-think modes: return one-shot SSE then done (keeps UI simple)
+    if mode != "think":
+        _mode, response = route_message(
+            message,
+            session_id=request.session_id,
+            images=request.images,
+        )
+
+        def one_shot():
+            payload = json.dumps({"type": "token", "text": response, "mode": _mode})
+            yield f"data: {payload}\n\n"
+            done = json.dumps({"type": "done", "mode": _mode, "session_id": request.session_id})
+            yield f"data: {done}\n\n"
+
+        return StreamingResponse(one_shot(), media_type="text/event-stream")
+
+    def event_stream():
+        import json as _json
+
+        try:
+            # Prefer true token stream from brain when available
+            if hasattr(brain, "think_stream") and not request.images:
+                chunks = []
+                for piece in brain.think_stream(prompt, session_id=request.session_id):
+                    chunks.append(piece)
+                    yield f"data: {_json.dumps({'type': 'token', 'text': piece, 'mode': 'think'})}\n\n"
+                full = "".join(chunks)
+                yield f"data: {_json.dumps({'type': 'done', 'mode': 'think', 'text': full, 'session_id': request.session_id})}\n\n"
+            else:
+                _mode, response = route_message(
+                    message,
+                    session_id=request.session_id,
+                    images=request.images,
+                )
+                yield f"data: {_json.dumps({'type': 'token', 'text': response, 'mode': _mode})}\n\n"
+                yield f"data: {_json.dumps({'type': 'done', 'mode': _mode, 'session_id': request.session_id})}\n\n"
+        except Exception as e:
+            yield f"data: {_json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 @app.post("/call")

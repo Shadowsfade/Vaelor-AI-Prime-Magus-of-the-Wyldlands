@@ -18,7 +18,7 @@ class VaelorConversationMemory:
             self._save_sessions([])
 
     def _load_turns(self):
-        with open(CONVERSATION_FILE, "r", encoding="utf-8") as f:
+        with open(CONVERSATION_FILE, "r", encoding="utf-8-sig") as f:
             return json.load(f)
 
     def _save_turns(self, data):
@@ -26,7 +26,7 @@ class VaelorConversationMemory:
             json.dump(data, f, indent=4)
 
     def _load_sessions(self):
-        with open(SESSIONS_FILE, "r", encoding="utf-8") as f:
+        with open(SESSIONS_FILE, "r", encoding="utf-8-sig") as f:
             return json.load(f)
 
     def _save_sessions(self, data):

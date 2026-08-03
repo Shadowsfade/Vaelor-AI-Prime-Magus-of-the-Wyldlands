@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.1.1-alpha] — 2026-08-03
+
+### Fixed
+- **Tome UI broken links:** added missing API routes the WebUI already called
+  - GET/POST /sessions, GET/DELETE /sessions/{id}
+  - POST /chat/stream (SSE)
+- Chat request model now accepts session_id and images
+- Conversation memory JSON loads use utf-8-sig (BOM-safe)
+- Default think path passes session_id into brain
+
+### Changed
+- Version stamp **1.1.1-alpha**
+
+---
+
+
 All notable changes to **Vaelor** (Grand Archive / Project Wyld companion) are documented here.
 
 ## [1.1.0-alpha] — 2026-08-02
