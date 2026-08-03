@@ -518,6 +518,61 @@ code{
 #callMeter{width:72px;height:8px;border-radius:4px;background:rgba(0,0,0,.35);overflow:hidden;box-shadow:inset 0 0 4px rgba(0,0,0,.4)}
 #callMeter > i{display:block;height:100%;width:8%;background:linear-gradient(90deg,#7a5218,#ffd56a);box-shadow:0 0 8px rgba(255,200,80,.55);transition:width .08s linear}
 #callBanner .btn{padding:6px 10px;font-size:.72rem}
+
+/* code blocks + debug console */
+.msg .body{white-space:pre-wrap;word-break:break-word}
+.msg .body p{margin:0 0 .55em}
+.msg .body p:last-child{margin:0}
+.code-block{
+  position:relative;margin:.65em 0;border:1px solid var(--gold-dim);
+  border-radius:6px;background:linear-gradient(180deg,#1a1208,#120c06);
+  box-shadow:inset 0 0 20px rgba(0,0,0,.35),0 0 12px rgba(212,175,85,.08);
+  overflow:hidden;
+}
+.code-block .code-head{
+  display:flex;justify-content:space-between;align-items:center;gap:8px;
+  padding:6px 10px;background:rgba(90,55,22,.55);border-bottom:1px solid rgba(212,175,85,.25);
+  font-family:Cinzel,serif;font-size:.72rem;color:var(--gold-bright);letter-spacing:.6px;
+}
+.code-block pre{
+  margin:0;padding:12px 14px;overflow:auto;max-height:420px;
+  color:#f3e6c4;font-family:ui-monospace,Consolas,monospace;font-size:.86rem;line-height:1.45;
+  white-space:pre;
+}
+.code-block code{background:transparent;padding:0;color:inherit;font-size:inherit}
+.copy-btn{
+  font-family:Cinzel,serif;font-size:.68rem;letter-spacing:.5px;
+  border:1px solid var(--gold-dim);background:rgba(40,24,10,.9);color:var(--parchment);
+  border-radius:4px;padding:4px 8px;cursor:pointer;
+}
+.copy-btn:hover{border-color:var(--gold);color:var(--gold-bright)}
+.copy-btn.copied{background:#1e4a28;border-color:#3ecf7a;color:#c8ffd8}
+.msg-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.inline-code{
+  background:rgba(90,60,25,.12);border:1px solid rgba(138,106,46,.25);
+  padding:0 5px;border-radius:3px;font-family:ui-monospace,monospace;font-size:.88em;
+}
+#debugBtn.active{outline:2px solid var(--gold)}
+#debugConsole{
+  display:none;position:fixed;right:14px;bottom:14px;z-index:300;
+  width:min(520px,96vw);max-height:min(70vh,640px);
+  background:linear-gradient(180deg,#1c1208,#100a05);color:#f0e0c0;
+  border:2px solid var(--gold-dim);border-radius:10px;
+  box-shadow:0 18px 50px rgba(0,0,0,.55),0 0 30px rgba(212,175,85,.12);
+  font-family:ui-monospace,Consolas,monospace;font-size:.78rem;
+  flex-direction:column;overflow:hidden;
+}
+#debugConsole.open{display:flex}
+#debugConsole .dbg-head{
+  display:flex;justify-content:space-between;align-items:center;gap:8px;
+  padding:10px 12px;background:rgba(90,55,22,.65);border-bottom:1px solid rgba(212,175,85,.25);
+  font-family:Cinzel,serif;color:var(--gold-bright);letter-spacing:.6px;
+}
+#debugConsole .dbg-actions{display:flex;gap:6px;flex-wrap:wrap}
+#debugConsole .dbg-body{padding:10px 12px;overflow:auto;flex:1;white-space:pre-wrap;line-height:1.4}
+#debugConsole .dbg-foot{padding:8px 12px;border-top:1px solid rgba(212,175,85,.2);display:flex;gap:6px;flex-wrap:wrap}
+#debugConsole .ok{color:#7dffa8} #debugConsole .bad{color:#ff9b9b} #debugConsole .warn{color:#ffd27a}
+
 </style>
 </head>
 <body>
@@ -555,6 +610,7 @@ code{
       <button class="btn" id="streamToggle">Stream: On</button>
       <button class="btn" id="callBtn">Summon Call</button>
       <button class="btn" id="muteTtsBtn">Silence</button>
+      <button class="btn" id="debugBtn" title="Client & model diagnostics">Debug</button>
       <button class="btn" id="setupBtn">Setup</button>
       <button class="btn" id="newSessionBtn">New Dialogue</button>
     </div>
@@ -614,6 +670,24 @@ code{
         </div>
       </section>
     </div>
+  </div>
+</div>
+
+
+<div id="debugConsole" aria-live="polite">
+  <div class="dbg-head">
+    <span>✧ Debug Console — Client / Models</span>
+    <div class="dbg-actions">
+      <button class="copy-btn" id="dbgRefresh">Refresh</button>
+      <button class="copy-btn" id="dbgCopy">Copy all</button>
+      <button class="copy-btn" id="dbgClose">Close</button>
+    </div>
+  </div>
+  <div class="dbg-body" id="dbgBody">Opening the diagnostic grimoire…</div>
+  <div class="dbg-foot">
+    <button class="copy-btn" id="dbgPing">Ping /health</button>
+    <button class="copy-btn" id="dbgBackends">Probe backends</button>
+    <button class="copy-btn" id="dbgClearClient">Clear client log</button>
   </div>
 </div>
 
@@ -690,11 +764,205 @@ let selectedVoice=null,tomeOpened=false,sessionId=null,pendingImages=[];
 const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
 function showError(t){errorBanner.textContent=t;errorBanner.style.display='block'}
 function clearError(){errorBanner.style.display='none'}
-function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 function stopAudio(){if(currentAudio){try{currentAudio.pause();currentAudio.src=''}catch(_){}currentAudio=null}}
 function playBase64Audio(b64,mime){return new Promise(resolve=>{if(!b64)return resolve();stopAudio();const a=new Audio('data:'+(mime||'audio/mpeg')+';base64,'+b64);currentAudio=a;a.onended=()=>resolve();a.onerror=()=>resolve();a.play().catch(()=>resolve())})}
 async function speakText(text){if(!speakReplies||!text)return;try{const res=await fetch('/voice/speak',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,voice:selectedVoice||undefined})});if(!res.ok)throw new Error('TTS '+res.status);const blob=await res.blob();stopAudio();const url=URL.createObjectURL(blob);const a=new Audio(url);currentAudio=a;await new Promise(r=>{a.onended=()=>{URL.revokeObjectURL(url);r()};a.onerror=()=>{URL.revokeObjectURL(url);r()};a.play().catch(()=>r())})}catch(e){console.warn(e)}}
-function addMessage(text,sender,tag){const div=document.createElement('div');div.className='msg '+sender;if(tag){const t=document.createElement('span');t.className='tag';t.textContent=tag;div.appendChild(t)}const span=document.createElement('span');span.className='body';span.textContent=text;div.appendChild(span);if(sender==='vaelor'){const actions=document.createElement('div');actions.className='msg-actions';const b=document.createElement('button');b.textContent='Read aloud';b.onclick=()=>speakText(text);actions.appendChild(b);div.appendChild(actions)}chat.appendChild(div);chat.scrollTop=chat.scrollHeight;return {div,span}}
+
+function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function copyTextToClipboard(text){
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    return navigator.clipboard.writeText(text);
+  }
+  return new Promise((resolve,reject)=>{
+    try{
+      const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.left='-9999px';
+      document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);resolve();
+    }catch(e){reject(e)}
+  });
+}
+function renderMarkdown(text){
+  // Escape first, then restore fenced code + inline code + light formatting
+  let src = String(text ?? '');
+  const fences = [];
+  src = src.replace(/`([a-zA-Z0-9_+-]*)\r?\n?([\s\S]*?)`/g, (_, lang, code) => {
+    const i = fences.length;
+    fences.push({lang: (lang||'').trim() || 'text', code: code.replace(/\n$/, '')});
+    return \u0000FENCE1\u0000;
+  });
+  let html = escapeHtml(src);
+  // inline code
+  html = html.replace(/([^\n]+)/g, (_, c) => <code class="inline-code"></code>);
+  // bold/italic light
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong></strong>');
+  html = html.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<em></em>');
+  // paragraphs / line breaks for non-fence text
+  html = html.split(/\n{2,}/).map(block=>{
+    if(/\u0000FENCE\d+\u0000/.test(block)) return block.replace(/\n/g,'<br>');
+    return <p></p>;
+  }).join('');
+  // restore fences as copyable blocks
+  html = html.replace(/\u0000FENCE(\d+)\u0000/g, (_, n) => {
+    const f = fences[Number(n)] || {lang:'text', code:''};
+    const id = 'cb'+Math.random().toString(36).slice(2,9);
+    return <div class="code-block" data-code-id="">+
+      <div class="code-head"><span></span>+
+      <button type="button" class="copy-btn" data-copy-target="">Copy</button></div>+
+      <pre><code id=""></code></pre></div>;
+  });
+  return html;
+}
+function wireCopyButtons(root){
+  root.querySelectorAll('.copy-btn[data-copy-target]').forEach(btn=>{
+    btn.onclick = async ()=>{
+      const id = btn.getAttribute('data-copy-target');
+      const el = document.getElementById(id);
+      const text = el ? el.textContent : '';
+      try{
+        await copyTextToClipboard(text);
+        const prev = btn.textContent;
+        btn.textContent = 'Copied';
+        btn.classList.add('copied');
+        setTimeout(()=>{ btn.textContent = prev; btn.classList.remove('copied'); }, 1400);
+        dbgLog('Copied code block ('+text.length+' chars)');
+      }catch(e){ showError('Copy failed: '+e.message); }
+    };
+  });
+}
+function addMessage(text,sender,tag){
+  const div=document.createElement('div');
+  div.className='msg '+sender;
+  if(tag){const t=document.createElement('span');t.className='tag';t.textContent=tag;div.appendChild(t)}
+  const span=document.createElement('span');
+  span.className='body';
+  if(sender==='vaelor'){
+    span.innerHTML = renderMarkdown(text);
+    wireCopyButtons(span);
+  }else{
+    span.textContent = text;
+  }
+  div.appendChild(span);
+  if(sender==='vaelor'){
+    const actions=document.createElement('div');
+    actions.className='msg-actions';
+    const b=document.createElement('button');
+    b.className='copy-btn';
+    b.textContent='Read aloud';
+    b.onclick=()=>speakText(text);
+    actions.appendChild(b);
+    const c=document.createElement('button');
+    c.className='copy-btn';
+    c.textContent='Copy message';
+    c.onclick=async()=>{
+      try{ await copyTextToClipboard(text); c.textContent='Copied'; c.classList.add('copied'); setTimeout(()=>{c.textContent='Copy message';c.classList.remove('copied')},1200);}catch(e){showError(e.message)}
+    };
+    actions.appendChild(c);
+    div.appendChild(actions);
+  }
+  chat.appendChild(div);
+  chat.scrollTop=chat.scrollHeight;
+  return {div,span};
+}
+const clientDebugLog=[];
+function dbgLog(msg){
+  const line = [] fix(ui): stop tome cover freeze on Continue/open
+
+Open cover immediately without waiting on greeting TTS or sidebar loads.
+Continue/Skip now force-open the archive instead of leaving users stuck.
+
+Co-Authored-By: Oz <oz-agent@warp.dev>;
+  clientDebugLog.push(line);
+  if(clientDebugLog.length>300) clientDebugLog.shift();
+  const body=dbgBody;
+  if(body && body.dataset.live==='1'){ /* refreshed wholesale */ }
+  console.log('[Vaelor]', msg);
+}
+async function refreshDebugConsole(){
+  const body=dbgBody;
+  if(!body) return;
+  body.textContent = 'Consulting health, backends, and host diagnostics…';
+  const lines=[];
+  const push=(k,v)=>lines.push(k+': '+v);
+  try{
+    const res=await fetch('/diagnostics');
+    const d=await res.json();
+    push('API', res.ok?'OK':'HTTP '+res.status);
+    push('Time', d.time||'—');
+    push('Version', d.version||'—');
+    if(d.health){
+      push('Server', d.health.status||'—');
+      push('Name', d.health.name||'—');
+      push('Voice', d.health.voice||'—');
+    }
+    const ms=d.model_summary||{};
+    push('Ollama running', String(!!ms.ollama_running));
+    push('Ollama models', (ms.ollama_models||[]).join(', ')||'(none)');
+    push('LM Studio running', String(!!ms.lmstudio_running));
+    push('LM Studio models', (ms.lmstudio_models||[]).join(', ')||'(none)');
+    push('Any local model', String(!!ms.any_model));
+    if(d.network){
+      push('Bind host', d.network.host||'—');
+      push('Bind port', String(d.network.port||'—'));
+      push('URL', d.network.url||'—');
+    }
+    push('Tools registered', String(d.tools_count||0));
+    if(d.hardware){
+      push('CPU', d.hardware.cpu||'—');
+      push('RAM GB', String(d.hardware.ram_gb??'—'));
+      push('VRAM GB', String(d.hardware.vram_gb??'—'));
+    }
+    if(d.recommendation){
+      push('Model tier advice', d.recommendation.plain_english||d.recommendation.recommended_primary||'—');
+      push('Suggested pulls', (d.recommendation.suggested_ollama_pulls||[]).join(', ')||'—');
+    }
+    if(d.system){
+      lines.push('--- host ---');
+      lines.push(String(d.system));
+    }
+    if(d.errors && d.errors.length){
+      lines.push('--- server notes ---');
+      d.errors.forEach(e=>lines.push('! '+e));
+    }
+  }catch(e){
+    lines.push('diagnostics endpoint failed: '+e.message);
+    try{
+      const h=await fetch('/health'); const hj=await h.json();
+      lines.push('fallback /health: '+JSON.stringify(hj));
+    }catch(e2){ lines.push('health failed: '+e2.message); }
+    try{
+      const s=await fetch('/setup'); const sj=await s.json();
+      const b=sj.backends||{};
+      lines.push('ollama: '+JSON.stringify(b.ollama||{}));
+      lines.push('lmstudio: '+JSON.stringify(b.lmstudio||{}));
+    }catch(e3){ lines.push('setup/backends failed: '+e3.message); }
+  }
+  lines.push('--- browser client ---');
+  lines.push('page='+location.href);
+  lines.push('desktop='+String(!!window.VAELOR_DESKTOP));
+  lines.push('sessionId='+String(sessionId||''));
+  lines.push('speakReplies='+String(speakReplies)+' stream='+String(useStream));
+  lines.push('selectedVoice='+String(selectedVoice||''));
+  lines.push('SpeechRecognition='+(SpeechRecognition?'yes':'no'));
+  lines.push('userAgent='+navigator.userAgent);
+  if(clientDebugLog.length){
+    lines.push('--- client log ---');
+    lines.push(...clientDebugLog.slice(-40));
+  }
+  body.textContent = lines.join('\n');
+  body.dataset.live='1';
+}
+function openDebugConsole(){
+  const el=debugConsole;
+  if(!el) return;
+  el.classList.add('open');
+  const b=debugBtn; if(b) b.classList.add('active');
+  refreshDebugConsole();
+}
+function closeDebugConsole(){
+  const el=debugConsole;
+  if(el) el.classList.remove('open');
+  const b=debugBtn; if(b) b.classList.remove('active');
+}
+
 async function loadStatus(){try{const res=await fetch('/health');const data=await res.json();statusConnection.textContent='Online';statusConnection.className='status-online';statusName.textContent=data.name||'—';statusLlm.textContent=((data.llm&&data.llm.active_provider)||'local')+' / '+((data.llm&&data.llm.primary_model)||'vaelor-prime');if(data.voice&&data.voice.default_voice)statusVoice.textContent=data.voice.default_voice;$('headerSubtitle').textContent=data.title||'';orb.classList.remove('offline')}catch{statusConnection.textContent='Offline';statusConnection.className='status-offline';orb.classList.add('offline')}}
 async function loadVoices(){try{const res=await fetch('/voice/voices');const data=await res.json();voiceSelect.innerHTML='';(data.voices||[]).forEach(v=>{const o=document.createElement('option');o.value=v.id;o.textContent=v.label;voiceSelect.appendChild(o)});selectedVoice=(data.settings&&data.settings.voice)||(data.voices[0]&&data.voices[0].id);if(selectedVoice)voiceSelect.value=selectedVoice}catch{voiceSelect.innerHTML='<option value="en-GB-RyanNeural">Ryan — wizard default</option>';selectedVoice='en-GB-RyanNeural'}}
 async function loadTools(){try{const res=await fetch('/tools');const data=await res.json();const tools=data.tools||[];toolList.innerHTML=tools.length?'':'<p class="muted">No tools bound to the archive.</p>';tools.forEach(tool=>{const c=document.createElement('div');c.className='tool-card';c.innerHTML=`<span class="tool-name">${escapeHtml(tool.name)}</span><span class="badge badge-readonly">${tool.read_only?'read-only':'approval'}</span><div class="tool-desc">${escapeHtml(tool.description||'')}</div>`;toolList.appendChild(c)})}catch{toolList.innerHTML='<p class="muted">Could not consult the tool registry.</p>'}}
@@ -730,7 +998,7 @@ try{
     if(!res.ok)throw new Error('chat '+res.status);const data=await res.json();chat.removeChild(thinking.div);addMessage(data.response,'vaelor',data.mode);if(speakReplies&&!callActive)await speakText(data.response)
   }
   loadProposals();loadTools();loadSessions();
-}catch(err){try{chat.removeChild(thinking.div)}catch(_){}showError('The archive could not be reached: '+err.message)}
+}catch(err){try{chat.removeChild(thinking.div)}catch(_){}dbgLog('chat error: '+err.message); showError('The archive could not be reached: '+err.message)}
 busy=false;sendBtn.disabled=false;orb.classList.remove('thinking');inputBox.focus()}
 function createRecognition(continuous){
   if(!SpeechRecognition) return null;

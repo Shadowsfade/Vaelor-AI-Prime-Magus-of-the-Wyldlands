@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.4-alpha] — 2026-08-03
+### Added
+- **Debug Console** (header Debug): /diagnostics for models/backends/host/client log
+- **Copyable code blocks** in Vaelor replies (fenced ` + Copy), plus Copy message
+### Fixed
+- Tome cover Continue/open no longer freezes waiting on TTS/API
+---
+
 ## [1.1.2-alpha] — 2026-08-03
 ### Added
 - File CRUD tools (list/read/write/patch/delete/mkdir) under allowed roots; OS core protected

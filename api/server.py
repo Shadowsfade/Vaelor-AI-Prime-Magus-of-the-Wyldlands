@@ -520,6 +520,77 @@ def setup_pull_model(payload: dict):
     return {"result": try_pull_ollama_model(model)}
 
 
+
+
+@app.get("/diagnostics")
+def diagnostics():
+    """Client/model/host diagnostics for the Debug Console."""
+    import json as _json
+    from pathlib import Path as _Path
+    info = {
+        "ok": True,
+        "time": __import__("datetime").datetime.now().isoformat(),
+        "version": "1.1.4-alpha",
+        "health": None,
+        "backends": None,
+        "network": None,
+        "system": None,
+        "tools_count": 0,
+        "errors": [],
+    }
+    try:
+        settings = get_voice_settings()
+        info["health"] = {
+            "status": "online",
+            "name": runtime.name,
+            "title": runtime.title,
+            "voice": settings.get("voice"),
+            "provider": "edge-tts",
+        }
+    except Exception as e:
+        info["errors"].append(f"health: {e}")
+    try:
+        info["backends"] = detect_backends()
+    except Exception as e:
+        info["errors"].append(f"backends: {e}")
+    try:
+        net_path = _Path(__file__).resolve().parents[1] / "config" / "network.json"
+        if net_path.exists():
+            info["network"] = _json.loads(net_path.read_text(encoding="utf-8-sig"))
+    except Exception as e:
+        info["errors"].append(f"network: {e}")
+    try:
+        from core.tools.diagnostics_tools import system_status
+        info["system"] = system_status()
+    except Exception as e:
+        info["errors"].append(f"system: {e}")
+    try:
+        info["tools_count"] = len(tool_registry.list_tools())
+        info["tools"] = [t.get("name") for t in tool_registry.list_tools()]
+    except Exception as e:
+        info["errors"].append(f"tools: {e}")
+    try:
+        from core.hardware import scan_hardware, recommend_models
+        hw = scan_hardware()
+        info["hardware"] = hw
+        info["recommendation"] = recommend_models(hw)
+    except Exception as e:
+        info["errors"].append(f"hardware: {e}")
+    # Ollama/LM quick probe summary
+    b = info.get("backends") or {}
+    o = b.get("ollama") or {}
+    l = b.get("lmstudio") or {}
+    info["model_summary"] = {
+        "ollama_running": bool(o.get("running") or o.get("ok")),
+        "ollama_models": o.get("models") or [],
+        "lmstudio_running": bool(l.get("running") or l.get("ok")),
+        "lmstudio_models": l.get("models") or [],
+        "any_model": bool((o.get("models") or l.get("models"))),
+    }
+    info["ok"] = len(info["errors"]) == 0 or info["model_summary"]["any_model"] or True
+    return info
+
+
 app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")
 
 
