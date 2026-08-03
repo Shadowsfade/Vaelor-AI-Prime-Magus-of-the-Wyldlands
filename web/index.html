@@ -768,151 +768,166 @@ function stopAudio(){if(currentAudio){try{currentAudio.pause();currentAudio.src=
 function playBase64Audio(b64,mime){return new Promise(resolve=>{if(!b64)return resolve();stopAudio();const a=new Audio('data:'+(mime||'audio/mpeg')+';base64,'+b64);currentAudio=a;a.onended=()=>resolve();a.onerror=()=>resolve();a.play().catch(()=>resolve())})}
 async function speakText(text){if(!speakReplies||!text)return;try{const res=await fetch('/voice/speak',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,voice:selectedVoice||undefined})});if(!res.ok)throw new Error('TTS '+res.status);const blob=await res.blob();stopAudio();const url=URL.createObjectURL(blob);const a=new Audio(url);currentAudio=a;await new Promise(r=>{a.onended=()=>{URL.revokeObjectURL(url);r()};a.onerror=()=>{URL.revokeObjectURL(url);r()};a.play().catch(()=>r())})}catch(e){console.warn(e)}}
 
-function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+
+function escapeHtml(s){
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
 function copyTextToClipboard(text){
   if(navigator.clipboard && navigator.clipboard.writeText){
     return navigator.clipboard.writeText(text);
   }
-  return new Promise((resolve,reject)=>{
+  return new Promise(function(resolve, reject){
     try{
-      const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.left='-9999px';
-      document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);resolve();
-    }catch(e){reject(e)}
+      var ta=document.createElement('textarea');
+      ta.value=text;
+      ta.style.position='fixed';
+      ta.style.left='-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      resolve();
+    }catch(e){ reject(e); }
   });
 }
 function renderMarkdown(text){
-  // Escape first, then restore fenced code + inline code + light formatting
-  let src = String(text ?? '');
-  const fences = [];
-  src = src.replace(/`([a-zA-Z0-9_+-]*)\r?\n?([\s\S]*?)`/g, (_, lang, code) => {
-    const i = fences.length;
-    fences.push({lang: (lang||'').trim() || 'text', code: code.replace(/\n$/, '')});
-    return \u0000FENCE1\u0000;
+  var src = String(text == null ? '' : text);
+  var fences = [];
+  src = src.replace(/```([a-zA-Z0-9_+-]*)\r?\n?([\s\S]*?)```/g, function(_, lang, code){
+    var i = fences.length;
+    fences.push({lang: (lang || '').trim() || 'text', code: String(code || '').replace(/\n$/, '')});
+    return '\0FENCE' + i + '\0';
   });
-  let html = escapeHtml(src);
-  // inline code
-  html = html.replace(/([^\n]+)/g, (_, c) => <code class="inline-code"></code>);
-  // bold/italic light
-  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong></strong>');
-  html = html.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<em></em>');
-  // paragraphs / line breaks for non-fence text
-  html = html.split(/\n{2,}/).map(block=>{
-    if(/\u0000FENCE\d+\u0000/.test(block)) return block.replace(/\n/g,'<br>');
-    return <p></p>;
+  var html = escapeHtml(src);
+  html = html.replace(/`([^`\n]+)`/g, function(_, c){
+    return '<code class="inline-code">' + c + '</code>';
+  });
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
+  html = html.split(/\n{2,}/).map(function(block){
+    if(/\0FENCE\d+\0/.test(block)) return block.replace(/\n/g, '<br>');
+    return '<p>' + block.replace(/\n/g, '<br>') + '</p>';
   }).join('');
-  // restore fences as copyable blocks
-  html = html.replace(/\u0000FENCE(\d+)\u0000/g, (_, n) => {
-    const f = fences[Number(n)] || {lang:'text', code:''};
-    const id = 'cb'+Math.random().toString(36).slice(2,9);
-    return <div class="code-block" data-code-id="">+
-      <div class="code-head"><span></span>+
-      <button type="button" class="copy-btn" data-copy-target="">Copy</button></div>+
-      <pre><code id=""></code></pre></div>;
+  html = html.replace(/\0FENCE(\d+)\0/g, function(_, n){
+    var f = fences[Number(n)] || {lang:'text', code:''};
+    var id = 'cb' + Math.random().toString(36).slice(2, 9);
+    return '<div class="code-block">' +
+      '<div class="code-head"><span>' + escapeHtml(f.lang) + '</span>' +
+      '<button type="button" class="copy-btn" data-copy-target="' + id + '">Copy</button></div>' +
+      '<pre><code id="' + id + '">' + escapeHtml(f.code) + '</code></pre></div>';
   });
   return html;
 }
 function wireCopyButtons(root){
-  root.querySelectorAll('.copy-btn[data-copy-target]').forEach(btn=>{
-    btn.onclick = async ()=>{
-      const id = btn.getAttribute('data-copy-target');
-      const el = document.getElementById(id);
-      const text = el ? el.textContent : '';
+  if(!root) return;
+  root.querySelectorAll('.copy-btn[data-copy-target]').forEach(function(btn){
+    btn.onclick = async function(){
+      var id = btn.getAttribute('data-copy-target');
+      var el = document.getElementById(id);
+      var text = el ? el.textContent : '';
       try{
         await copyTextToClipboard(text);
-        const prev = btn.textContent;
+        var prev = btn.textContent;
         btn.textContent = 'Copied';
         btn.classList.add('copied');
-        setTimeout(()=>{ btn.textContent = prev; btn.classList.remove('copied'); }, 1400);
-        dbgLog('Copied code block ('+text.length+' chars)');
-      }catch(e){ showError('Copy failed: '+e.message); }
+        setTimeout(function(){ btn.textContent = prev; btn.classList.remove('copied'); }, 1400);
+        if(typeof dbgLog === 'function') dbgLog('Copied code block (' + text.length + ' chars)');
+      }catch(e){ showError('Copy failed: ' + e.message); }
     };
   });
 }
-function addMessage(text,sender,tag){
-  const div=document.createElement('div');
-  div.className='msg '+sender;
-  if(tag){const t=document.createElement('span');t.className='tag';t.textContent=tag;div.appendChild(t)}
-  const span=document.createElement('span');
-  span.className='body';
-  if(sender==='vaelor'){
+function addMessage(text, sender, tag){
+  var div = document.createElement('div');
+  div.className = 'msg ' + sender;
+  if(tag){
+    var tg = document.createElement('span');
+    tg.className = 'tag';
+    tg.textContent = tag;
+    div.appendChild(tg);
+  }
+  var span = document.createElement('span');
+  span.className = 'body';
+  if(sender === 'vaelor'){
     span.innerHTML = renderMarkdown(text);
     wireCopyButtons(span);
-  }else{
+  } else {
     span.textContent = text;
   }
   div.appendChild(span);
-  if(sender==='vaelor'){
-    const actions=document.createElement('div');
-    actions.className='msg-actions';
-    const b=document.createElement('button');
-    b.className='copy-btn';
-    b.textContent='Read aloud';
-    b.onclick=()=>speakText(text);
+  if(sender === 'vaelor'){
+    var actions = document.createElement('div');
+    actions.className = 'msg-actions';
+    var b = document.createElement('button');
+    b.className = 'copy-btn';
+    b.textContent = 'Read aloud';
+    b.onclick = function(){ speakText(text); };
     actions.appendChild(b);
-    const c=document.createElement('button');
-    c.className='copy-btn';
-    c.textContent='Copy message';
-    c.onclick=async()=>{
-      try{ await copyTextToClipboard(text); c.textContent='Copied'; c.classList.add('copied'); setTimeout(()=>{c.textContent='Copy message';c.classList.remove('copied')},1200);}catch(e){showError(e.message)}
+    var c = document.createElement('button');
+    c.className = 'copy-btn';
+    c.textContent = 'Copy message';
+    c.onclick = async function(){
+      try{
+        await copyTextToClipboard(text);
+        c.textContent = 'Copied';
+        c.classList.add('copied');
+        setTimeout(function(){ c.textContent = 'Copy message'; c.classList.remove('copied'); }, 1200);
+      }catch(e){ showError(e.message); }
     };
     actions.appendChild(c);
     div.appendChild(actions);
   }
   chat.appendChild(div);
-  chat.scrollTop=chat.scrollHeight;
-  return {div,span};
+  chat.scrollTop = chat.scrollHeight;
+  return {div: div, span: span};
 }
-const clientDebugLog=[];
+const clientDebugLog = [];
 function dbgLog(msg){
-  const line = [] fix(ui): stop tome cover freeze on Continue/open
-
-Open cover immediately without waiting on greeting TTS or sidebar loads.
-Continue/Skip now force-open the archive instead of leaving users stuck.
-
-Co-Authored-By: Oz <oz-agent@warp.dev>;
+  var line = '[' + new Date().toLocaleTimeString() + '] ' + msg;
   clientDebugLog.push(line);
-  if(clientDebugLog.length>300) clientDebugLog.shift();
-  const body=dbgBody;
-  if(body && body.dataset.live==='1'){ /* refreshed wholesale */ }
+  if(clientDebugLog.length > 300) clientDebugLog.shift();
   console.log('[Vaelor]', msg);
 }
 async function refreshDebugConsole(){
-  const body=dbgBody;
+  var body = $('dbgBody');
   if(!body) return;
-  body.textContent = 'Consulting health, backends, and host diagnostics…';
-  const lines=[];
-  const push=(k,v)=>lines.push(k+': '+v);
+  body.textContent = 'Consulting health, backends, and host diagnostics...';
+  var lines = [];
+  function push(k,v){ lines.push(k + ': ' + v); }
   try{
-    const res=await fetch('/diagnostics');
-    const d=await res.json();
-    push('API', res.ok?'OK':'HTTP '+res.status);
-    push('Time', d.time||'—');
-    push('Version', d.version||'—');
+    var res = await fetch('/diagnostics');
+    var d = await res.json();
+    push('API', res.ok ? 'OK' : ('HTTP ' + res.status));
+    push('Time', d.time || '-');
+    push('Version', d.version || '-');
     if(d.health){
-      push('Server', d.health.status||'—');
-      push('Name', d.health.name||'—');
-      push('Voice', d.health.voice||'—');
+      push('Server', d.health.status || '-');
+      push('Name', d.health.name || '-');
+      push('Voice', d.health.voice || '-');
     }
-    const ms=d.model_summary||{};
+    var ms = d.model_summary || {};
     push('Ollama running', String(!!ms.ollama_running));
-    push('Ollama models', (ms.ollama_models||[]).join(', ')||'(none)');
+    push('Ollama models', (ms.ollama_models || []).join(', ') || '(none)');
     push('LM Studio running', String(!!ms.lmstudio_running));
-    push('LM Studio models', (ms.lmstudio_models||[]).join(', ')||'(none)');
+    push('LM Studio models', (ms.lmstudio_models || []).join(', ') || '(none)');
     push('Any local model', String(!!ms.any_model));
     if(d.network){
-      push('Bind host', d.network.host||'—');
-      push('Bind port', String(d.network.port||'—'));
-      push('URL', d.network.url||'—');
+      push('Bind host', d.network.host || '-');
+      push('Bind port', String(d.network.port || '-'));
+      push('URL', d.network.url || '-');
     }
-    push('Tools registered', String(d.tools_count||0));
+    push('Tools registered', String(d.tools_count || 0));
     if(d.hardware){
-      push('CPU', d.hardware.cpu||'—');
-      push('RAM GB', String(d.hardware.ram_gb??'—'));
-      push('VRAM GB', String(d.hardware.vram_gb??'—'));
+      push('CPU', d.hardware.cpu || '-');
+      push('RAM GB', String(d.hardware.ram_gb != null ? d.hardware.ram_gb : '-'));
+      push('VRAM GB', String(d.hardware.vram_gb != null ? d.hardware.vram_gb : '-'));
     }
     if(d.recommendation){
-      push('Model tier advice', d.recommendation.plain_english||d.recommendation.recommended_primary||'—');
-      push('Suggested pulls', (d.recommendation.suggested_ollama_pulls||[]).join(', ')||'—');
+      push('Model tier advice', d.recommendation.plain_english || d.recommendation.recommended_primary || '-');
+      push('Suggested pulls', (d.recommendation.suggested_ollama_pulls || []).join(', ') || '-');
     }
     if(d.system){
       lines.push('--- host ---');
@@ -920,47 +935,47 @@ async function refreshDebugConsole(){
     }
     if(d.errors && d.errors.length){
       lines.push('--- server notes ---');
-      d.errors.forEach(e=>lines.push('! '+e));
+      d.errors.forEach(function(e){ lines.push('! ' + e); });
     }
   }catch(e){
-    lines.push('diagnostics endpoint failed: '+e.message);
+    lines.push('diagnostics endpoint failed: ' + e.message);
     try{
-      const h=await fetch('/health'); const hj=await h.json();
-      lines.push('fallback /health: '+JSON.stringify(hj));
-    }catch(e2){ lines.push('health failed: '+e2.message); }
+      var h = await fetch('/health'); var hj = await h.json();
+      lines.push('fallback /health: ' + JSON.stringify(hj));
+    }catch(e2){ lines.push('health failed: ' + e2.message); }
     try{
-      const s=await fetch('/setup'); const sj=await s.json();
-      const b=sj.backends||{};
-      lines.push('ollama: '+JSON.stringify(b.ollama||{}));
-      lines.push('lmstudio: '+JSON.stringify(b.lmstudio||{}));
-    }catch(e3){ lines.push('setup/backends failed: '+e3.message); }
+      var sres = await fetch('/setup'); var sj = await sres.json();
+      var b = sj.backends || {};
+      lines.push('ollama: ' + JSON.stringify(b.ollama || {}));
+      lines.push('lmstudio: ' + JSON.stringify(b.lmstudio || {}));
+    }catch(e3){ lines.push('setup/backends failed: ' + e3.message); }
   }
   lines.push('--- browser client ---');
-  lines.push('page='+location.href);
-  lines.push('desktop='+String(!!window.VAELOR_DESKTOP));
-  lines.push('sessionId='+String(sessionId||''));
-  lines.push('speakReplies='+String(speakReplies)+' stream='+String(useStream));
-  lines.push('selectedVoice='+String(selectedVoice||''));
-  lines.push('SpeechRecognition='+(SpeechRecognition?'yes':'no'));
-  lines.push('userAgent='+navigator.userAgent);
+  lines.push('page=' + location.href);
+  lines.push('desktop=' + String(!!window.VAELOR_DESKTOP));
+  lines.push('sessionId=' + String(sessionId || ''));
+  lines.push('speakReplies=' + String(speakReplies) + ' stream=' + String(useStream));
+  lines.push('selectedVoice=' + String(selectedVoice || ''));
+  lines.push('SpeechRecognition=' + (SpeechRecognition ? 'yes' : 'no'));
+  lines.push('userAgent=' + navigator.userAgent);
   if(clientDebugLog.length){
     lines.push('--- client log ---');
-    lines.push(...clientDebugLog.slice(-40));
+    lines = lines.concat(clientDebugLog.slice(-40));
   }
   body.textContent = lines.join('\n');
-  body.dataset.live='1';
+  body.dataset.live = '1';
 }
 function openDebugConsole(){
-  const el=debugConsole;
+  var el = $('debugConsole');
   if(!el) return;
   el.classList.add('open');
-  const b=debugBtn; if(b) b.classList.add('active');
+  var b = $('debugBtn'); if(b) b.classList.add('active');
   refreshDebugConsole();
 }
 function closeDebugConsole(){
-  const el=debugConsole;
+  var el = $('debugConsole');
   if(el) el.classList.remove('open');
-  const b=debugBtn; if(b) b.classList.remove('active');
+  var b = $('debugBtn'); if(b) b.classList.remove('active');
 }
 
 async function loadStatus(){try{const res=await fetch('/health');const data=await res.json();statusConnection.textContent='Online';statusConnection.className='status-online';statusName.textContent=data.name||'—';statusLlm.textContent=((data.llm&&data.llm.active_provider)||'local')+' / '+((data.llm&&data.llm.primary_model)||'vaelor-prime');if(data.voice&&data.voice.default_voice)statusVoice.textContent=data.voice.default_voice;$('headerSubtitle').textContent=data.title||'';orb.classList.remove('offline')}catch{statusConnection.textContent='Offline';statusConnection.className='status-offline';orb.classList.add('offline')}}
@@ -1447,12 +1462,12 @@ async function bootInstallerFlow(){
 if(cover){
   cover.addEventListener('click', function(e){
     // only if still closed
-    if(!tomeOpened) openTome();
+    if(!tomeOpened) openTome(true);
   });
 }
 if(closedBook){
-  closedBook.addEventListener('click', function(e){ e.preventDefault(); openTome(); });
-  closedBook.addEventListener('keydown', function(e){ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); openTome(); } });
+  closedBook.addEventListener('click', function(e){ e.preventDefault(); openTome(true); });
+  closedBook.addEventListener('keydown', function(e){ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); openTome(true); } });
   closedBook.tabIndex = 0;
   closedBook.setAttribute('role','button');
   closedBook.style.cursor = 'pointer';
@@ -1566,6 +1581,7 @@ if(streamToggle) streamToggle.classList.add('active');
   } catch (e) { console.warn('desktopMode', e); }
 })();
 
+bootInstallerFlow();
 console.log('[Vaelor UI] tome open handlers restored');
 </script>
 </body>
