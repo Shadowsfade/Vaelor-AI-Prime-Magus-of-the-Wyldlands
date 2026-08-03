@@ -1488,6 +1488,26 @@ if(streamToggle) streamToggle.onclick = function(){
 };
 const setupBtn = $('setupBtn');
 if(setupBtn) setupBtn.onclick = function(){ openWizard(true); };
+
+const debugBtn = $('debugBtn');
+if(debugBtn) debugBtn.onclick = function(){
+  const el=$('debugConsole');
+  if(el && el.classList.contains('open')) closeDebugConsole(); else openDebugConsole();
+};
+const dbgClose=$('dbgClose'); if(dbgClose) dbgClose.onclick=closeDebugConsole;
+const dbgRefresh=$('dbgRefresh'); if(dbgRefresh) dbgRefresh.onclick=()=>refreshDebugConsole();
+const dbgCopy=$('dbgCopy'); if(dbgCopy) dbgCopy.onclick=async()=>{
+  const body=$('dbgBody'); if(!body) return;
+  try{ await copyTextToClipboard(body.textContent||''); dbgCopy.textContent='Copied'; setTimeout(()=>dbgCopy.textContent='Copy all',1200);}catch(e){showError(e.message)}
+};
+const dbgPing=$('dbgPing'); if(dbgPing) dbgPing.onclick=async()=>{
+  try{ const r=await fetch('/health'); const j=await r.json(); dbgLog('health '+r.status+' '+JSON.stringify(j)); refreshDebugConsole(); }catch(e){ dbgLog('health fail '+e.message); refreshDebugConsole(); }
+};
+const dbgBackends=$('dbgBackends'); if(dbgBackends) dbgBackends.onclick=async()=>{
+  try{ const r=await fetch('/setup/backends'); const j=await r.json(); dbgLog('backends '+JSON.stringify(j)); refreshDebugConsole(); }catch(e){ dbgLog('backends fail '+e.message); refreshDebugConsole(); }
+};
+const dbgClear=$('dbgClearClient'); if(dbgClear) dbgClear.onclick=()=>{ clientDebugLog.length=0; refreshDebugConsole(); };
+
 const newSessionBtn = $('newSessionBtn');
 if(newSessionBtn) newSessionBtn.onclick = function(){ newSession(); };
 if(speakToggle) speakToggle.classList.add('active');
