@@ -60,6 +60,9 @@ body::after{
   transition: opacity 1.2s ease, visibility 1.2s ease;
 }
 #cover.hidden{opacity:0; visibility:hidden; pointer-events:none}
+/* cover open fix */
+#cover.hidden,#cover.hidden *{pointer-events:none !important}
+#app.visible{pointer-events:auto}
 #cover.boot-locked .book-closed{opacity:.35; filter:grayscale(.3); pointer-events:none}
 #cover.boot-locked .cover-hint{opacity:1}
 #cover .cover-hint.setup-wait{animation:pulse 1.6s ease-in-out infinite}
@@ -1045,29 +1048,24 @@ async function openWizard(force=false, bootMode=false){
       wizardCard.querySelector('#wizOpenOllama').onclick = ()=> window.open('https://ollama.com/download', '_blank');
       wizardCard.querySelector('#wizOpenLM').onclick = ()=> window.open('https://lmstudio.ai/', '_blank');
       wizardCard.querySelector('#wizSkip').onclick = async ()=>{
-        // allow skip only unlocks cover; still mark incomplete unless model ready
         wizard.classList.remove('active');
-        setCoverLocked(false, readyNow ? 'Model detected. Touch the tome to open…' : 'No model detected — touch tome anyway (chat may fail)…');
+        setCoverLocked(false, readyNow ? 'Opening…' : 'Opening without model — chat may fail…');
+        try{ await openTome(true); }catch(e){ console.warn(e); }
       };
       wizardCard.querySelector('#wizSave').onclick = async ()=>{
         model = wizardCard.querySelector('#wizModel').value.trim() || model;
+        const btn = wizardCard.querySelector('#wizSave');
+        if(btn){ btn.disabled = true; btn.textContent = 'Opening…'; }
         try{
           await fetch('/setup/complete', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ provider:selected, model }) });
         }catch(_){}
-        // re-check readiness
-        let ready = readyNow;
-        try{
-          const again = await fetch('/setup');
-          if(again.ok){
-            const d2 = await again.json();
-            ready = (await modelIsReady(d2)).ready;
-          }
-        }catch(_){}
         wizard.classList.remove('active');
-        if(ready){
-          setCoverLocked(false, 'Model detected. Touch the tome to open…');
-        } else {
-          setCoverLocked(false, 'Setup saved. Touch the tome to open…');
+        setCoverLocked(false, 'Opening the Grand Archive…');
+        // Always open tome now — do not leave user stuck on cover
+        try{ await openTome(true); }catch(e){
+          console.warn(e);
+          setCoverLocked(false, 'Touch the tome to open…');
+          if(btn){ btn.disabled = false; btn.textContent = readyNow ? 'Continue to Tome Cover' : 'Save & Continue'; }
         }
       };
     };
@@ -1088,45 +1086,69 @@ async function openWizard(force=false, bootMode=false){
   }
 }
 
-async function openTome(){
+async function openTome(force=false){
   if(tomeOpened) return;
-  // Block opening until cover unlocked (model/setup path)
-  if(cover && cover.classList.contains('boot-locked')){
-    showError('Complete setup and detect a local model first.');
-    openWizard(true, true);
+  // Allow forced open after setup Continue; otherwise respect lock
+  if(!force && cover && cover.classList.contains('boot-locked')){
+    showError('Complete setup first, or click Continue / Skip on the setup grimoire.');
+    try{ openWizard(true, true); }catch(_){ }
     return;
   }
+  // Unlock if forcing
+  if(force) setCoverLocked(false, 'Opening the archive…');
   tomeOpened = true;
-  if(closedBook) closedBook.classList.add('open');
-  setTimeout(async ()=>{
-    if(cover) cover.classList.add('hidden');
-    if(app) app.classList.add('visible');
+  if(closedBook){
+    closedBook.classList.add('open');
+    closedBook.style.pointerEvents = 'none';
+  }
+  // Reveal UI immediately so cover never freezes waiting on network/TTS
+  const reveal = ()=>{
     try{
-      await Promise.all([
+      if(cover){ cover.classList.add('hidden'); cover.style.pointerEvents='none'; }
+      if(app) app.classList.add('visible');
+      if(wizard) wizard.classList.remove('active');
+    }catch(_){ }
+  };
+  // short open animation then reveal
+  setTimeout(reveal, 280);
+
+  // Background loads — never block cover dismissal
+  (async ()=>{
+    const withTimeout = (p, ms)=>{
+      return Promise.race([
+        p,
+        new Promise((resolve)=> setTimeout(()=>resolve(null), ms))
+      ]);
+    };
+    try{
+      await withTimeout(Promise.allSettled([
         loadStatus(),
         loadVoices(),
         loadTools(),
         loadSpells(),
         loadProposals(),
         loadSessions()
-      ]);
+      ]), 4000);
     }catch(e){ console.warn('load', e); }
-    try{ await ensureSession(); }catch(_){ }
-    // do NOT open wizard here — setup already happened at boot
+    try{ await withTimeout(ensureSession(), 2500); }catch(_){ }
+    // Greeting text first; audio non-blocking so UI never stalls
     try{
-      const res = await fetch('/greeting');
-      if(res.ok){
+      const res = await withTimeout(fetch('/greeting'), 5000);
+      if(res && res.ok){
         const data = await res.json();
         if(data.text) addMessage(data.text, 'vaelor', 'greeting');
-        if(data.audio_base64 && speakReplies) await playBase64Audio(data.audio_base64, data.audio_mime);
+        else addMessage('Greetings, Apprentice. The Vaelor Archive awakens.', 'vaelor', 'greeting');
+        if(data.audio_base64 && speakReplies){
+          playBase64Audio(data.audio_base64, data.audio_mime).catch(()=>{});
+        }
       } else {
         addMessage('Greetings, Apprentice. The Vaelor Archive awakens. The fires of knowledge burn brightly.', 'vaelor', 'greeting');
       }
     }catch(_){
       addMessage('Greetings, Apprentice. The Vaelor Archive awakens. The fires of knowledge burn brightly.', 'vaelor', 'greeting');
     }
-    if(inputBox) inputBox.focus();
-  }, 900);
+    try{ if(inputBox) inputBox.focus(); }catch(_){ }
+  })();
 }
 
 async function bootInstallerFlow(){
@@ -1246,10 +1268,10 @@ if(streamToggle) streamToggle.classList.add('active');
           }
         }
         setCoverLocked(false, 'The Archive answers… opening the tome');
-        setTimeout(() => { try { openTome(); } catch(e) { console.warn(e); } }, 700);
+        setTimeout(() => { try { openTome(true); } catch(e) { console.warn(e); } }, 200);
       } catch (e) {
         setCoverLocked(false, 'Touch the tome to open…');
-        setTimeout(() => { try { openTome(); } catch(_){} }, 900);
+        setTimeout(() => { try { openTome(true); } catch(_){} }, 250);
       }
     }
     setTimeout(desktopAutoOpen, 350);
