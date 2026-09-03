@@ -44,7 +44,7 @@ class TaskStore:
         os.replace(temp, self.path)
 
     def create(self, request: str, contract: Optional[dict] = None, session_id: Optional[str] = None,
-               workspace: Optional[str] = None) -> dict:
+               workspace: Optional[str] = None, max_runtime_seconds: Optional[int] = None) -> dict:
         with self._lock:
             tasks = self._read()
             stamp = _now()
@@ -54,6 +54,7 @@ class TaskStore:
                 "contract": contract or {},
                 "session_id": session_id,
                 "workspace": workspace,
+                "max_runtime_seconds": max_runtime_seconds,
                 "status": "pending",
                 "created_at": stamp,
                 "updated_at": stamp,

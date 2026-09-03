@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from core.tools.registry import registry
@@ -323,6 +324,8 @@ def run_agent(
     event_callback: Optional[Callable[[str, Dict[str, Any]], None]] = None,
     should_cancel: Optional[Callable[[], bool]] = None,
     model_retries: int = 2,
+    max_runtime_seconds: int = 900,
+    clock: Callable[[], float] = time.monotonic,
 ) -> str:
     """Autonomous ReAct loop. ask_llm(prompt) -> model text."""
     registry  # loaded
@@ -336,6 +339,8 @@ def run_agent(
     autonomy_mode = _autonomy_mode()
     max_steps = max(3, min(int(max_steps or DEFAULT_MAX_STEPS), 25))
     model_retries = max(0, min(int(model_retries or 0), 3))
+    max_runtime_seconds = max(10, min(int(max_runtime_seconds or 900), 7200))
+    deadline = clock() + max_runtime_seconds
 
     def emit(event_type: str, **data: Any) -> None:
         if event_callback is None:
@@ -352,9 +357,23 @@ def run_agent(
         except Exception:
             return False
 
+    def timed_out() -> bool:
+        return clock() >= deadline
+
+    def timeout_result(phase: str, step_number: int) -> str:
+        emit(
+            "task_timed_out",
+            phase=phase,
+            step=step_number,
+            max_runtime_seconds=max_runtime_seconds,
+        )
+        return f"FINAL_SUMMARY: FAILED Task exceeded its {max_runtime_seconds}s runtime limit."
+
     def ask_model(prompt: str, phase: str, step_number: int) -> str:
         last_error = None
         for attempt in range(model_retries + 1):
+            if timed_out():
+                return timeout_result(f"before_{phase}", step_number)
             if cancelled():
                 emit("cancellation_observed", phase=f"before_{phase}", step=step_number)
                 return "FINAL_SUMMARY: CANCELLED Task cancellation was requested."
@@ -376,6 +395,8 @@ def run_agent(
 
     step = 0
     while step < max_steps:
+        if timed_out():
+            return timeout_result("before_model", step)
         if cancelled():
             emit("cancellation_observed", phase="before_model")
             return "FINAL_SUMMARY: CANCELLED Task cancellation was requested."
@@ -406,6 +427,8 @@ def run_agent(
         prompt = "\n".join(prompt_parts)
 
         reply = ask_model(prompt, "decision", step)
+        if reply.startswith("FINAL_SUMMARY: FAILED Task exceeded its"):
+            return reply
         if reply.upper().startswith("FINAL_SUMMARY: CANCELLED"):
             return reply
         if cancelled():
@@ -449,6 +472,8 @@ def run_agent(
                 continue
             step_failed = False
             for name, kwargs in tools:
+                if timed_out():
+                    return timeout_result("before_tool", step)
                 if cancelled():
                     emit("cancellation_observed", phase="before_tool", step=step, tool=name)
                     return "FINAL_SUMMARY: CANCELLED Task cancellation was requested."
@@ -568,6 +593,8 @@ def run_agent(
             continue
 
     # budget exceeded
+    if timed_out():
+        return timeout_result("before_summary", max_steps)
     if cancelled():
         emit("cancellation_observed", phase="before_summary")
         return "FINAL_SUMMARY: CANCELLED Task cancellation was requested."
@@ -579,6 +606,8 @@ def run_agent(
         + "Return one JSON object with actions=[] and final status SUCCESS or FAILED.\n"
     )
     last = ask_model(summary_prompt, "summary", max_steps)
+    if last.startswith("FINAL_SUMMARY: FAILED Task exceeded its"):
+        return last
     if last.upper().startswith("FINAL_SUMMARY: CANCELLED"):
         return last
     structured = parse_structured_response(last)

@@ -28,7 +28,7 @@ class TaskApiTests(unittest.TestCase):
         })
         self.assertEqual(response.status_code, 200)
         self.brain.prepare_task.assert_called_once_with(
-            "inspect this project", None, "C:/demo"
+            "inspect this project", None, "C:/demo", 900
         )
         self.brain.run_prepared_task.assert_called_once_with("task-1", 8)
 
@@ -65,6 +65,13 @@ class TaskApiTests(unittest.TestCase):
     def test_invalid_step_budget_is_rejected_at_boundary(self):
         response = self.client.post(
             "/tasks", json={"message": "inspect", "max_steps": 1000}
+        )
+        self.assertEqual(response.status_code, 422)
+        self.brain.prepare_task.assert_not_called()
+
+    def test_invalid_runtime_budget_is_rejected_at_boundary(self):
+        response = self.client.post(
+            "/tasks", json={"message": "inspect", "max_runtime_seconds": 2}
         )
         self.assertEqual(response.status_code, 422)
         self.brain.prepare_task.assert_not_called()

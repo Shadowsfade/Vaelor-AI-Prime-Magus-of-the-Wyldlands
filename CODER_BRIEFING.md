@@ -109,6 +109,8 @@ Transient local-model exceptions are retried twice by default. Retry attempts ar
 to the durable task event stream and remain cancellable between attempts.
 Tool observations are bounded per result and across the rolling history so long-running
 tasks do not overwhelm smaller local-model context windows.
+Tasks also persist a wall-clock runtime budget (default 15 minutes) and cooperatively
+stop between model/tool operations when that deadline is exceeded.
 
 ### 4.5 Access policy — **full_access_os_safe** (1.1.0-alpha)
 User request: broad access for installs/dev; **never fully delete core OS files**.

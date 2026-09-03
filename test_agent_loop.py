@@ -94,6 +94,22 @@ class AgentLoopTests(unittest.TestCase):
             result = run_agent("push changes", model)
         self.assertEqual(result, "FINAL_SUMMARY: FAILED admin required")
         execute.assert_not_called()
+
+    def test_runtime_deadline_stops_before_model(self):
+        model = ScriptedModel(["FINAL_SUMMARY: SUCCESS should not run"])
+        events = []
+        ticks = iter([0.0, 11.0])
+        with patch("core.agent_loop.registry.specs_for_prompt", return_value="tools"):
+            result = run_agent(
+                "inspect",
+                model,
+                max_runtime_seconds=10,
+                clock=lambda: next(ticks),
+                event_callback=lambda event, data: events.append((event, data)),
+            )
+        self.assertIn("exceeded its 10s runtime limit", result)
+        self.assertEqual(model.prompts, [])
+        self.assertEqual(events[0][0], "task_timed_out")
     def test_large_tool_result_keeps_head_and_tail_with_bound(self):
         value = "HEAD" + ("x" * 20000) + "TAIL"
         bounded = _bounded_text(value)

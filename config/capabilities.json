@@ -78,6 +78,10 @@
       "description": "read-only shell diagnostics and verification remain available under supervised policy"
     },
     {
+      "name": "TaskDeadlines",
+      "description": "persisted wall-clock budgets with cooperative model, retry, tool, and summary deadline checks"
+    },
+    {
       "name": "UserAdaptation",
       "description": "provenance-aware preferences and task feedback with user-controlled activation"
     },

@@ -2,6 +2,15 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Task-deadline milestone 18
+- Durable tasks now carry a bounded wall-clock runtime budget in addition to their step
+  budget, configurable through `POST /tasks` from 10 seconds to two hours.
+- The agent checks its deadline before model calls, between retry attempts, before every
+  tool, and before final summarization.
+- Deadline expiry returns an honest failed result and emits a durable `task_timed_out`
+  event with the phase, step, and configured limit.
+- Added deterministic deadline, persistence, and HTTP-boundary tests.
+
 ### Command-aware shell milestone 17
 - Shell actions are now classified from the command itself instead of treating every
   `shell_exec` call as a mutation.

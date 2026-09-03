@@ -264,7 +264,8 @@ class VaelorBrain:
             fallback_should_act=self.wants_action(prompt),
         )
 
-    def act(self, goal, session_id=None, max_steps=12, task_contract=None, task_id=None, workspace=None):
+    def act(self, goal, session_id=None, max_steps=12, task_contract=None, task_id=None,
+            workspace=None, max_runtime_seconds=900):
         """Autonomous ReAct coding worker loop (tools + self-correct + verify)."""
         from core.agent_loop import run_agent
         from spellbook.spell_router import cast_spell
@@ -278,9 +279,12 @@ class VaelorBrain:
             )
         task = self.tasks.get(task_id) if task_id else None
         if task is None:
-            task = self.tasks.create(goal, task_contract.to_dict(), session_id, workspace)
+            task = self.tasks.create(
+                goal, task_contract.to_dict(), session_id, workspace, max_runtime_seconds
+            )
         task_id = task["id"]
         workspace = task.get("workspace") or workspace
+        max_runtime_seconds = task.get("max_runtime_seconds") or max_runtime_seconds
         self.tasks.update(task_id, status="running")
         self.tasks.add_event(task_id, "started", {"goal": task_contract.goal})
 
@@ -310,6 +314,7 @@ class VaelorBrain:
                 require_verification=True,
                 event_callback=lambda event, data: self.tasks.add_event(task_id, event, data),
                 should_cancel=lambda: self.tasks.is_cancelled(task_id),
+                max_runtime_seconds=max_runtime_seconds,
             )
         except Exception as exc:
             self.tasks.add_event(task_id, "crashed", {"error": str(exc)})
@@ -376,7 +381,7 @@ class VaelorBrain:
         })
         return feedback
 
-    def prepare_task(self, request, session_id=None, workspace=None):
+    def prepare_task(self, request, session_id=None, workspace=None, max_runtime_seconds=900):
         """Create a durable task before background execution begins."""
         contract = self.understand_task(request)
         if contract.intent != "act":
@@ -391,7 +396,9 @@ class VaelorBrain:
             )
         if workspace:
             resolve_workspace(workspace)
-        task = self.tasks.create(request, contract.to_dict(), session_id, workspace)
+        task = self.tasks.create(
+            request, contract.to_dict(), session_id, workspace, max_runtime_seconds
+        )
         if contract.needs_clarification:
             self.tasks.update(
                 task["id"],
@@ -418,6 +425,7 @@ class VaelorBrain:
             task_contract=TaskIntent.from_dict(task.get("contract") or {}),
             task_id=task_id,
             workspace=task.get("workspace"),
+            max_runtime_seconds=task.get("max_runtime_seconds") or 900,
         )
 
     def resume_task(self, task_id, max_steps=12):

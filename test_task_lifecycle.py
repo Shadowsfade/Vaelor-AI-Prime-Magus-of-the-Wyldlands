@@ -81,6 +81,11 @@ class TaskLifecycleTests(unittest.TestCase):
         resolve.assert_called_once_with("C:/demo")
         self.assertEqual(task["workspace"], "C:/demo")
 
+    def test_prepare_task_persists_runtime_budget(self):
+        self.brain.understand_task = MagicMock(return_value=self.contract)
+        task = self.brain.prepare_task("inspect project", max_runtime_seconds=120)
+        self.assertEqual(task["max_runtime_seconds"], 120)
+
     def test_prepare_task_records_clarification_wait(self):
         contract = TaskIntent(
             intent="act",
