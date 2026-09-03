@@ -179,6 +179,13 @@ def register_all_tools():
         registry.register("grep_files", "Search contents. query= path=. glob=*.py", True, grep_files)
         registry.register("make_dir", "Create directory. path= confirm=yes", False, make_dir)
         registry.register("delete_path", "Delete file/dir (not OS core). path= recursive=yes|no confirm=yes", False, delete_path, risk="high")
+        from .multi_file_reader import read_many_text_files
+        registry.register(
+            "read_many_text_files",
+            "Read up to 20 allowed-root text files under one context budget. paths=[...] max_total_chars=...",
+            True,
+            read_many_text_files,
+        )
     except Exception as e:
         print("fs_ops register fail", e)
 

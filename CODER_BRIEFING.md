@@ -98,7 +98,7 @@ powershell -ExecutionPolicy Bypass -File .\installer\Build-AlphaPackage.ps1
 
 ### 4.4 Tools & agent autonomy
 Registered tools include (see `GET /tools`):
-- Files: `project_scanner`, `file_reader`, `file_editor_propose`, `stage_file`, `scan_unused_files`, proposals approve/reject
+- Files: `project_scanner`, `file_reader`, `read_many_text_files`, `file_editor_propose`, `stage_file`, `scan_unused_files`, proposals approve/reject
 - Web: `web_search`, `fetch_url`
 - Shell: `shell_exec`, `shell_which`, `set_autonomy_mode`, `get_autonomy_status`, `describe_sandbox`
 - Git: status/diff/log/branch/remote/add/commit/checkout/pull/push (force-push disabled)

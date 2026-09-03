@@ -82,6 +82,10 @@
       "description": "persisted wall-clock budgets with cooperative model, retry, tool, and summary deadline checks"
     },
     {
+      "name": "MultiFileUnderstanding",
+      "description": "allowed-root multi-file source gathering with per-file and total context budgets"
+    },
+    {
       "name": "UserAdaptation",
       "description": "provenance-aware preferences and task feedback with user-controlled activation"
     },
