@@ -43,6 +43,77 @@ class AgentLoopTests(unittest.TestCase):
     def test_unknown_tool_is_a_failure(self):
         self.assertTrue(_looks_failed("Unknown tool: missing_tool"))
 
+    def test_invalid_json_protocol_is_returned_for_correction(self):
+        model = ScriptedModel([
+            '{"thought":"inspect","actions":"wrong","final":null}',
+            '{"thought":"done","actions":[],"final":'
+            '{"status":"SUCCESS","summary":"corrected protocol"}}',
+        ])
+        with patch("core.agent_loop.registry.specs_for_prompt", return_value="tools"):
+            result = run_agent("inspect", model)
+        self.assertEqual(result, "FINAL_SUMMARY: SUCCESS corrected protocol")
+        self.assertIn("invalid action protocol", model.prompts[1].lower())
+
+    def test_structured_action_preserves_argument_types(self):
+        model = ScriptedModel([
+            '{"thought":"inspect","actions":[{"tool":"list_dir","arguments":'
+            '{"path":".","recursive":true}}],"final":null}',
+            '{"thought":"done","actions":[],"final":'
+            '{"status":"SUCCESS","summary":"inspected"}}',
+        ])
+        with (
+            patch("core.agent_loop.registry.specs_for_prompt", return_value="tools"),
+            patch("core.agent_loop.registry.execute", return_value="files") as execute,
+        ):
+            result = run_agent("inspect", model)
+        self.assertEqual(result, "FINAL_SUMMARY: SUCCESS inspected")
+        execute.assert_called_once_with("list_dir", path=".", recursive=True)
+
+    def test_invalid_tool_arguments_are_not_executed(self):
+        model = ScriptedModel([
+            '{"thought":"inspect","actions":[{"tool":"list_dir","arguments":'
+            '{"path":".","not_a_real_argument":true}}],"final":null}',
+            '{"thought":"cannot continue","actions":[],"final":'
+            '{"status":"FAILED","summary":"invalid arguments"}}',
+        ])
+        with (
+            patch("core.agent_loop.registry.specs_for_prompt", return_value="tools"),
+            patch("core.agent_loop.registry.execute") as execute,
+        ):
+            result = run_agent("inspect", model)
+        self.assertEqual(result, "FINAL_SUMMARY: FAILED invalid arguments")
+        execute.assert_not_called()
+
+    def test_confirm_is_not_injected_when_tool_does_not_accept_it(self):
+        model = ScriptedModel([
+            '{"thought":"set mode","actions":[{"tool":"set_autonomy_mode",'
+            '"arguments":{"mode":"supervised"}}],"final":null}',
+            '{"thought":"done","actions":[],"final":'
+            '{"status":"SUCCESS","summary":"mode set"}}',
+        ])
+        with (
+            patch("core.agent_loop.registry.specs_for_prompt", return_value="tools"),
+            patch("core.agent_loop.registry.execute", return_value="[OK]") as execute,
+        ):
+            run_agent("set supervised mode", model, require_verification=False)
+        execute.assert_called_once_with("set_autonomy_mode", mode="supervised")
+
+    def test_action_batch_validates_before_any_tool_runs(self):
+        model = ScriptedModel([
+            '{"thought":"inspect twice","actions":['
+            '{"tool":"list_dir","arguments":{"path":"."}},'
+            '{"tool":"list_dir","arguments":{"invalid":true}}],"final":null}',
+            '{"thought":"stop","actions":[],"final":'
+            '{"status":"FAILED","summary":"corrected nothing"}}',
+        ])
+        with (
+            patch("core.agent_loop.registry.specs_for_prompt", return_value="tools"),
+            patch("core.agent_loop.registry.execute") as execute,
+        ):
+            result = run_agent("inspect twice", model)
+        self.assertEqual(result, "FINAL_SUMMARY: FAILED corrected nothing")
+        execute.assert_not_called()
+
     def test_mutation_after_verification_invalidates_the_check(self):
         model = ScriptedModel([
             'ACTION: apply_patch path=x.py old="a" new="b"',

@@ -2,6 +2,19 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Structured-tool milestone 3
+- Added a validated JSON protocol for agent thoughts, typed tool arguments, batched
+  actions, and structured final status.
+- Tool schemas are derived from registered callable signatures and exposed in the tool
+  inventory, including required and optional argument names.
+- Every action batch is fully validated before any tool executes, preventing partial
+  execution of malformed batches.
+- Invalid JSON and invalid tool arguments are returned to the model for correction.
+- Existing `ACTION:` and `TOOL` formats remain supported for backward compatibility.
+- Fixed implicit confirmation injection for mutating tools that do not accept a
+  `confirm` argument.
+- Added deterministic protocol, schema, typed-argument, correction, and integration tests.
+
 ### Task-understanding milestone 2
 - Added a structured task contract with intent, normalized goal, observable success
   criteria, explicit constraints, and clarification state.

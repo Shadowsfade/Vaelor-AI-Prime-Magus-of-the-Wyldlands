@@ -26,6 +26,10 @@
       "description": "structured intent, normalized goals, constraints, success criteria, and clarification"
     },
     {
+      "name": "StructuredToolCalls",
+      "description": "schema-validated JSON actions with typed arguments and legacy compatibility"
+    },
+    {
       "name": "ConsoleHomebrew",
       "description": "game-console-only verified public CFW/homebrew guides"
     },

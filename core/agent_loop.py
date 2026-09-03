@@ -12,6 +12,7 @@ import re
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from core.tools.registry import registry
+from core.action_protocol import parse_structured_response
 
 TOOL_RE = re.compile(
     r"^\s*(?:TOOL|ACTION)\s*:?\s*([a-zA-Z0-9_]+)\s*(.*)$",
@@ -195,51 +196,49 @@ You complete multi-step engineering tasks end-to-end using tools. You do NOT ref
 - NEVER say "I cannot modify files" or "I lack write access" when tools exist.
 - NEVER destroy core OS paths (Windows/System32 bulk wipe, boot, other users).
 
-## ReAct PROTOCOL (STRICT — every action turn)
-Emit lines in this order when working:
-THOUGHT: <step-by-step plan for THIS step only>
-ACTION: <tool_name> key=value key2="value with spaces"
-  (alias allowed: TOOL <tool_name> ...)
-You may emit multiple ACTION/TOOL lines in one turn.
+## ReAct PROTOCOL (STRICT — every turn)
+Return exactly one JSON object:
+{{
+  "thought": "plan for this step only",
+  "actions": [{{"tool": "tool_name", "arguments": {{"key": "typed value"}}}}],
+  "final": null
+}}
+When stopping, use an empty actions array and:
+"final": {{"status": "SUCCESS" or "FAILED", "summary": "concise result"}}
+You may include final with actions only when those actions must succeed first.
+Legacy ACTION/TOOL lines remain accepted for compatibility, but JSON is preferred.
 After tools run, you will receive:
 OBSERVATION: <stdout/stderr/returncode>
-Then continue with a new THOUGHT based on the observation.
+Then return a new JSON decision based on the observation.
 
 ## SELF-CORRECTION
 If OBSERVATION shows returncode != 0, Refused, Traceback, or stderr errors:
 - Do NOT give up.
-- THOUGHT: diagnose the error.
-- ACTION: fix (patch file, adjust command, install dep) then re-verify.
+- Diagnose the error in thought.
+- Call a corrective tool, then re-verify.
 
 ## VERIFICATION (mandatory before success)
-Before FINAL_SUMMARY: SUCCESS you MUST verify, e.g.:
+Before final.status SUCCESS you MUST verify, e.g.:
 - shell_exec: python -m py_compile <files>
 - shell_exec: pytest / npm test / relevant checks
-- read_text_file or git_diff to confirm edits landed
 If verification fails, keep iterating.
 
 ## FINAL OUTPUT (required to stop)
-FINAL_SUMMARY: SUCCESS <concise summary of changes + how verified>
-or
-FINAL_SUMMARY: FAILED <what broke and why>
-If the Apprentice asked to commit/push and work succeeded, run git_add/git_commit/git_push (confirm auto in admin) BEFORE FINAL_SUMMARY: SUCCESS.
+Return actions=[] and final with status SUCCESS or FAILED plus a concise summary.
+If the Apprentice asked to commit/push and work succeeded, run git_add/git_commit/git_push before final SUCCESS.
 
 ## FEW-SHOT
 Example — edit + verify:
-THOUGHT: I will patch main.py then syntax-check.
-ACTION: apply_patch path=main.py old="def foo():\\n    pass" new="def foo():\\n    return 1" confirm=yes
+{{"thought":"patch main.py","actions":[{{"tool":"apply_patch","arguments":{{"path":"main.py","old":"def foo():\\n    pass","new":"def foo():\\n    return 1"}}}}],"final":null}}
 (OBSERVATION arrives)
-THOUGHT: Patch applied; verify syntax.
-ACTION: shell_exec command="python -m py_compile main.py" confirm=yes
+{{"thought":"verify syntax","actions":[{{"tool":"shell_exec","arguments":{{"command":"python -m py_compile main.py"}}}}],"final":null}}
 (OBSERVATION returncode=0)
-FINAL_SUMMARY: SUCCESS Updated foo() to return 1; py_compile passed.
+{{"thought":"done","actions":[],"final":{{"status":"SUCCESS","summary":"Updated foo; py_compile passed."}}}}
 
 Example — test failure self-correct:
-THOUGHT: Run tests.
-ACTION: shell_exec command="pytest -q" confirm=yes
+{{"thought":"run tests","actions":[{{"tool":"shell_exec","arguments":{{"command":"pytest -q"}}}}],"final":null}}
 (OBSERVATION EXIT 1 assertion error in test_x.py)
-THOUGHT: Fix failing assertion in module.py then re-test.
-ACTION: apply_patch path=module.py old="x=1" new="x=2" confirm=yes
+{{"thought":"fix failure","actions":[{{"tool":"apply_patch","arguments":{{"path":"module.py","old":"x=1","new":"x=2"}}}}],"final":null}}
 Stay in character as Vaelor; address the user as Apprentice.
 """.strip()
 
@@ -275,33 +274,62 @@ def run_agent(
             prompt_parts += ["## Prior OBSERVATIONS (most recent last)", "\n\n".join(observations[-12:]), ""]
         if last_failed:
             prompt_parts.append(
-                "SYSTEM: Last tool failed. You MUST analyze the error in THOUGHT, "
-                "then emit corrective ACTION/TOOL lines. Do not finalize SUCCESS yet.\n"
+                "SYSTEM: Last tool failed. Analyze the error in thought, then return "
+                "corrective JSON actions. Do not finalize SUCCESS yet.\n"
             )
         if require_verification and step >= max_steps - 2 and not verified_hint:
             prompt_parts.append(
                 "SYSTEM: Near step budget. If changes were made, run verification tools now "
-                "or FINAL_SUMMARY: FAILED with reason.\n"
+                "or return final.status FAILED with a reason.\n"
             )
         prompt_parts.append(
-            f"Turn {step}/{max_steps}. Emit THOUGHT then ACTION/TOOL lines, "
-            f"or FINAL_SUMMARY: SUCCESS|FAILED ..."
+            f"Turn {step}/{max_steps}. Return one JSON protocol object."
         )
         prompt = "\n".join(prompt_parts)
 
         reply = ask_llm(prompt)
         transcript.append(f"STEP {step} MODEL:\n{reply}")
-        tools, final_summary, legacy_final, thoughts = _extract_actions(reply)
+        structured = parse_structured_response(reply)
+        if structured.matched and structured.error:
+            observations.append(
+                "OBSERVATION:\nSYSTEM: Invalid action protocol: " + structured.error
+                + " Return one valid JSON object and try again."
+            )
+            # No tool ran, so this is a correctable format error rather than
+            # an execution failure that should block a subsequent final result.
+            last_failed = False
+            continue
+        if structured.matched:
+            tools = structured.actions
+            final_summary = structured.final_summary
+            legacy_final = None
+            thoughts = structured.thoughts
+        else:
+            tools, final_summary, legacy_final, thoughts = _extract_actions(reply)
 
         if tools:
+            call_errors = []
+            for index, (name, kwargs) in enumerate(tools):
+                error = registry.validate_call(name, kwargs)
+                if error:
+                    call_errors.append(f"actions[{index}] {name}: {error}")
+            if call_errors:
+                observations.append(
+                    "OBSERVATION:\nSYSTEM: Tool-call schema validation failed; no tools ran:\n- "
+                    + "\n- ".join(call_errors)
+                    + "\nCorrect the JSON arguments and try again."
+                )
+                last_failed = False
+                continue
             step_failed = False
             for name, kwargs in tools:
                 is_verification = _is_verification_action(name, kwargs)
                 is_mutating = _is_mutating_action(name)
-                if "confirm" not in kwargs and is_mutating:
+                supports_confirm = registry.accepts_argument(name, "confirm")
+                if "confirm" not in kwargs and is_mutating and supports_confirm:
                     kwargs["confirm"] = "yes" if auto_yes else "no"
                 # force confirm yes on shell when admin
-                if auto_yes and is_mutating:
+                if auto_yes and is_mutating and supports_confirm:
                     kwargs["confirm"] = "yes"
                 try:
                     result = registry.execute(name, **kwargs)
@@ -375,7 +403,7 @@ def run_agent(
                 return reply.strip()
             observations.append(
                 "OBSERVATION:\nSYSTEM: No TOOL/ACTION lines and no FINAL_SUMMARY. "
-                "Continue with THOUGHT/ACTION or FINAL_SUMMARY: SUCCESS|FAILED."
+                "Return one structured JSON action or final result."
             )
             last_failed = False
             continue
@@ -386,10 +414,16 @@ def run_agent(
         + f"\n\nGOAL:\n{goal}\n\nOBSERVATIONS:\n"
         + "\n\n".join(observations[-14:])
         + "\n\nSYSTEM: Max iterations reached without clean finish.\n"
-        + "Respond with exactly one line starting FINAL_SUMMARY: FAILED or SUCCESS and explain.\n"
+        + "Return one JSON object with actions=[] and final status SUCCESS or FAILED.\n"
     )
     last = ask_llm(summary_prompt)
-    tools, final_summary, legacy_final, _ = _extract_actions(last)
+    structured = parse_structured_response(last)
+    if structured.matched and not structured.error:
+        tools = structured.actions
+        final_summary = structured.final_summary
+        legacy_final = None
+    else:
+        tools, final_summary, legacy_final, _ = _extract_actions(last)
     if final_summary:
         if require_verification and unverified_mutation and "SUCCESS" in final_summary.upper():
             return "FINAL_SUMMARY: FAILED Reached max iterations with unverified changes."

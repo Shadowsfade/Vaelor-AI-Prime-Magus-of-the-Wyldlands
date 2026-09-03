@@ -1,4 +1,5 @@
 """Vaelor Tool Registry."""
+import inspect
 
 class Tool:
     def __init__(self, name, description, read_only, func):
@@ -8,6 +9,22 @@ class Tool:
         self.func = func
     def run(self, **kwargs):
         return self.func(**kwargs)
+    def argument_schema(self):
+        parameters = {}
+        accepts_extra = False
+        for name, param in inspect.signature(self.func).parameters.items():
+            if param.kind == inspect.Parameter.VAR_KEYWORD:
+                accepts_extra = True
+                continue
+            if param.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.POSITIONAL_ONLY):
+                continue
+            annotation = param.annotation
+            type_name = None if annotation is inspect.Parameter.empty else getattr(annotation, "__name__", str(annotation))
+            parameters[name] = {
+                "required": param.default is inspect.Parameter.empty,
+                "type": type_name,
+            }
+        return {"parameters": parameters, "accepts_extra": accepts_extra}
 
 class ToolRegistry:
     def __init__(self):
@@ -15,23 +32,58 @@ class ToolRegistry:
     def register(self, name, description, read_only, func):
         self._tools[name] = Tool(name, description, read_only, func)
     def list_tools(self):
-        return [{"name": t.name, "description": t.description, "read_only": t.read_only} for t in self._tools.values()]
+        return [
+            {
+                "name": t.name,
+                "description": t.description,
+                "read_only": t.read_only,
+                "arguments": t.argument_schema(),
+            }
+            for t in self._tools.values()
+        ]
     def get(self, name):
         return self._tools.get(name)
     def specs_for_prompt(self):
-        lines = ["# Registered tools (" + str(len(self._tools)) + ") — invoke via ACTION:/TOOL lines"]
+        lines = ["# Registered tools (" + str(len(self._tools)) + ") — invoke via JSON actions"]
         # group mutating vs read
         reads = [t for t in self._tools.values() if t.read_only]
         muts = [t for t in self._tools.values() if not t.read_only]
         lines.append("## Read-only")
         for t in sorted(reads, key=lambda x: x.name):
-            lines.append(f"- {t.name}: {t.description}")
+            lines.append(f"- {t.name}{self._signature_text(t)}: {t.description}")
         lines.append("## Mutating (admin auto-confirm=yes)")
         for t in sorted(muts, key=lambda x: x.name):
-            lines.append(f"- {t.name}: {t.description}")
-        lines.append("Format: ACTION: tool_name key=value key2=\"quoted\"")
-        lines.append("Or JSON: ACTION: tool_name {\"key\":\"value\"}")
+            lines.append(f"- {t.name}{self._signature_text(t)}: {t.description}")
+        lines.append('Format: {"thought":"...","actions":[{"tool":"name","arguments":{}}],"final":null}')
         return "\n".join(lines)
+    @staticmethod
+    def _signature_text(tool):
+        schema = tool.argument_schema()["parameters"]
+        args = [name if meta["required"] else f"{name}?" for name, meta in schema.items()]
+        return "(" + ", ".join(args) + ")"
+    def accepts_argument(self, name, argument):
+        tool = self.get(name)
+        if tool is None:
+            return False
+        schema = tool.argument_schema()
+        return argument in schema["parameters"] or schema["accepts_extra"]
+    def validate_call(self, name, arguments):
+        tool = self.get(name)
+        if tool is None:
+            return f"Unknown tool: {name}"
+        if not isinstance(arguments, dict):
+            return "arguments must be an object"
+        schema = tool.argument_schema()
+        unknown = sorted(set(arguments) - set(schema["parameters"]))
+        if unknown and not schema["accepts_extra"]:
+            return "unexpected argument(s): " + ", ".join(unknown)
+        missing = [
+            key for key, meta in schema["parameters"].items()
+            if meta["required"] and key not in arguments
+        ]
+        if missing:
+            return "missing required argument(s): " + ", ".join(missing)
+        return None
     def execute(self, name, **kwargs):
         tool = self.get(name)
         if tool is None:
