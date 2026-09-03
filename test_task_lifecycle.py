@@ -74,6 +74,13 @@ class TaskLifecycleTests(unittest.TestCase):
         self.assertEqual(task["contract"]["goal"], "build index")
         self.assertEqual(task["session_id"], "s2")
 
+    def test_prepare_task_persists_validated_workspace(self):
+        self.brain.understand_task = MagicMock(return_value=self.contract)
+        with patch("core.brain.resolve_workspace") as resolve:
+            task = self.brain.prepare_task("inspect project", "s2", "C:/demo")
+        resolve.assert_called_once_with("C:/demo")
+        self.assertEqual(task["workspace"], "C:/demo")
+
     def test_prepare_task_records_clarification_wait(self):
         contract = TaskIntent(
             intent="act",
@@ -93,6 +100,21 @@ class TaskLifecycleTests(unittest.TestCase):
             self.brain.run_prepared_task(task["id"])
         self.assertEqual(len(self.brain.list_tasks()), 1)
         self.assertEqual(self.brain.get_task(task["id"])["status"], "completed")
+
+    def test_workspace_context_is_injected_into_agent_session(self):
+        task = self.brain.tasks.create(
+            "inspect project", self.contract.to_dict(), workspace="C:/demo"
+        )
+
+        def fake_run_agent(**kwargs):
+            self.assertIn("PROJECT SNAPSHOT", kwargs["session_context"])
+            return "FINAL_SUMMARY: SUCCESS grounded"
+
+        with (
+            patch("core.brain.build_project_context", return_value="PROJECT SNAPSHOT\n"),
+            patch("core.agent_loop.run_agent", side_effect=fake_run_agent),
+        ):
+            self.brain.run_prepared_task(task["id"])
 
     def test_cancel_is_durable_and_idempotent(self):
         task = self.brain.tasks.create("inspect project", self.contract.to_dict())

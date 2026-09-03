@@ -54,6 +54,10 @@
       "description": "bounded local-model retries with durable progress events and cancellation checks"
     },
     {
+      "name": "ProjectGrounding",
+      "description": "workspace-aware tasks with bounded repository structure and guidance context"
+    },
+    {
       "name": "UserAdaptation",
       "description": "provenance-aware preferences and task feedback with user-controlled activation"
     },

@@ -43,7 +43,8 @@ class TaskStore:
         temp.write_text(json.dumps(tasks, indent=2), encoding="utf-8")
         os.replace(temp, self.path)
 
-    def create(self, request: str, contract: Optional[dict] = None, session_id: Optional[str] = None) -> dict:
+    def create(self, request: str, contract: Optional[dict] = None, session_id: Optional[str] = None,
+               workspace: Optional[str] = None) -> dict:
         with self._lock:
             tasks = self._read()
             stamp = _now()
@@ -52,6 +53,7 @@ class TaskStore:
                 "request": request,
                 "contract": contract or {},
                 "session_id": session_id,
+                "workspace": workspace,
                 "status": "pending",
                 "created_at": stamp,
                 "updated_at": stamp,

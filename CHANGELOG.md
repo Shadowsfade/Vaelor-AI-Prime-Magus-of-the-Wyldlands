@@ -2,6 +2,16 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Project-grounding milestone 12
+- Background tasks can now carry an optional validated workspace path through durable
+  storage and `POST /tasks`.
+- Agent prompts receive a bounded snapshot of the Git root, top-level structure, and
+  relevant `AGENTS.md`, README, `pyproject.toml`, or package metadata.
+- Workspace, discovered Git roots, and symlinked guidance remain constrained by the
+  configured allowed roots; unapproved roots safely fall back to the workspace.
+- Added deterministic structure, package filtering, path-boundary, persistence, and
+  agent-context integration tests.
+
 ### Model-resilience milestone 11
 - Local model decision and final-summary calls now retry transient exceptions up to two
   times by default, with a bounded configurable maximum.

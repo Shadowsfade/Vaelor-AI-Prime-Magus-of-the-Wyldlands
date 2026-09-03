@@ -77,6 +77,7 @@ class TaskCreateRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
     max_steps: int = 12
+    workspace: Optional[str] = None
 
 
 class PreferenceCreateRequest(BaseModel):
@@ -127,7 +128,10 @@ def update_preference(preference_id: str, request: PreferenceStatusRequest):
 
 @app.post("/tasks")
 def create_task(request: TaskCreateRequest, background_tasks: BackgroundTasks):
-    task = brain.prepare_task(request.message, request.session_id)
+    try:
+        task = brain.prepare_task(request.message, request.session_id, request.workspace)
+    except (ValueError, PermissionError, FileNotFoundError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     if task.get("status") != "waiting":
         background_tasks.add_task(brain.run_prepared_task, task["id"], request.max_steps)
     return task

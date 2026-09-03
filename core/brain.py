@@ -5,6 +5,7 @@ from .conversation_memory import VaelorConversationMemory
 from .task_intent import TaskIntent, classify_task
 from .task_store import TaskStore
 from .preference_store import PreferenceStore
+from .project_context import build_project_context, resolve_workspace
 
 
 class VaelorBrain:
@@ -263,7 +264,7 @@ class VaelorBrain:
             fallback_should_act=self.wants_action(prompt),
         )
 
-    def act(self, goal, session_id=None, max_steps=12, task_contract=None, task_id=None):
+    def act(self, goal, session_id=None, max_steps=12, task_contract=None, task_id=None, workspace=None):
         """Autonomous ReAct coding worker loop (tools + self-correct + verify)."""
         from core.agent_loop import run_agent
         from spellbook.spell_router import cast_spell
@@ -277,8 +278,9 @@ class VaelorBrain:
             )
         task = self.tasks.get(task_id) if task_id else None
         if task is None:
-            task = self.tasks.create(goal, task_contract.to_dict(), session_id)
+            task = self.tasks.create(goal, task_contract.to_dict(), session_id, workspace)
         task_id = task["id"]
+        workspace = task.get("workspace") or workspace
         self.tasks.update(task_id, status="running")
         self.tasks.add_event(task_id, "started", {"goal": task_contract.goal})
 
@@ -286,6 +288,7 @@ class VaelorBrain:
         ctx = (
             react
             + "\n\n"
+            + build_project_context(workspace)
             + self._context_prefix(goal, use_web=False)
             + self._history_text(session_id, limit=4)
         )
@@ -373,7 +376,7 @@ class VaelorBrain:
         })
         return feedback
 
-    def prepare_task(self, request, session_id=None):
+    def prepare_task(self, request, session_id=None, workspace=None):
         """Create a durable task before background execution begins."""
         contract = self.understand_task(request)
         if contract.intent != "act":
@@ -386,7 +389,9 @@ class VaelorBrain:
                 clarification_question=contract.clarification_question,
                 source="task_api",
             )
-        task = self.tasks.create(request, contract.to_dict(), session_id)
+        if workspace:
+            resolve_workspace(workspace)
+        task = self.tasks.create(request, contract.to_dict(), session_id, workspace)
         if contract.needs_clarification:
             self.tasks.update(
                 task["id"],
@@ -412,6 +417,7 @@ class VaelorBrain:
             max_steps=max_steps,
             task_contract=TaskIntent.from_dict(task.get("contract") or {}),
             task_id=task_id,
+            workspace=task.get("workspace"),
         )
 
     def resume_task(self, task_id, max_steps=12):
