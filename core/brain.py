@@ -3,6 +3,7 @@ from spellbook.spell_router import cast_spell, cast_spell_stream
 from .memory_manager import VaelorMemoryManager
 from .conversation_memory import VaelorConversationMemory
 from .task_intent import TaskIntent, classify_task
+from .task_store import TaskStore
 
 
 class VaelorBrain:
@@ -12,6 +13,7 @@ class VaelorBrain:
         self.runtime = runtime
         self.memory = VaelorMemoryManager()
         self.conversations = VaelorConversationMemory()
+        self.tasks = TaskStore()
 
     def _history_messages(self, session_id=None, limit=8):
         if session_id:
@@ -247,10 +249,24 @@ class VaelorBrain:
             fallback_should_act=self.wants_action(prompt),
         )
 
-    def act(self, goal, session_id=None, max_steps=12, task_contract=None):
+    def act(self, goal, session_id=None, max_steps=12, task_contract=None, task_id=None):
         """Autonomous ReAct coding worker loop (tools + self-correct + verify)."""
         from core.agent_loop import run_agent
         from spellbook.spell_router import cast_spell
+
+        if not isinstance(task_contract, TaskIntent):
+            task_contract = TaskIntent(
+                intent="act",
+                goal=goal,
+                success_criteria=["The requested outcome is complete and verified."],
+                source="explicit",
+            )
+        task = self.tasks.get(task_id) if task_id else None
+        if task is None:
+            task = self.tasks.create(goal, task_contract.to_dict(), session_id)
+        task_id = task["id"]
+        self.tasks.update(task_id, status="running")
+        self.tasks.add_event(task_id, "started", {"goal": task_contract.goal})
 
         react = self.build_system_prompt()
         ctx = (
@@ -267,20 +283,45 @@ class VaelorBrain:
             ) else "core_reasoning"
             return cast_spell(spell, prompt)
 
-        agent_goal = (
-            task_contract.as_agent_goal(goal)
-            if isinstance(task_contract, TaskIntent)
-            else goal
-        )
-        result = run_agent(
-            goal=agent_goal,
-            ask_llm=ask_llm,
-            max_steps=max_steps or 12,
-            session_context=ctx,
-            require_verification=True,
-        )
+        agent_goal = task_contract.as_agent_goal(goal)
+        try:
+            result = run_agent(
+                goal=agent_goal,
+                ask_llm=ask_llm,
+                max_steps=max_steps or 12,
+                session_context=ctx,
+                require_verification=True,
+                event_callback=lambda event, data: self.tasks.add_event(task_id, event, data),
+            )
+        except Exception as exc:
+            self.tasks.add_event(task_id, "crashed", {"error": str(exc)})
+            self.tasks.update(task_id, status="failed", result=f"Agent error: {exc}")
+            raise
+        status = "completed" if result.upper().startswith("FINAL_SUMMARY: SUCCESS") else "failed"
+        self.tasks.update(task_id, status=status, result=result)
         self.conversations.remember_turn(f"[agent] {goal}", result, session_id=session_id)
         return result
+
+    def list_tasks(self, limit=50):
+        return self.tasks.list(limit)
+
+    def get_task(self, task_id):
+        return self.tasks.get(task_id)
+
+    def resume_task(self, task_id, max_steps=12):
+        task = self.tasks.get(task_id)
+        if task is None:
+            raise KeyError(f"Unknown task: {task_id}")
+        if task.get("status") == "completed":
+            return task.get("result") or "FINAL_SUMMARY: SUCCESS Task was already complete."
+        contract = TaskIntent.from_dict(task.get("contract") or {})
+        return self.act(
+            task.get("request", ""),
+            session_id=task.get("session_id"),
+            max_steps=max_steps,
+            task_contract=contract,
+            task_id=task_id,
+        )
 
     def list_tools(self):
         from core.tools.registry import registry

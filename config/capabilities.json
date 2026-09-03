@@ -30,6 +30,10 @@
       "description": "schema-validated JSON actions with typed arguments and legacy compatibility"
     },
     {
+      "name": "DurableTasks",
+      "description": "persistent task lifecycle, progress events, crash recovery, and resume"
+    },
+    {
       "name": "ConsoleHomebrew",
       "description": "game-console-only verified public CFW/homebrew guides"
     },

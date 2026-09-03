@@ -250,6 +250,7 @@ def run_agent(
     session_context: str = "",
     auto_confirm_readonly: bool = True,
     require_verification: bool = True,
+    event_callback: Optional[Callable[[str, Dict[str, Any]], None]] = None,
 ) -> str:
     """Autonomous ReAct loop. ask_llm(prompt) -> model text."""
     registry  # loaded
@@ -262,6 +263,15 @@ def run_agent(
     unverified_mutation = False
     auto_yes = _auto_confirm()
     max_steps = max(3, min(int(max_steps or DEFAULT_MAX_STEPS), 25))
+
+    def emit(event_type: str, **data: Any) -> None:
+        if event_callback is None:
+            return
+        try:
+            event_callback(event_type, data)
+        except Exception:
+            # Progress recording must never break task execution.
+            pass
 
     step = 0
     while step < max_steps:
@@ -291,6 +301,7 @@ def run_agent(
         transcript.append(f"STEP {step} MODEL:\n{reply}")
         structured = parse_structured_response(reply)
         if structured.matched and structured.error:
+            emit("protocol_error", step=step, error=structured.error)
             observations.append(
                 "OBSERVATION:\nSYSTEM: Invalid action protocol: " + structured.error
                 + " Return one valid JSON object and try again."
@@ -306,6 +317,7 @@ def run_agent(
             thoughts = structured.thoughts
         else:
             tools, final_summary, legacy_final, thoughts = _extract_actions(reply)
+        emit("decision", step=step, actions=[name for name, _ in tools], has_final=bool(final_summary or legacy_final))
 
         if tools:
             call_errors = []
@@ -314,6 +326,7 @@ def run_agent(
                 if error:
                     call_errors.append(f"actions[{index}] {name}: {error}")
             if call_errors:
+                emit("schema_error", step=step, errors=call_errors)
                 observations.append(
                     "OBSERVATION:\nSYSTEM: Tool-call schema validation failed; no tools ran:\n- "
                     + "\n- ".join(call_errors)
@@ -331,11 +344,20 @@ def run_agent(
                 # force confirm yes on shell when admin
                 if auto_yes and is_mutating and supports_confirm:
                     kwargs["confirm"] = "yes"
+                emit("tool_started", step=step, tool=name, arguments=kwargs)
                 try:
                     result = registry.execute(name, **kwargs)
                 except Exception as e:
                     result = f"Tool '{name}' failed: {e}"
                 meta = _classify_observation(name, kwargs, str(result))
+                emit(
+                    "tool_completed",
+                    step=step,
+                    tool=name,
+                    failed=meta["failed"],
+                    returncode=meta["returncode"],
+                    result=meta["raw"],
+                )
                 obs = (
                     f"OBSERVATION:\n"
                     f"tool={meta['tool']} returncode={meta['returncode']} failed={meta['failed']}\n"

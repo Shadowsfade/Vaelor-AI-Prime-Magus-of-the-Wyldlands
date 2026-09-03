@@ -68,6 +68,31 @@ class SessionCreateRequest(BaseModel):
     session_id: Optional[str] = None
 
 
+class TaskResumeRequest(BaseModel):
+    max_steps: int = 12
+
+
+@app.get("/tasks")
+def list_tasks(limit: int = 50):
+    return {"tasks": brain.list_tasks(limit)}
+
+
+@app.get("/tasks/{task_id}")
+def get_task(task_id: str):
+    task = brain.get_task(task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return task
+
+
+@app.post("/tasks/{task_id}/resume")
+def resume_task(task_id: str, request: TaskResumeRequest):
+    try:
+        return {"task_id": task_id, "response": brain.resume_task(task_id, request.max_steps)}
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+
 def route_message(message: str, session_id=None, images=None):
     """Shared command routing used by /chat and /call."""
     message = (message or "").strip()

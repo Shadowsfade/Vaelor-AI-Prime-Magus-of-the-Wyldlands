@@ -2,6 +2,17 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Durable-task milestone 4
+- Added an atomic local task ledger with task contracts, lifecycle status, attempts,
+  bounded progress events, and final results.
+- Agent decisions, schema errors, tool starts, tool results, crashes, and completion are
+  recorded without allowing logging failures to interrupt execution.
+- Tasks left running during shutdown are marked interrupted on startup and can resume
+  under the same task ID and contract.
+- Added `GET /tasks`, `GET /tasks/{task_id}`, and `POST /tasks/{task_id}/resume` APIs.
+- Personal task state and temporary atomic-write files are excluded from Git.
+- Added deterministic persistence, restart recovery, lifecycle, crash, and resume tests.
+
 ### Structured-tool milestone 3
 - Added a validated JSON protocol for agent thoughts, typed tool arguments, batched
   actions, and structured final status.

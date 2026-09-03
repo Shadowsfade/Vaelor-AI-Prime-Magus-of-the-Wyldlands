@@ -38,6 +38,30 @@ class TaskIntent:
     def should_act(self) -> bool:
         return self.intent == "act" and not self.needs_clarification
 
+    def to_dict(self) -> dict:
+        return {
+            "intent": self.intent,
+            "goal": self.goal,
+            "success_criteria": list(self.success_criteria),
+            "constraints": list(self.constraints),
+            "needs_clarification": self.needs_clarification,
+            "clarification_question": self.clarification_question,
+            "source": self.source,
+        }
+
+    @classmethod
+    def from_dict(cls, value: dict) -> "TaskIntent":
+        data = value if isinstance(value, dict) else {}
+        return cls(
+            intent=str(data.get("intent") or "act"),
+            goal=str(data.get("goal") or ""),
+            success_criteria=_clean_list(data.get("success_criteria")),
+            constraints=_clean_list(data.get("constraints")),
+            needs_clarification=_clean_bool(data.get("needs_clarification", False)),
+            clarification_question=str(data.get("clarification_question") or ""),
+            source=str(data.get("source") or "stored"),
+        )
+
     def as_agent_goal(self, original_request: str) -> str:
         criteria = self.success_criteria or ["The requested outcome is complete and verified."]
         constraints = self.constraints or ["Preserve unrelated user work."]
