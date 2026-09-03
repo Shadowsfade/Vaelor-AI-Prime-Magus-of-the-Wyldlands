@@ -14,6 +14,10 @@
       "description": "git read/write/push (no force)"
     },
     {
+      "name": "NativeGitReview",
+      "description": "bounded read-only change review with scope, line statistics, whitespace/conflict checks, and likely-secret redaction"
+    },
+    {
       "name": "WebResearch",
       "description": "free web_search/fetch_url"
     },

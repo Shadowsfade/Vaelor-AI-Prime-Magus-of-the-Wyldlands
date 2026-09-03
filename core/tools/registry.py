@@ -163,10 +163,11 @@ def register_all_tools():
     try:
         from .git_ops import (
             git_status, git_diff, git_log, git_branch, git_remote,
-            git_add, git_commit, git_checkout, git_push, git_pull,
+            git_add, git_commit, git_checkout, git_push, git_pull, review_git_changes,
         )
         registry.register("git_status", "Git status -sb", True, git_status)
         registry.register("git_diff", "Git diff. optional staged=yes", True, git_diff)
+        registry.register("review_git_changes", "Bounded read-only Git review with file stats, whitespace checks, and secret/conflict warnings. repo= staged=no", True, review_git_changes)
         registry.register("git_log", "Recent commits. optional limit=10", True, git_log)
         registry.register("git_branch", "List branches.", True, git_branch)
         registry.register("git_remote", "Show remotes", True, git_remote)

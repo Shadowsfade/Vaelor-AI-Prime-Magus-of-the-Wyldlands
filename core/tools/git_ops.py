@@ -7,8 +7,12 @@ import subprocess
 from typing import List, Optional
 
 from .shell_exec import load_autonomy, _audit
+from .fs_ops import _resolve_path
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+SECRET_LINE = re.compile(
+    r"(?i)(api[_-]?key|access[_-]?token|client[_-]?secret|password|passwd|private[_-]?key)\s*[:=]"
+)
 
 
 def _run_git(args: List[str], cwd: Optional[str] = None, timeout: int = 90) -> str:
@@ -53,6 +57,39 @@ def git_diff(path: str = "", staged: str = "no") -> str:
     base = _run_git(["diff", "--stat"], cwd=cwd)
     detail = _run_git(["diff"], cwd=cwd)
     return base + "\n\n" + detail[:10000]
+
+
+def _redact_sensitive_diff(text: str):
+    warnings = set()
+    safe_lines = []
+    for line in str(text or "").splitlines():
+        if "BEGIN PRIVATE KEY" in line or SECRET_LINE.search(line):
+            warnings.add("possible credential material was redacted")
+            prefix = line[:1] if line[:1] in "+- " else ""
+            safe_lines.append(prefix + "[REDACTED POSSIBLE SECRET]")
+        else:
+            safe_lines.append(line)
+        if line.startswith(("+<<<<<<<", "+=======", "+>>>>>>>")):
+            warnings.add("added merge-conflict marker detected")
+    return "\n".join(safe_lines), sorted(warnings)
+
+
+def review_git_changes(repo: str = "", staged: str = "no") -> str:
+    """Return a bounded, secret-redacted review packet for current Git changes."""
+    workdir = _resolve_path(repo or PROJECT_ROOT, must_exist=True)
+    cached = str(staged).lower() in ("yes", "true", "1")
+    prefix = ["diff", "--cached"] if cached else ["diff"]
+    names = _run_git([*prefix, "--name-status"], cwd=workdir)
+    numbers = _run_git([*prefix, "--numstat"], cwd=workdir)
+    whitespace = _run_git([*prefix, "--check"], cwd=workdir)
+    detail = _run_git([*prefix, "--unified=3"], cwd=workdir)
+    safe_detail, warnings = _redact_sensitive_diff(detail)
+    warning_text = "\n".join(f"- {item}" for item in warnings) if warnings else "- none detected"
+    return (
+        "Git change review (read-only)\n"
+        f"staged={cached}\n\nChanged files:\n{names}\n\nLine statistics:\n{numbers}\n\n"
+        f"Whitespace/errors:\n{whitespace}\n\nWarnings:\n{warning_text}\n\nDiff:\n{safe_detail}"
+    )[:30000]
 
 
 def git_log(path: str = "", limit: int = 10) -> str:

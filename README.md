@@ -104,6 +104,8 @@ session and `/help` for the command list. Existing shell safety and approval pol
 - Exact one-action approval through API and WebUI.
 - Project grounding and bounded multi-file reading.
 - Bounded local codebase search with relevance-ranked files and line-numbered snippets.
+- Native read-only Git change review with file/line scope, whitespace checks, conflict
+  warnings, and likely-secret redaction.
 - Persistent conversations with automatic bounded summaries, relevance-ranked memory,
   and user-controlled preferences.
 - Desktop/web tome interface, streamed answers, and voice conversation.

@@ -2,6 +2,17 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Native Git review milestone 32
+- Added `review_git_changes`, a read-only agent tool that assembles changed-file status,
+  added/deleted line statistics, `git diff --check`, and a bounded unified diff.
+- Review packets flag newly added merge-conflict markers and redact likely credential or
+  private-key lines before returning diffs to the model or durable task history.
+- Repository paths pass through allowed-root policy, staged and unstaged review are both
+  supported, and review never modifies the worktree or index.
+- Autonomous guidance now requires this review before claiming repository changes are
+  complete; real temporary-repository tests cover non-mutation, review content, redaction,
+  conflict warnings, and read-only tool registration.
+
 ### Bounded codebase discovery milestone 31
 - Added `search_codebase`, a read-only agent tool that ranks relevant source files and
   returns compact line-numbered snippets before Vaelor edits an unfamiliar project.
