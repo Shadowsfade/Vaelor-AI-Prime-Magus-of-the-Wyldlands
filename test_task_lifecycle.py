@@ -62,6 +62,38 @@ class TaskLifecycleTests(unittest.TestCase):
         self.assertEqual(resumed["attempts"], 1)
         self.assertEqual(len(self.brain.list_tasks()), 1)
 
+    def test_prepare_task_persists_contract_before_execution(self):
+        contract = TaskIntent(
+            intent="act",
+            goal="build index",
+            success_criteria=["index exists"],
+        )
+        self.brain.understand_task = MagicMock(return_value=contract)
+        task = self.brain.prepare_task("build the index", "s2")
+        self.assertEqual(task["status"], "pending")
+        self.assertEqual(task["contract"]["goal"], "build index")
+        self.assertEqual(task["session_id"], "s2")
+
+    def test_prepare_task_records_clarification_wait(self):
+        contract = TaskIntent(
+            intent="act",
+            goal="delete project",
+            needs_clarification=True,
+            clarification_question="Which project?",
+        )
+        self.brain.understand_task = MagicMock(return_value=contract)
+        task = self.brain.prepare_task("delete it")
+        self.assertEqual(task["status"], "waiting")
+        self.assertEqual(task["result"], "Which project?")
+        self.assertEqual(task["events"][-1]["type"], "clarification_required")
+
+    def test_run_prepared_task_uses_existing_id(self):
+        task = self.brain.tasks.create("inspect project", self.contract.to_dict())
+        with patch("core.agent_loop.run_agent", return_value="FINAL_SUMMARY: SUCCESS done"):
+            self.brain.run_prepared_task(task["id"])
+        self.assertEqual(len(self.brain.list_tasks()), 1)
+        self.assertEqual(self.brain.get_task(task["id"])["status"], "completed")
+
 
 if __name__ == "__main__":
     unittest.main()

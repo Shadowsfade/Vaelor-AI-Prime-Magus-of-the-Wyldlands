@@ -308,20 +308,54 @@ class VaelorBrain:
     def get_task(self, task_id):
         return self.tasks.get(task_id)
 
+    def prepare_task(self, request, session_id=None):
+        """Create a durable task before background execution begins."""
+        contract = self.understand_task(request)
+        if contract.intent != "act":
+            contract = TaskIntent(
+                intent="act",
+                goal=contract.goal or request,
+                success_criteria=contract.success_criteria,
+                constraints=contract.constraints,
+                needs_clarification=contract.needs_clarification,
+                clarification_question=contract.clarification_question,
+                source="task_api",
+            )
+        task = self.tasks.create(request, contract.to_dict(), session_id)
+        if contract.needs_clarification:
+            self.tasks.update(
+                task["id"],
+                status="waiting",
+                result=contract.clarification_question,
+            )
+            self.tasks.add_event(
+                task["id"],
+                "clarification_required",
+                {"question": contract.clarification_question},
+            )
+        return self.tasks.get(task["id"])
+
+    def run_prepared_task(self, task_id, max_steps=12):
+        task = self.tasks.get(task_id)
+        if task is None:
+            raise KeyError(f"Unknown task: {task_id}")
+        if task.get("status") == "waiting":
+            return task.get("result") or "Task is waiting for clarification."
+        return self.act(
+            task.get("request", ""),
+            session_id=task.get("session_id"),
+            max_steps=max_steps,
+            task_contract=TaskIntent.from_dict(task.get("contract") or {}),
+            task_id=task_id,
+        )
+
     def resume_task(self, task_id, max_steps=12):
         task = self.tasks.get(task_id)
         if task is None:
             raise KeyError(f"Unknown task: {task_id}")
         if task.get("status") == "completed":
             return task.get("result") or "FINAL_SUMMARY: SUCCESS Task was already complete."
-        contract = TaskIntent.from_dict(task.get("contract") or {})
-        return self.act(
-            task.get("request", ""),
-            session_id=task.get("session_id"),
-            max_steps=max_steps,
-            task_contract=contract,
-            task_id=task_id,
-        )
+        return self.run_prepared_task(task_id, max_steps)
 
     def list_tools(self):
         from core.tools.registry import registry

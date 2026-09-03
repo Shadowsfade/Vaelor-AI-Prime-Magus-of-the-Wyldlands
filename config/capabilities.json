@@ -34,6 +34,10 @@
       "description": "persistent task lifecycle, progress events, crash recovery, and resume"
     },
     {
+      "name": "LiveTaskProgress",
+      "description": "background task submission and resumable Server-Sent Event progress"
+    },
+    {
       "name": "ConsoleHomebrew",
       "description": "game-console-only verified public CFW/homebrew guides"
     },

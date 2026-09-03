@@ -2,6 +2,16 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Live-progress milestone 5
+- Added background task submission with `POST /tasks`; the durable task record is
+  returned before execution begins.
+- Added `GET /tasks/{task_id}/events` Server-Sent Events for progress, lifecycle status,
+  keep-alives, and final results with resumable event cursors.
+- Prepared tasks retain their structured contract and execute under the same durable ID.
+- Tasks needing clarification enter a visible waiting state without executing tools.
+- Added lifecycle tests for task preparation, clarification waits, background execution,
+  and preservation of task identity.
+
 ### Durable-task milestone 4
 - Added an atomic local task ledger with task contracts, lifecycle status, attempts,
   bounded progress events, and final results.

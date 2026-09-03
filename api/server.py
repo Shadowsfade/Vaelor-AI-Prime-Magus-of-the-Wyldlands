@@ -3,10 +3,11 @@ import os
 import re
 import io
 import json
+import asyncio
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from fastapi import FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -72,6 +73,20 @@ class TaskResumeRequest(BaseModel):
     max_steps: int = 12
 
 
+class TaskCreateRequest(BaseModel):
+    message: str
+    session_id: Optional[str] = None
+    max_steps: int = 12
+
+
+@app.post("/tasks")
+def create_task(request: TaskCreateRequest, background_tasks: BackgroundTasks):
+    task = brain.prepare_task(request.message, request.session_id)
+    if task.get("status") != "waiting":
+        background_tasks.add_task(brain.run_prepared_task, task["id"], request.max_steps)
+    return task
+
+
 @app.get("/tasks")
 def list_tasks(limit: int = 50):
     return {"tasks": brain.list_tasks(limit)}
@@ -83,6 +98,49 @@ def get_task(task_id: str):
     if task is None:
         raise HTTPException(status_code=404, detail="Task not found")
     return task
+
+
+@app.get("/tasks/{task_id}/events")
+async def stream_task_events(task_id: str, after: int = 0):
+    if brain.get_task(task_id) is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    async def events():
+        cursor = max(0, int(after or 0))
+        last_status = None
+        while True:
+            task = brain.get_task(task_id)
+            if task is None:
+                yield "event: error\ndata: {\"detail\":\"Task not found\"}\n\n"
+                return
+            recorded = task.get("events") or []
+            while cursor < len(recorded):
+                payload = {"cursor": cursor + 1, "event": recorded[cursor]}
+                yield "event: progress\ndata: " + json.dumps(payload) + "\n\n"
+                cursor += 1
+            status = task.get("status")
+            if status != last_status:
+                yield "event: status\ndata: " + json.dumps({
+                    "task_id": task_id,
+                    "status": status,
+                    "attempts": task.get("attempts", 0),
+                }) + "\n\n"
+                last_status = status
+            if status in {"completed", "failed", "cancelled", "waiting"}:
+                yield "event: result\ndata: " + json.dumps({
+                    "task_id": task_id,
+                    "status": status,
+                    "result": task.get("result"),
+                    "cursor": cursor,
+                }) + "\n\n"
+                return
+            yield ": keep-alive\n\n"
+            await asyncio.sleep(0.25)
+
+    return StreamingResponse(events(), media_type="text/event-stream", headers={
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no",
+    })
 
 
 @app.post("/tasks/{task_id}/resume")
