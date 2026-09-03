@@ -58,6 +58,7 @@ powershell -ExecutionPolicy Bypass -File .\installer\Build-AlphaPackage.ps1
 | `core/task_intent.py` | Structured intent, goals, constraints, success criteria |
 | `core/action_protocol.py` | Validated JSON decisions, actions, and final results |
 | `core/task_store.py` | Atomic task state, progress events, interruption recovery |
+| `core/preference_store.py` | User-confirmed preferences and outcome feedback |
 | `core/agent_loop.py` | Multi-step tool agent loop (`agent:` / action language) |
 | `core/tools/` | Tool implementations + `registry.py` |
 | `core/setup_wizard.py` | Hardware scan, Ollama/LM Studio first-run |
@@ -161,6 +162,7 @@ Requires: Windows + Python 3.10+ on PATH. LLM backend (Ollama/LM Studio) still s
 | GET | `/voice/voices` | edge-tts wizard list |
 | GET | `/tools` | tool registry JSON |
 | GET/POST | `/tasks*` | durable background tasks, resume, and SSE progress |
+| GET/POST/PATCH | `/preferences*` | user-controlled adaptation and preference state |
 | GET/POST | `/setup*` | first-run wizard |
 | GET | `/greeting` | opening line + optional audio |
 | static | `/` | tome WebUI |

@@ -79,6 +79,43 @@ class TaskCreateRequest(BaseModel):
     max_steps: int = 12
 
 
+class PreferenceCreateRequest(BaseModel):
+    statement: str
+    scope: str = "global"
+
+
+class PreferenceStatusRequest(BaseModel):
+    status: str
+
+
+class TaskFeedbackRequest(BaseModel):
+    rating: str
+    comment: str = ""
+
+
+@app.get("/preferences")
+def list_preferences(status: Optional[str] = None):
+    return {"preferences": brain.list_preferences(status)}
+
+
+@app.post("/preferences")
+def create_preference(request: PreferenceCreateRequest):
+    try:
+        return brain.add_preference(request.statement, request.scope)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.patch("/preferences/{preference_id}")
+def update_preference(preference_id: str, request: PreferenceStatusRequest):
+    try:
+        return brain.set_preference_status(preference_id, request.status)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Preference not found")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
 @app.post("/tasks")
 def create_task(request: TaskCreateRequest, background_tasks: BackgroundTasks):
     task = brain.prepare_task(request.message, request.session_id)
@@ -149,6 +186,16 @@ def resume_task(task_id: str, request: TaskResumeRequest):
         return {"task_id": task_id, "response": brain.resume_task(task_id, request.max_steps)}
     except KeyError:
         raise HTTPException(status_code=404, detail="Task not found")
+
+
+@app.post("/tasks/{task_id}/feedback")
+def task_feedback(task_id: str, request: TaskFeedbackRequest):
+    try:
+        return brain.record_task_feedback(task_id, request.rating, request.comment)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Task not found")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 def route_message(message: str, session_id=None, images=None):

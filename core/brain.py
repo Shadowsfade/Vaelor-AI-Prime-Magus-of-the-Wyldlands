@@ -4,6 +4,7 @@ from .memory_manager import VaelorMemoryManager
 from .conversation_memory import VaelorConversationMemory
 from .task_intent import TaskIntent, classify_task
 from .task_store import TaskStore
+from .preference_store import PreferenceStore
 
 
 class VaelorBrain:
@@ -14,6 +15,7 @@ class VaelorBrain:
         self.memory = VaelorMemoryManager()
         self.conversations = VaelorConversationMemory()
         self.tasks = TaskStore()
+        self.preferences = PreferenceStore()
 
     def _history_messages(self, session_id=None, limit=8):
         if session_id:
@@ -79,6 +81,9 @@ class VaelorBrain:
 
     def _context_prefix(self, prompt, use_web=False):
         parts = [self._identity_block()]
+        preferences = self.preferences.context()
+        if preferences:
+            parts.append(preferences)
         mem = self.memory.build_context(prompt, limit=8)
         if mem:
             parts.append(mem)
@@ -91,6 +96,15 @@ class VaelorBrain:
         return "\n\n".join(parts) + "\n\n"
 
     def think(self, prompt, session_id=None, images=None, use_web=None):
+        # Only direct first-person preference declarations auto-activate.
+        # Inferred lessons remain proposed until the user confirms them.
+        preferences = getattr(self, "preferences", None)
+        if preferences is not None:
+            try:
+                preferences.learn_explicit(prompt)
+            except Exception:
+                # Adaptation is supplementary; storage trouble must not block a turn.
+                pass
         # Build an explicit task contract before deciding whether to use tools.
         task = None
         if not images:
@@ -307,6 +321,25 @@ class VaelorBrain:
 
     def get_task(self, task_id):
         return self.tasks.get(task_id)
+
+    def list_preferences(self, status=None):
+        return self.preferences.list(status)
+
+    def add_preference(self, statement, scope="global"):
+        return self.preferences.add(statement, scope=scope, source="user_explicit")
+
+    def set_preference_status(self, preference_id, status):
+        return self.preferences.set_status(preference_id, status)
+
+    def record_task_feedback(self, task_id, rating, comment=""):
+        if self.tasks.get(task_id) is None:
+            raise KeyError(f"Unknown task: {task_id}")
+        feedback = self.preferences.record_feedback(task_id, rating, comment)
+        self.tasks.add_event(task_id, "user_feedback", {
+            "rating": feedback["rating"],
+            "comment": feedback["comment"],
+        })
+        return feedback
 
     def prepare_task(self, request, session_id=None):
         """Create a durable task before background execution begins."""

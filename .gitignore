@@ -20,6 +20,8 @@ memory/proposals.json
 memory/sessions.json
 memory/tasks.json
 memory/tasks.json.tmp
+memory/preferences.json
+memory/preferences.json.tmp
 
 # Keep empty-ish archive template optional; ignore live dumps if huge
 # memory/archive.json may be local - ignore personal content

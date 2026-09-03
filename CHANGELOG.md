@@ -2,6 +2,19 @@
 
 ## [Unreleased] — 2026-09-02
 
+### User-adaptation milestone 6
+- Added local, user-controlled preferences with source, confidence, scope, status, and
+  repeated-evidence tracking.
+- Direct first-person preference declarations can become active automatically and enter
+  Vaelor's reasoning context; inferred lessons never auto-activate.
+- Negative task feedback creates a proposed preference for user review rather than
+  silently rewriting behavior.
+- Added preference list/create/enable/disable APIs and task-linked positive/negative
+  feedback with durable task events.
+- Preference learning is non-blocking: storage failures cannot interrupt chat or action.
+- Personal preference and feedback files are excluded from Git.
+- Added deterministic preference, provenance, feedback, context, and control tests.
+
 ### Live-progress milestone 5
 - Added background task submission with `POST /tasks`; the durable task record is
   returned before execution begins.

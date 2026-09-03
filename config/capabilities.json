@@ -38,6 +38,10 @@
       "description": "background task submission and resumable Server-Sent Event progress"
     },
     {
+      "name": "UserAdaptation",
+      "description": "provenance-aware preferences and task feedback with user-controlled activation"
+    },
+    {
       "name": "ConsoleHomebrew",
       "description": "game-console-only verified public CFW/homebrew guides"
     },
