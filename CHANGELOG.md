@@ -2,6 +2,17 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Live-copy milestone 21
+- Fixed streamed-message copy buttons retaining and copying the original thinking
+  placeholder instead of the visible completed response.
+- Message copy now reads live per-message state that is updated with every streamed token
+  and final response.
+- Completed streams are rendered through the normal Markdown path, restoring fenced-code
+  copy buttons after streaming.
+- Clipboard fallback now detects browser copy rejection and always removes its temporary
+  textarea.
+- Added focused streamed-copy and final-render regression tests.
+
 ### Release-truth milestone 20
 - API health, diagnostics, FastAPI metadata, capabilities, roadmap, portable defaults,
   installer scripts, and package names now agree on canonical version `1.1.4-alpha`.

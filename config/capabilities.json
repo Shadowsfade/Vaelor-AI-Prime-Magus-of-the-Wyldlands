@@ -90,6 +90,10 @@
       "description": "runtime, API, roadmap, capability, installer, and package versions kept in sync"
     },
     {
+      "name": "LiveMessageCopy",
+      "description": "copy buttons track streamed response content and finalized Markdown instead of stale placeholders"
+    },
+    {
       "name": "UserAdaptation",
       "description": "provenance-aware preferences and task feedback with user-controlled activation"
     },

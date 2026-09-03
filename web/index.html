@@ -788,10 +788,14 @@ function copyTextToClipboard(text){
       ta.style.left='-9999px';
       document.body.appendChild(ta);
       ta.select();
-      document.execCommand('copy');
+      var copied=document.execCommand('copy');
       document.body.removeChild(ta);
+      if(!copied) throw new Error('Browser rejected the copy command');
       resolve();
-    }catch(e){ reject(e); }
+    }catch(e){
+      if(ta&&ta.parentNode) ta.parentNode.removeChild(ta);
+      reject(e);
+    }
   });
 }
 function renderMarkdown(text){
@@ -843,6 +847,7 @@ function wireCopyButtons(root){
 function addMessage(text, sender, tag){
   var div = document.createElement('div');
   div.className = 'msg ' + sender;
+  div._vaelorCopyText = String(text == null ? '' : text);
   if(tag){
     var tg = document.createElement('span');
     tg.className = 'tag';
@@ -871,7 +876,7 @@ function addMessage(text, sender, tag){
     c.textContent = 'Copy message';
     c.onclick = async function(){
       try{
-        await copyTextToClipboard(text);
+        await copyTextToClipboard(div._vaelorCopyText || '');
         c.textContent = 'Copied';
         c.classList.add('copied');
         setTimeout(function(){ c.textContent = 'Copy message'; c.classList.remove('copied'); }, 1200);
@@ -883,6 +888,17 @@ function addMessage(text, sender, tag){
   chat.appendChild(div);
   chat.scrollTop = chat.scrollHeight;
   return {div: div, span: span};
+}
+function updateMessageContent(message, text, renderFinal){
+  if(!message || !message.div || !message.span) return;
+  var current=String(text == null ? '' : text);
+  message.div._vaelorCopyText=current;
+  if(renderFinal){
+    message.span.innerHTML=renderMarkdown(current);
+    wireCopyButtons(message.span);
+  }else{
+    message.span.textContent=current;
+  }
 }
 const clientDebugLog = [];
 function dbgLog(msg){
@@ -994,17 +1010,18 @@ async function sendMessage(){const message=inputBox.value.trim();if((!message&&!
 const thinking=addMessage(useStream?'…the runes stream like starlight across the page…':'…the runes rearrange themselves in quiet fire…','vaelor','thinking');
 try{
   if(useStream&&!imgs.length){
-    thinking.span.textContent='';
+    updateMessageContent(thinking,'',false);
     const res=await fetch('/chat/stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:message||'Describe.',session_id:sessionId})});
     if(!res.ok){
       // fallback non-stream
       const res2=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message,session_id:sessionId})});
       if(!res2.ok)throw new Error('chat '+res2.status);
-      const data=await res2.json();thinking.span.textContent=data.response;const tag=thinking.div.querySelector('.tag');if(tag)tag.textContent=data.mode;
+      const data=await res2.json();updateMessageContent(thinking,data.response,true);const tag=thinking.div.querySelector('.tag');if(tag)tag.textContent=data.mode;
       if(speakReplies&&!callActive)await speakText(data.response);
     }else{
       const reader=res.body.getReader();const dec=new TextDecoder();let buf='';let full='';let mode='think';
-      while(true){const {value,done}=await reader.read();if(done)break;buf+=dec.decode(value,{stream:true});const parts=buf.split('\n\n');buf=parts.pop();for(const block of parts){const line=block.trim();if(!line.startsWith('data:'))continue;let ev;try{ev=JSON.parse(line.slice(5).trim())}catch{continue}if(ev.type==='mode')mode=ev.mode;if(ev.type==='token'){full+=ev.text;thinking.span.textContent=full;chat.scrollTop=chat.scrollHeight}if(ev.type==='done'){full=ev.response||full;mode=ev.mode||mode}if(ev.type==='error')throw new Error(ev.error)}}
+      while(true){const {value,done}=await reader.read();if(done)break;buf+=dec.decode(value,{stream:true});const parts=buf.split('\n\n');buf=parts.pop();for(const block of parts){const line=block.trim();if(!line.startsWith('data:'))continue;let ev;try{ev=JSON.parse(line.slice(5).trim())}catch{continue}if(ev.type==='mode')mode=ev.mode;if(ev.type==='token'){full+=ev.text;updateMessageContent(thinking,full,false);chat.scrollTop=chat.scrollHeight}if(ev.type==='done'){full=ev.response||full;mode=ev.mode||mode}if(ev.type==='error')throw new Error(ev.error)}}
+      updateMessageContent(thinking,full,true);
       const tag=thinking.div.querySelector('.tag');if(tag)tag.textContent=mode;
       if(speakReplies&&!callActive)await speakText(full);
     }
