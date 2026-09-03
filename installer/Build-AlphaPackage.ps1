@@ -10,7 +10,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$AlphaVersion = "1.1.0-alpha"
+$AlphaVersion = "1.1.4-alpha"
 
 if (-not $SourceDir) {
   $SourceDir = Split-Path -Parent $PSScriptRoot

@@ -1,6 +1,6 @@
 {
   "name": "Vaelor",
-  "version": "1.1.0-alpha",
+  "version": "1.1.4-alpha",
   "ollama": { "endpoint": "http://localhost:11434" },
   "models": {
     "primary": "vaelor-prime:latest",

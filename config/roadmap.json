@@ -1,5 +1,5 @@
 {
-    "current_version": "0.9.0",
+    "current_version": "1.1.4-alpha",
     "completed": [
         "Ollama local inference connected",
         "Spellbook routing (code_forge, core_reasoning, fast_thought)",
@@ -12,16 +12,25 @@
         "Brain methods for tools/stage/propose/approve/reject",
         "Voice output via free edge-tts wizard voice",
         "Voice call mode (browser STT + edge-tts) like ChatGPT/Claude/Gemini",
-        "Arcane tome WebUI with opening book animation"
+        "Arcane tome WebUI with opening book animation",
+        "Structured task contracts and schema-validated tool actions",
+        "Durable background tasks with SSE progress, resume, clarification, cancellation, and deadlines",
+        "Relevance-ranked provenance-aware memory and controlled user preferences",
+        "Risk-aware supervised, trusted, and admin autonomy",
+        "Workspace grounding and bounded multi-file source understanding",
+        "Operational readiness reporting and focused regression suite"
     ],
     "in_progress": [
-        "Optional local Whisper STT if browser speech unavailable"
+        "User-facing durable task controls and exact approval handoff",
+        "Automatic conversation summarization and retention policy"
     ],
     "next_goals": [
-        "Vision spell - image understanding via vaelor-prime vision",
-        "Image generation spell (free local when VRAM allows)",
-        "Guild architecture - Forge, Artisan, Builder, Engine, Archivist, Oracle, Seer, Wayfinder",
-        "Public web access with authentication (currently Tailscale-only, private)"
+        "Clean-machine installer and packaged-runtime acceptance test",
+        "Recurring task scheduler and automation controls",
+        "Stronger user/session identity and authenticated remote access",
+        "Optional local Whisper STT if browser speech is unavailable",
+        "Unity and Unreal project intelligence bridges",
+        "Vision and local image generation when hardware allows"
     ],
     "hardware_constraints": "RTX 2060 6GB VRAM - only one VRAM-heavy model/tool should run at a time; concurrent image gen + voice + LLM will cause contention. Voice TTS uses free cloud edge-tts (no VRAM). STT uses browser Web Speech API (no VRAM)."
 }

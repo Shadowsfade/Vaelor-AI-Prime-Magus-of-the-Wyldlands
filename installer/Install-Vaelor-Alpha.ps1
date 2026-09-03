@@ -9,7 +9,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$AlphaVersion = "1.1.0-alpha"
+$AlphaVersion = "1.1.4-alpha"
 $script:LogPath = Join-Path $env:TEMP ("Vaelor-Install-" + (Get-Date -Format "yyyyMMdd-HHmmss") + ".log")
 
 function Write-Log([string]$msg) {

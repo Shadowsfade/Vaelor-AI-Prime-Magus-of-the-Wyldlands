@@ -16,4 +16,4 @@ See also: READ ME FIRST.txt
 powershell -ExecutionPolicy Bypass -File installer\Install-Vaelor-Alpha.ps1
 powershell -ExecutionPolicy Bypass -File installer\Build-AlphaPackage.ps1
 
-Zip output: dist\Vaelor-Alpha-1.1.0-alpha.zip
+Zip output: dist\Vaelor-Alpha-1.1.4-alpha.zip

@@ -2,6 +2,15 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Release-truth milestone 20
+- API health, diagnostics, FastAPI metadata, capabilities, roadmap, portable defaults,
+  installer scripts, and package names now agree on canonical version `1.1.4-alpha`.
+- Runtime version reporting loads from `config/vaelor.json` with an explicit unknown
+  fallback instead of duplicating literals.
+- Updated stale roadmap checkboxes to distinguish completed foundations from genuine
+  remaining work, and normalized the roadmap to UTF-8.
+- Added deterministic API, JSON, installer, template, and package version-drift tests.
+
 ### Multi-file understanding milestone 19
 - Added `read_many_text_files`, a read-only typed tool that gathers up to 20 related
   source files in one agent action.

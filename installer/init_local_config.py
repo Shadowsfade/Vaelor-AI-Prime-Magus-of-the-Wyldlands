@@ -74,7 +74,7 @@ def init_local_config(root: Path | None = None, force: bool = False) -> dict:
     if force or not vaelor_path.exists() or _is_foreign_vaelor(vaelor_path, root):
         base = _read_json(tpl_dir / "vaelor.portable.json") or {
             "name": "Vaelor",
-            "version": "1.1.0-alpha",
+            "version": "1.1.4-alpha",
             "ollama": {"endpoint": "http://localhost:11434"},
             "models": {
                 "primary": "vaelor-prime:latest",

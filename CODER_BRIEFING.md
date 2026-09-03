@@ -3,7 +3,7 @@
 **Product:** Vaelor (“Vay-lore”) — free, local AI companion  
 **Tree:** `S:\VeilorServer\Workspace\Core`  
 **Audience:** teammates catching up since last sync  
-**Date:** 2026-08-02  
+**Date:** 2026-09-03
 
 ---
 
@@ -168,7 +168,8 @@ Requires: Windows + Python 3.10+ on PATH. LLM backend (Ollama/LM Studio) still s
 
 ### 4.9 Side notes for coders
 - GitHub private push was **blocked** earlier (no remote / `gh auth` issues) — commits may be local only
-- Version stamp: `1.1.0-alpha` in `api/server.py` health + `config/vaelor.json`
+- Canonical version: `config/vaelor.json`; API and packaging metadata consume or are
+  regression-checked against it.
 - Do not commit secrets, large GGUF weights, or personal `memory/` dumps into shared zips (packager strips live memory)
 
 ### 4.10 Dependable memory retrieval

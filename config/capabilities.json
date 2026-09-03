@@ -1,5 +1,5 @@
 {
-  "version": "1.1.2-alpha",
+  "version": "1.1.4-alpha",
   "tools": [
     {
       "name": "FileCRUD",
@@ -84,6 +84,10 @@
     {
       "name": "MultiFileUnderstanding",
       "description": "allowed-root multi-file source gathering with per-file and total context budgets"
+    },
+    {
+      "name": "CanonicalReleaseMetadata",
+      "description": "runtime, API, roadmap, capability, installer, and package versions kept in sync"
     },
     {
       "name": "UserAdaptation",

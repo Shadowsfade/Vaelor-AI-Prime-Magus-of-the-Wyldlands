@@ -16,12 +16,13 @@ from typing import Any, List, Optional
 
 from core.runtime import VaelorRuntime
 from core.readiness import assess_readiness
+from core.version import VAELOR_VERSION
 from core.setup_wizard import wizard_state, mark_complete, try_install_ollama_winget, try_pull_ollama_model, detect_backends
 from core.tools.registry import registry as tool_registry
 from spellbook.command_parser import parse_command, parse_tool_command
 from spellbook.voice import synthesize_speech, list_wizard_voices, get_voice_settings
 
-app = FastAPI(title="Vaelor API", version="1.1.1-alpha")
+app = FastAPI(title="Vaelor API", version=VAELOR_VERSION)
 
 app.add_middleware(
     CORSMiddleware,
@@ -388,7 +389,7 @@ def health():
         "status": "online",
         "name": runtime.name,
         "title": runtime.title,
-        "version": "1.1.1-alpha",
+        "version": VAELOR_VERSION,
         "voice": {
             "enabled": True,
             "provider": "edge-tts",
@@ -709,7 +710,7 @@ def diagnostics():
     info = {
         "ok": True,
         "time": __import__("datetime").datetime.now().isoformat(),
-        "version": "1.1.4-alpha",
+        "version": VAELOR_VERSION,
         "health": None,
         "backends": None,
         "network": None,

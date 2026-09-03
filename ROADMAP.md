@@ -18,7 +18,7 @@ The priority is creating a reliable intelligence layer with:
 
 ---
 
-# PHASE 1 — Stabilize the Tower
+# PHASE 1 ï¿½ Stabilize the Tower
 
 Goal:
 "I can start Vaelor anywhere and trust that he works."
@@ -37,15 +37,15 @@ Goal:
 
 ## Remaining
 
-[ ] Better memory retrieval
-[ ] Persistent chat history
+[x] Better memory retrieval
+[x] Persistent chat history
 [ ] User/session identity
 [ ] Service management dashboard
 [ ] Reliable remote launcher
 
 ---
 
-# PHASE 2 — True Memory Architecture
+# PHASE 2 ï¿½ True Memory Architecture
 
 Current:
 
@@ -59,27 +59,27 @@ Future:
 Memory System
 
 +-- Identity Memory
-¦   - Who is the Architect?
-¦   - Vaelor identity
-¦
+ï¿½   - Who is the Architect?
+ï¿½   - Vaelor identity
+ï¿½
 +-- Project Memory
-¦   - Project Wyld decisions
-¦   - Architecture choices
-¦
+ï¿½   - Project Wyld decisions
+ï¿½   - Architecture choices
+ï¿½
 +-- Technical Memory
-¦   - Code locations
-¦   - Systems
-¦   - Dependencies
-¦
+ï¿½   - Code locations
+ï¿½   - Systems
+ï¿½   - Dependencies
+ï¿½
 +-- World Memory
-¦   - Wyldlands lore
-¦   - Locations
-¦   - Creatures
-¦
+ï¿½   - Wyldlands lore
+ï¿½   - Locations
+ï¿½   - Creatures
+ï¿½
 +-- Conversation Memory
-¦   - Previous discussions
-¦   - Design decisions
-¦
+ï¿½   - Previous discussions
+ï¿½   - Design decisions
+ï¿½
 +-- Experience Memory
     - What was tried
     - What failed
@@ -88,16 +88,16 @@ Memory System
 
 Required upgrades:
 
-[ ] Memory tagging
-[ ] Relevance search
-[ ] Memory ranking
-[ ] Duplicate consolidation
+[x] Memory tagging
+[x] Relevance search
+[x] Memory ranking
+[x] Duplicate consolidation
 [ ] Automatic summaries
-[ ] Chat history storage
+[x] Chat history storage
 
 ---
 
-# PHASE 3 — Give Vaelor Hands
+# PHASE 3 ï¿½ Give Vaelor Hands
 
 Goal:
 Move from "code advisor" to "controlled development partner."
@@ -115,18 +115,18 @@ execute
 
 Required systems:
 
-[ ] Tool calling architecture
-[ ] Project scanner
-[ ] Multi-file reader
-[ ] Code proposal system
-[ ] Approval workflow
-[ ] Automated testing
-[ ] Error recovery
-[ ] Safe execution layer
+[x] Tool calling architecture
+[x] Project scanner
+[x] Multi-file reader
+[x] Code proposal system
+[x] Approval workflow
+[x] Automated testing
+[x] Error recovery
+[x] Safe execution layer
 
 ---
 
-# PHASE 4 — Project Wyld Integration
+# PHASE 4 ï¿½ Project Wyld Integration
 
 Goal:
 Vaelor assists in creating the game world.
@@ -151,7 +151,7 @@ Unreal:
 
 ---
 
-# PHASE 5 — Living World Intelligence
+# PHASE 5 ï¿½ Living World Intelligence
 
 Long-term vision:
 
@@ -177,11 +177,11 @@ The world evolves.
 
 # Current Development Priority
 
-1. Stabilize Vaelor
-2. Improve memory quality
-3. Add persistent conversation history
-4. Build control dashboard
-5. Expand tool system
+1. Build user-facing durable task controls and approval handoff
+2. Add automatic conversation summarization and retention
+3. Add scheduling and recurring task support
+4. Validate installer/runtime behavior on a clean machine
+5. Strengthen user/session identity and remote authentication
 6. Create Unity/Unreal bridge
 
 The foundation comes first.

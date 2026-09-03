@@ -150,7 +150,7 @@ if (Test-Path $initScript) { Copy-Item $initScript (Join-Path $outDir "installer
 if (Test-Path (Join-Path $outDir "config\network.json")) { Remove-Item (Join-Path $outDir "config\network.json") -Force }
 
 # Zip the onedir package for distribution
-$zip = Join-Path $distDir "Vaelor-Desktop-1.1.0-alpha.zip"
+$zip = Join-Path $distDir "Vaelor-Desktop-1.1.4-alpha.zip"
 if (Test-Path $zip) { Remove-Item $zip -Force }
 Write-Host "Zipping $zip ..."
 Compress-Archive -Path $outDir -DestinationPath $zip -Force
