@@ -125,6 +125,10 @@ Task contracts include `reusable_capability` and `capability_reason`. When set, 
 audits his existing tools first and may extend his own modular source when the request
 authorizes that outcome. Examples are not integrations by default, and all self-extension
 still requires normal safety, tests, documentation, evidence, diff review, and restart notes.
+Git-backed projects can use `create_validation_sandbox` to obtain a detached temporary
+worktree from committed state. The returned path is used by normal tools; manifests are
+listed with `list_validation_sandboxes`, and destructive cleanup requires the exact managed
+ID through `discard_validation_sandbox`. Uncommitted source-checkout work is never copied.
 Transient local-model exceptions are retried twice by default. Retry attempts are written
 to the durable task event stream and remain cancellable between attempts.
 Tool observations are bounded per result and across the rolling history so long-running

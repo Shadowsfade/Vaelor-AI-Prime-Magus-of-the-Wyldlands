@@ -74,6 +74,10 @@
       "description": "engine-agnostic weighted acceptance contracts that prevent inflated confidence and block unverified promotion"
     },
     {
+      "name": "DisposableValidationSandbox",
+      "description": "managed detached Git worktrees isolate experiments from active checkouts with exact-ID lifecycle controls"
+    },
+    {
       "name": "AdaptiveSelfExtension",
       "description": "recognizes reusable capability requests and fills genuine gaps through guarded modular tested extensions without hardcoding examples"
     },

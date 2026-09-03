@@ -2,6 +2,20 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Disposable validation sandbox milestone 36
+- Added managed detached Git worktrees for engine-agnostic experimentation and validation
+  without modifying the user's active checkout or including its uncommitted drafts.
+- `create_validation_sandbox` resolves the approved repository root, starts from an
+  explicit committed ref, records an atomic manifest, and returns the isolated path for
+  subsequent file, shell, search, test, and review tools.
+- `list_validation_sandboxes` exposes only Vaelor-managed manifests; cleanup accepts only
+  a generated 12-character sandbox ID, verifies containment under Vaelor's temporary
+  worktree root, and uses Git's worktree removal rather than arbitrary path deletion.
+- Creation is medium-risk and discard is high-risk under the existing autonomy/approval
+  policy, with audit records for both lifecycle operations.
+- Added real-repository regression coverage proving source isolation, exclusion of
+  uncommitted files, exact-ID cleanup, traversal rejection, and tool risk metadata.
+
 ### Durable activity heartbeat milestone 35
 - Added lifecycle-bound task supervision that emits a durable “Vaelor is still working”
   heartbeat every 30 seconds while a task remains in the running state.

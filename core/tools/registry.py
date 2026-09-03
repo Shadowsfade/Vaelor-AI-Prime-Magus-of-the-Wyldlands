@@ -237,6 +237,17 @@ def register_all_tools():
         print("validation register fail", e)
 
     try:
+        from core.sandbox_workspace import (
+            create_validation_sandbox, list_validation_sandboxes,
+            discard_validation_sandbox,
+        )
+        registry.register("create_validation_sandbox", "Create a detached disposable Git worktree from committed state. repo= ref=HEAD confirm=yes", False, create_validation_sandbox, risk="medium")
+        registry.register("list_validation_sandboxes", "List Vaelor-managed disposable validation worktrees.", True, list_validation_sandboxes)
+        registry.register("discard_validation_sandbox", "Remove one exact managed validation worktree by sandbox_id. confirm=yes", False, discard_validation_sandbox, risk="high")
+    except Exception as e:
+        print("sandbox register fail", e)
+
+    try:
         from .unreal_tools import unreal_status, unreal_open_epic_download, unreal_launch_epic
         registry.register("unreal_status", "Detect Unreal/Epic/.uprojects.", True, unreal_status)
         registry.register("unreal_open_epic_download", "Open Epic download page.", False, unreal_open_epic_download)

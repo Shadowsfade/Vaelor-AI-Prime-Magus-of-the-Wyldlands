@@ -27,6 +27,12 @@ class ToolRegistrySchemaTests(unittest.TestCase):
         self.assertIsNotNone(tool)
         self.assertTrue(tool.read_only)
 
+    def test_validation_sandbox_tools_have_safe_risk_metadata(self):
+        from core.tools.registry import registry
+        self.assertEqual(registry.get("create_validation_sandbox").risk, "medium")
+        self.assertTrue(registry.get("list_validation_sandboxes").read_only)
+        self.assertEqual(registry.get("discard_validation_sandbox").risk, "high")
+
     def setUp(self):
         self.registry = ToolRegistry()
 
