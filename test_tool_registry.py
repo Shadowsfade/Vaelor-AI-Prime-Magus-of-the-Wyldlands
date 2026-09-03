@@ -30,6 +30,13 @@ class ToolRegistrySchemaTests(unittest.TestCase):
         self.assertTrue(self.registry.accepts_argument("sample", "depth"))
         self.assertFalse(self.registry.accepts_argument("sample", "confirm"))
 
+    def test_risk_is_exposed_and_inferred(self):
+        listed = self.registry.list_tools()[0]
+        self.assertEqual(listed["risk"], "read")
+        self.registry.register("danger", "danger", False, lambda: None, risk="high")
+        self.assertEqual(self.registry.get("danger").risk, "high")
+        self.assertIn("risk=high", self.registry.specs_for_prompt())
+
 
 if __name__ == "__main__":
     unittest.main()

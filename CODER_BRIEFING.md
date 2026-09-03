@@ -119,7 +119,7 @@ User request: broad access for installs/dev; **never fully delete core OS files*
 | `profile` | `full_access_os_safe` |
 | `sandbox_enforced` | `false` (no tight workspace-only fence) |
 | `allow_installs` | `true` |
-| `auto_confirm_mutations` | `true` in admin/trusted |
+| `auto_confirm_mutations` | policy flag; agent additionally enforces per-tool risk |
 | Audit | `memory/audit_log.jsonl` |
 
 **Hard blocks remain:**
@@ -128,6 +128,11 @@ User request: broad access for installs/dev; **never fully delete core OS files*
 - cwd inside System32/SysWOW64/WinSxS
 
 Implementation: `core/tools/shell_exec.py` + `config/autonomy.json`.
+
+Agent-loop policy is risk-aware: supervised blocks autonomous mutations, trusted permits
+routine reversible changes but blocks high-risk delete/install/push/policy actions, and
+admin permits high-risk work while the hard OS protections remain active. Confirmation
+written by the model itself is never treated as user authorization.
 
 If the machine-local `config/autonomy.json` is absent, malformed, or names an unknown
 mode, Vaelor fails closed to supervised mode. Mutating tools default to `confirm=no`;

@@ -1,12 +1,17 @@
 """Vaelor Tool Registry."""
 import inspect
 
+VALID_RISKS = {"read", "low", "medium", "high"}
+
+
 class Tool:
-    def __init__(self, name, description, read_only, func):
+    def __init__(self, name, description, read_only, func, risk=None):
         self.name = name
         self.description = description
         self.read_only = read_only
         self.func = func
+        inferred = "read" if read_only else "medium"
+        self.risk = risk if risk in VALID_RISKS else inferred
     def run(self, **kwargs):
         return self.func(**kwargs)
     def argument_schema(self):
@@ -29,14 +34,15 @@ class Tool:
 class ToolRegistry:
     def __init__(self):
         self._tools = {}
-    def register(self, name, description, read_only, func):
-        self._tools[name] = Tool(name, description, read_only, func)
+    def register(self, name, description, read_only, func, risk=None):
+        self._tools[name] = Tool(name, description, read_only, func, risk)
     def list_tools(self):
         return [
             {
                 "name": t.name,
                 "description": t.description,
                 "read_only": t.read_only,
+                "risk": t.risk,
                 "arguments": t.argument_schema(),
             }
             for t in self._tools.values()
@@ -51,9 +57,9 @@ class ToolRegistry:
         lines.append("## Read-only")
         for t in sorted(reads, key=lambda x: x.name):
             lines.append(f"- {t.name}{self._signature_text(t)}: {t.description}")
-        lines.append("## Mutating (admin auto-confirm=yes)")
+        lines.append("## Mutating (risk policy applies)")
         for t in sorted(muts, key=lambda x: x.name):
-            lines.append(f"- {t.name}{self._signature_text(t)}: {t.description}")
+            lines.append(f"- {t.name}{self._signature_text(t)} [risk={t.risk}]: {t.description}")
         lines.append('Format: {"thought":"...","actions":[{"tool":"name","arguments":{}}],"final":null}')
         return "\n".join(lines)
     @staticmethod
@@ -136,7 +142,7 @@ def register_all_tools():
         )
         registry.register("shell_exec", "Admin shell (auto-confirm in admin). OS core wipe blocked. command= cwd= timeout=", False, shell_exec)
         registry.register("shell_which", "Locate executable. command=git", True, shell_which)
-        registry.register("set_autonomy_mode", "Set mode=supervised|trusted|admin.", False, set_autonomy_mode)
+        registry.register("set_autonomy_mode", "Set mode=supervised|trusted|admin.", False, set_autonomy_mode, risk="high")
         registry.register("get_autonomy_status", "Show autonomy config.", True, get_autonomy_status)
         registry.register("describe_sandbox", "Explain OS-safe full-access policy.", True, describe_sandbox)
     except Exception as e:
@@ -156,7 +162,7 @@ def register_all_tools():
         registry.register("git_commit", "Commit. message=...", False, git_commit)
         registry.register("git_checkout", "Checkout/create branch.", False, git_checkout)
         registry.register("git_pull", "Pull remote.", False, git_pull)
-        registry.register("git_push", "Push remote (no force).", False, git_push)
+        registry.register("git_push", "Push remote (no force).", False, git_push, risk="high")
     except Exception as e:
         print("git register fail", e)
 
@@ -172,7 +178,7 @@ def register_all_tools():
         registry.register("apply_patch", "Exact text replace. path= old= new= confirm=yes", False, apply_patch)
         registry.register("grep_files", "Search contents. query= path=. glob=*.py", True, grep_files)
         registry.register("make_dir", "Create directory. path= confirm=yes", False, make_dir)
-        registry.register("delete_path", "Delete file/dir (not OS core). path= recursive=yes|no confirm=yes", False, delete_path)
+        registry.register("delete_path", "Delete file/dir (not OS core). path= recursive=yes|no confirm=yes", False, delete_path, risk="high")
     except Exception as e:
         print("fs_ops register fail", e)
 

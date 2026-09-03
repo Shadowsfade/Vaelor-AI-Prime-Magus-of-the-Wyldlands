@@ -207,6 +207,40 @@ def _is_mutating_action(name: str) -> bool:
     return name in MUTATING
 
 
+def _action_risk(name: str, kwargs: dict) -> str:
+    tool = registry.get(name)
+    risk = getattr(tool, "risk", None) or ("read" if tool and tool.read_only else "medium")
+    if name == "shell_exec":
+        command = str(kwargs.get("command", ""))
+        if re.search(
+            r"\b(remove-item|rm|del|erase|rmdir|rd|git\s+(push|reset|clean|rebase)|"
+            r"winget\s+install|pip\s+install|npm\s+install|set-autonom)\b",
+            command,
+            re.IGNORECASE,
+        ):
+            return "high"
+    return risk
+
+
+def _autonomy_mode() -> str:
+    try:
+        from core.tools.shell_exec import load_autonomy
+        mode = str(load_autonomy().get("mode", "supervised")).lower()
+        return mode if mode in ("supervised", "trusted", "admin") else "supervised"
+    except Exception:
+        return "supervised"
+
+
+def _allows_automatic_action(mode: str, risk: str) -> bool:
+    if risk == "read":
+        return True
+    if mode == "admin":
+        return True
+    if mode == "trusted":
+        return risk in ("low", "medium")
+    return False
+
+
 def build_react_system_prompt(tool_specs: str) -> str:
     return f"""
 You are Vaelor, an autonomous local coding worker (ReAct agent) for the Apprentice.
@@ -290,7 +324,7 @@ def run_agent(
     last_failed = False
     verified_hint = False
     unverified_mutation = False
-    auto_yes = _auto_confirm()
+    autonomy_mode = _autonomy_mode()
     max_steps = max(3, min(int(max_steps or DEFAULT_MAX_STEPS), 25))
     model_retries = max(0, min(int(model_retries or 0), 3))
 
@@ -411,12 +445,33 @@ def run_agent(
                     return "FINAL_SUMMARY: CANCELLED Task cancellation was requested."
                 is_verification = _is_verification_action(name, kwargs)
                 is_mutating = _is_mutating_action(name)
+                risk = _action_risk(name, kwargs)
                 supports_confirm = registry.accepts_argument(name, "confirm")
-                if "confirm" not in kwargs and is_mutating and supports_confirm:
-                    kwargs["confirm"] = "yes" if auto_yes else "no"
-                # force confirm yes on shell when admin
-                if auto_yes and is_mutating and supports_confirm:
-                    kwargs["confirm"] = "yes"
+                allowed = _allows_automatic_action(autonomy_mode, risk)
+                if is_mutating and supports_confirm:
+                    # Never trust confirmation authored by the model itself.
+                    kwargs["confirm"] = "yes" if allowed else "no"
+                if is_mutating and not allowed:
+                    result = (
+                        f"Refused: {risk}-risk action '{name}' is not automatically allowed "
+                        f"in {autonomy_mode} mode. Use admin mode for deliberate full autonomy."
+                    )
+                    meta = _classify_observation(name, kwargs, result)
+                    emit(
+                        "action_blocked",
+                        step=step,
+                        tool=name,
+                        risk=risk,
+                        mode=autonomy_mode,
+                        reason=result,
+                    )
+                    observations.append(
+                        f"OBSERVATION:\ntool={name} returncode=1 failed=True\n"
+                        f"args={kwargs}\nstderr:\n{result}"
+                    )
+                    transcript.append(observations[-1])
+                    step_failed = True
+                    continue
                 emit("tool_started", step=step, tool=name, arguments=kwargs)
                 try:
                     result = registry.execute(name, **kwargs)

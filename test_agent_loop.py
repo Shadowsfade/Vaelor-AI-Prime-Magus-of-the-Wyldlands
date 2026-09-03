@@ -5,6 +5,8 @@ from core.agent_loop import (
     MAX_OBSERVATION_CONTEXT_CHARS,
     MAX_TOOL_RESULT_CHARS,
     _auto_confirm,
+    _action_risk,
+    _allows_automatic_action,
     _bounded_text,
     _looks_failed,
     _recent_observations,
@@ -23,6 +25,51 @@ class ScriptedModel:
 
 
 class AgentLoopTests(unittest.TestCase):
+    def test_autonomy_matrix_blocks_high_risk_in_trusted(self):
+        self.assertTrue(_allows_automatic_action("trusted", "medium"))
+        self.assertFalse(_allows_automatic_action("trusted", "high"))
+        self.assertFalse(_allows_automatic_action("supervised", "low"))
+        self.assertTrue(_allows_automatic_action("admin", "high"))
+
+    def test_shell_risk_detects_destructive_and_publish_commands(self):
+        self.assertEqual(_action_risk("shell_exec", {"command": "git push origin main"}), "high")
+        self.assertEqual(_action_risk("shell_exec", {"command": "Remove-Item demo.txt"}), "high")
+
+    def test_supervised_mode_ignores_model_authored_confirmation(self):
+        model = ScriptedModel([
+            '{"thought":"write","actions":[{"tool":"write_text_file",'
+            '"arguments":{"path":"x.txt","content":"x","confirm":"yes"}}],"final":null}',
+            '{"thought":"blocked","actions":[],"final":'
+            '{"status":"FAILED","summary":"approval required"}}',
+        ])
+        events = []
+        with (
+            patch("core.agent_loop.registry.specs_for_prompt", return_value="tools"),
+            patch("core.agent_loop._autonomy_mode", return_value="supervised"),
+            patch("core.agent_loop.registry.execute") as execute,
+        ):
+            result = run_agent(
+                "write x", model, event_callback=lambda event, data: events.append(event)
+            )
+        self.assertEqual(result, "FINAL_SUMMARY: FAILED approval required")
+        execute.assert_not_called()
+        self.assertIn("action_blocked", events)
+
+    def test_trusted_mode_blocks_high_risk_tool_before_execution(self):
+        model = ScriptedModel([
+            '{"thought":"publish","actions":[{"tool":"git_push",'
+            '"arguments":{"remote":"origin","confirm":"yes"}}],"final":null}',
+            '{"thought":"blocked","actions":[],"final":'
+            '{"status":"FAILED","summary":"admin required"}}',
+        ])
+        with (
+            patch("core.agent_loop.registry.specs_for_prompt", return_value="tools"),
+            patch("core.agent_loop._autonomy_mode", return_value="trusted"),
+            patch("core.agent_loop.registry.execute") as execute,
+        ):
+            result = run_agent("push changes", model)
+        self.assertEqual(result, "FINAL_SUMMARY: FAILED admin required")
+        execute.assert_not_called()
     def test_large_tool_result_keeps_head_and_tail_with_bound(self):
         value = "HEAD" + ("x" * 20000) + "TAIL"
         bounded = _bounded_text(value)
@@ -57,6 +104,7 @@ class AgentLoopTests(unittest.TestCase):
         ])
         with (
             patch("core.agent_loop.registry.specs_for_prompt", return_value="tools"),
+            patch("core.agent_loop._autonomy_mode", return_value="admin"),
             patch("core.agent_loop.registry.execute", return_value="[OK]"),
         ):
             result = run_agent("change x.py", model, max_steps=6)
@@ -116,6 +164,7 @@ class AgentLoopTests(unittest.TestCase):
         ])
         with (
             patch("core.agent_loop.registry.specs_for_prompt", return_value="tools"),
+            patch("core.agent_loop._autonomy_mode", return_value="admin"),
             patch("core.agent_loop.registry.execute", return_value="[OK]") as execute,
         ):
             run_agent("set supervised mode", model, require_verification=False)
@@ -147,6 +196,7 @@ class AgentLoopTests(unittest.TestCase):
         ])
         with (
             patch("core.agent_loop.registry.specs_for_prompt", return_value="tools"),
+            patch("core.agent_loop._autonomy_mode", return_value="admin"),
             patch("core.agent_loop.registry.execute", return_value="[OK]"),
         ):
             result = run_agent("change x.py twice", model, max_steps=6)

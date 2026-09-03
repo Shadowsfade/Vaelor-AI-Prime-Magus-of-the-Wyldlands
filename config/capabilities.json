@@ -70,6 +70,10 @@
       "description": "head-tail tool truncation and recency-weighted observation budgets for local models"
     },
     {
+      "name": "RiskAwareAutonomy",
+      "description": "tool risk metadata and supervised, trusted, and admin execution policy enforcement"
+    },
+    {
       "name": "UserAdaptation",
       "description": "provenance-aware preferences and task feedback with user-controlled activation"
     },

@@ -2,6 +2,18 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Risk-aware autonomy milestone 16
+- Tool metadata now exposes `read`, `low`, `medium`, or `high` execution risk to the
+  model and API clients.
+- Supervised mode blocks all autonomous mutations and ignores model-authored confirmation;
+  trusted mode allows routine mutations but blocks destructive, install, policy-changing,
+  and remote-publishing actions; admin mode permits deliberate full autonomy.
+- Shell commands receive dynamic risk classification, including delete, install, Git
+  history-changing, and push operations.
+- Blocked actions never execute and emit durable `action_blocked` events with mode, risk,
+  tool, and reason.
+- Added registry, risk detection, policy matrix, spoofed-confirmation, and execution tests.
+
 ### Context-budget milestone 15
 - Individual tool results are bounded before entering agent observations while retaining
   both the beginning and end for commands whose decisive error appears last.
