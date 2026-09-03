@@ -30,7 +30,8 @@
         "Bounded incremental persistent-terminal output in the durable live Task Center console",
         "Allowed-root bounded lexical codebase discovery with ranked line-numbered snippets",
         "Native read-only Git change review with whitespace/conflict checks and likely-secret redaction",
-        "Engine-agnostic evidence contracts, honest confidence scoring, and promotion gating"
+        "Engine-agnostic evidence contracts, honest confidence scoring, and promotion gating",
+        "Guarded reusable-capability recognition and modular self-extension policy"
     ],
     "in_progress": ["ConPTY full-screen terminal input and resize support"],
     "next_goals": [

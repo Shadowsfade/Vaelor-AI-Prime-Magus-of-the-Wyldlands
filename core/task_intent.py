@@ -32,6 +32,8 @@ class TaskIntent:
     constraints: List[str] = field(default_factory=list)
     needs_clarification: bool = False
     clarification_question: str = ""
+    reusable_capability: bool = False
+    capability_reason: str = ""
     source: str = "model"
 
     @property
@@ -46,6 +48,8 @@ class TaskIntent:
             "constraints": list(self.constraints),
             "needs_clarification": self.needs_clarification,
             "clarification_question": self.clarification_question,
+            "reusable_capability": self.reusable_capability,
+            "capability_reason": self.capability_reason,
             "source": self.source,
         }
 
@@ -59,17 +63,26 @@ class TaskIntent:
             constraints=_clean_list(data.get("constraints")),
             needs_clarification=_clean_bool(data.get("needs_clarification", False)),
             clarification_question=str(data.get("clarification_question") or ""),
+            reusable_capability=_clean_bool(data.get("reusable_capability", False)),
+            capability_reason=str(data.get("capability_reason") or ""),
             source=str(data.get("source") or "stored"),
         )
 
     def as_agent_goal(self, original_request: str) -> str:
         criteria = self.success_criteria or ["The requested outcome is complete and verified."]
         constraints = self.constraints or ["Preserve unrelated user work."]
+        capability = ""
+        if self.reusable_capability:
+            capability = (
+                "\n\nREUSABLE CAPABILITY REQUEST:\n"
+                + (self.capability_reason or "The outcome should become a reusable Vaelor capability.")
+                + "\nImplement a general, modular capability rather than hardcoding the example."
+            )
         return (
             f"ORIGINAL REQUEST:\n{original_request.strip()}\n\n"
             f"NORMALIZED GOAL:\n{self.goal}\n\n"
             "SUCCESS CRITERIA:\n- " + "\n- ".join(criteria) + "\n\n"
-            "CONSTRAINTS:\n- " + "\n- ".join(constraints)
+            "CONSTRAINTS:\n- " + "\n- ".join(constraints) + capability
         )
 
 
@@ -111,7 +124,19 @@ def parse_task_intent(text: str, original_request: str) -> Optional[TaskIntent]:
         constraints=_clean_list(data.get("constraints")),
         needs_clarification=needs_clarification,
         clarification_question=question,
+        reusable_capability=_clean_bool(data.get("reusable_capability", False)),
+        capability_reason=str(data.get("capability_reason") or "").strip(),
     )
+
+
+def _looks_like_capability_request(request: str) -> bool:
+    text = str(request or "").lower()
+    markers = (
+        "should be able to", "needs to be able to", "from now on", "in the future",
+        "whenever the user", "when the user requests", "build himself", "build itself",
+        "add the ability", "gain the ability", "reusable capability",
+    )
+    return any(marker in text for marker in markers)
 
 
 def classify_task(
@@ -128,11 +153,15 @@ Classify the user's request for a local assistant. Return JSON only with this sc
   "success_criteria": ["observable completion condition"],
   "constraints": ["explicit user constraint only"],
   "needs_clarification": false,
-  "clarification_question": ""
+  "clarification_question": "",
+  "reusable_capability": false,
+  "capability_reason": "why this is reusable rather than one-off"
 }}
 
 Use intent=act only when the user wants real-world or computer work performed.
 Use intent=chat for discussion, explanation, brainstorming, and questions.
+Set reusable_capability=true when the user asks Vaelor to gain a general ability, behave
+that way in future requests, build himself, or support a class of tasks—not a one-off example.
 Ask for clarification only when a missing fact would materially change or endanger the action.
 Do not invent constraints. Do not execute the request.
 
@@ -151,6 +180,11 @@ USER REQUEST:
         success_criteria=(
             ["The requested outcome is complete and verified."]
             if fallback_should_act else []
+        ),
+        reusable_capability=fallback_should_act and _looks_like_capability_request(request),
+        capability_reason=(
+            "Fallback wording indicates a reusable self-extension request."
+            if fallback_should_act and _looks_like_capability_request(request) else ""
         ),
         source="fallback",
     )

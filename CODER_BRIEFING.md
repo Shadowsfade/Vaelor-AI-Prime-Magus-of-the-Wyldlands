@@ -121,6 +121,10 @@ redaction without changing the index or worktree.
 For substantial creation work, the agent defines applicable acceptance checks and calls
 `evaluate_validation` with concrete evidence. Unknown/skipped/failed checks receive no
 confidence credit; required failures or unknowns block promotion even above the threshold.
+Task contracts include `reusable_capability` and `capability_reason`. When set, Vaelor
+audits his existing tools first and may extend his own modular source when the request
+authorizes that outcome. Examples are not integrations by default, and all self-extension
+still requires normal safety, tests, documentation, evidence, diff review, and restart notes.
 Transient local-model exceptions are retried twice by default. Retry attempts are written
 to the durable task event stream and remain cancellable between attempts.
 Tool observations are bounded per result and across the rolling history so long-running

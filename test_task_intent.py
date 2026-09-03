@@ -56,6 +56,28 @@ class TaskIntentTests(unittest.TestCase):
         )
         self.assertFalse(task.needs_clarification)
 
+    def test_model_can_mark_reusable_capability_request(self):
+        task = parse_task_intent(
+            '{"intent":"act","goal":"add adapters","reusable_capability":true,'
+            '"capability_reason":"support future project tools"}',
+            "gain this ability",
+        )
+        self.assertTrue(task.reusable_capability)
+        self.assertIn("REUSABLE CAPABILITY REQUEST", task.as_agent_goal("gain this ability"))
+        self.assertIn("general, modular capability", task.as_agent_goal("gain this ability"))
+
+    def test_fallback_recognizes_self_extension_wording(self):
+        task = classify_task(
+            "Vaelor should be able to build himself when the user requests a new ability",
+            lambda _: "malformed",
+            True,
+        )
+        self.assertTrue(task.reusable_capability)
+
+    def test_one_off_example_is_not_automatically_a_core_extension(self):
+        task = classify_task("make this game menu", lambda _: "malformed", True)
+        self.assertFalse(task.reusable_capability)
+
 
 if __name__ == "__main__":
     unittest.main()

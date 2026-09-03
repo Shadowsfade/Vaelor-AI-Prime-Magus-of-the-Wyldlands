@@ -108,6 +108,8 @@ session and `/help` for the command list. Existing shell safety and approval pol
   warnings, and likely-secret redaction.
 - Engine-agnostic evidence contracts and confidence gates that block promotion when
   required verification is failed, skipped, or unknown.
+- Guarded adaptive self-extension: Vaelor recognizes requests to gain reusable abilities,
+  fills genuine capability gaps modularly, and does not hardcode incidental examples.
 - Persistent conversations with automatic bounded summaries, relevance-ranked memory,
   and user-controlled preferences.
 - Desktop/web tome interface, streamed answers, and voice conversation.

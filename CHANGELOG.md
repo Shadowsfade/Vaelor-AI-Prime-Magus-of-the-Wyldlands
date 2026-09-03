@@ -2,6 +2,20 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Guarded adaptive self-extension milestone 34
+- Extended structured task intent with a durable `reusable_capability` signal and reason,
+  allowing Vaelor to distinguish one-off execution from requests to gain a future ability.
+- Added conservative fallback recognition for explicit phrases such as “should be able to,”
+  “from now on,” and “build himself” when local-model classification is unavailable.
+- Reusable capability contracts direct the agent to inspect existing abilities first,
+  implement only genuine gaps, and build general modular interfaces rather than hardcoding
+  a named product or engine that appeared merely as an example.
+- Self-extension must preserve identity and safety boundaries, add tests/documentation and
+  capability metadata, pass evidence validation and Git review, and disclose restart or
+  package-rebuild requirements before the new code can be used.
+- Added regression coverage for model-classified and fallback self-extension requests,
+  contract propagation, and protection against converting one-off examples into core work.
+
 ### Evidence-based validation gate milestone 33
 - Added an engine-agnostic `evaluate_validation` tool for explicit functional, build,
   test, visual, performance, and safety acceptance contracts.
