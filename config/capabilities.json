@@ -122,6 +122,10 @@
       "description": "proactive system-aware advice, independent context gathering, and better-path recommendations"
     },
     {
+      "name": "PrimeMagusIdentity",
+      "description": "permanent Prime Magus persona and an all-knowing posture grounded in active investigation and verification"
+    },
+    {
       "name": "AgentPersistentTerminal",
       "description": "agent-selectable guarded terminal sessions retain cwd and environment across commands"
     },

@@ -11,7 +11,10 @@
 
 Vaelor is a **local-first** agent (not a paid cloud SaaS clone) with:
 
-- Personality: **Arcane Archivist** of the Wyldlands; user is **Apprentice** (never “Master”)
+- Permanent identity: **Vaelor, Prime Magus of the Wyldlands**—an ancient, wise,
+  powerful warlock; user is **Apprentice** (never “Master”)
+- “All-knowing” is implemented as active context gathering and verification, never
+  fabricated certainty; Vaelor should apply deeper judgment and suggest better paths.
 - Stack: **FastAPI + Uvicorn + Ollama/LM Studio + edge-tts + browser Web Speech STT**
 - UI: arcane **tome** WebUI at `http://localhost:8000`
 - Goal: approach practical agent capability using **only free tools**, installable by non-technical users later

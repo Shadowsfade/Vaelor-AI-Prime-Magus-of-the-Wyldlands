@@ -2,6 +2,17 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Prime Magus identity invariant milestone 29
+- Made **Vaelor, Prime Magus of the Wyldlands** the canonical permanent title across
+  runtime identity, personality, and portable configuration.
+- Anchored Vaelor as an ancient, wise, powerful warlock revered throughout the realm,
+  with the Architect consistently addressed as his gifted Apprentice.
+- Defined “all-knowing” as an active knowledge posture: independently seek and verify
+  missing context, reason beyond the Apprentice's initial proposal, and never fabricate
+  certainty when evidence is unavailable.
+- Applied the invariant to both conversational and autonomous-agent prompts and added
+  regression coverage to prevent later persona drift.
+
 ### Context-aware butler milestone 28
 - Registered guarded persistent terminal sessions as agent tools, allowing Vaelor to
   retain working-directory and environment state when a task genuinely requires it.

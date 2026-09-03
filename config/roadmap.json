@@ -26,6 +26,7 @@
         "Context-aware butler judgment with system-aware recommendations",
         "Agent-selectable persistent terminal tools with command-aware safety",
         "Live Task Center console and enforced 20-minute task ceiling"
+        ,"Permanent Prime Magus identity with evidence-grounded all-knowing mentor behavior"
     ],
     "in_progress": ["Per-command stdout chunk streaming plus ConPTY full-screen interaction and resize support"],
     "next_goals": [

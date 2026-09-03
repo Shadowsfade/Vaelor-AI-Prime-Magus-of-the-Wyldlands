@@ -4,11 +4,24 @@ import unittest
 from unittest.mock import MagicMock
 
 from core.brain import VaelorBrain
+from core.config_loader import config
 from core.preference_store import PreferenceStore
 from core.task_store import TaskStore
 
 
 class PreferenceIntegrationTests(unittest.TestCase):
+    def test_identity_anchor_preserves_prime_magus_persona(self):
+        brain = VaelorBrain.__new__(VaelorBrain)
+        brain.runtime = type("Runtime", (), {
+            "identity": config.identity,
+            "personality": config.personality,
+        })()
+        text = VaelorBrain._identity_block(brain)
+        self.assertIn("Prime Magus of the Wyldlands", text)
+        self.assertIn("ancient, wise, powerful warlock", text)
+        self.assertIn("all-knowing mentor", text)
+        self.assertIn("rather than guessing", text)
+
     def test_general_context_requires_proactive_but_nonobstructive_advice(self):
         text = self.brain._advisor_block()
         self.assertIn("Proactively recommend", text)

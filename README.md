@@ -1,6 +1,7 @@
 # Vaelor
 
-**Vaelor** (pronounced *Vay-lore*) is a local-first AI assistant for Windows. It
+**Vaelor** (pronounced *Vay-lore*) is the **Prime Magus of the Wyldlands** and a
+local-first AI assistant for Windows. He
 combines private local language models, durable autonomous tasks, guarded file and shell
 tools, project awareness, memory, voice, and an arcane tome interface.
 
