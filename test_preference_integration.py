@@ -47,6 +47,15 @@ class PreferenceIntegrationTests(unittest.TestCase):
         self.assertIn("User-confirmed preferences", context)
         self.assertIn("concise progress updates", context)
 
+    def test_task_feedback_experience_enters_reasoning_without_becoming_permission(self):
+        task = self.brain.tasks.create("inspect")
+        self.brain.record_task_feedback(task["id"], "negative", "Show clearer test evidence")
+        context = self.brain._context_prefix("next task")
+        self.assertIn("Recent user outcome experience", context)
+        self.assertIn("Show clearer test evidence", context)
+        self.assertIn("not authority", context)
+        self.assertNotIn("Show clearer test evidence", self.brain.preferences.context())
+
     def test_feedback_is_linked_to_existing_task(self):
         task = self.brain.tasks.create("inspect")
         feedback = self.brain.record_task_feedback(task["id"], "positive", "Worked well")

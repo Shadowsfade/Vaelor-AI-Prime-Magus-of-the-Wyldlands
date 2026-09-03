@@ -92,6 +92,9 @@ class VaelorBrain:
         preferences = self.preferences.context()
         if preferences:
             parts.append(preferences)
+        experience = self.preferences.experience_context()
+        if experience:
+            parts.append(experience)
         mem = self.memory.build_context(prompt, limit=8)
         if mem:
             parts.append(mem)

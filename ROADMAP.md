@@ -125,6 +125,7 @@ Required systems:
 [x] Safe execution layer
 [x] Evidence-bound exact-commit sandbox promotion
 [x] Scoped hierarchical project instructions (`AGENTS.md` / `VAELOR.md`)
+[x] Bounded automatic outcome learning from task feedback
 
 ---
 

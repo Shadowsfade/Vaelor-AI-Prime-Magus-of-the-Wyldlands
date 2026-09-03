@@ -178,6 +178,10 @@
       "description": "provenance-aware preferences and task feedback with user-controlled activation"
     },
     {
+      "name": "OutcomeExperienceLearning",
+      "description": "bounded deduplicated task-feedback lessons automatically inform later reasoning as advisory context without granting permission or rewriting protected behavior"
+    },
+    {
       "name": "RelevantMemory",
       "description": "atomic provenance-aware memory with bounded relevance ranking and duplicate suppression"
     },

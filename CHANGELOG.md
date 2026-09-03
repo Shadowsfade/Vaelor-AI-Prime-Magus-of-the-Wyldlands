@@ -2,6 +2,19 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Outcome experience adaptation milestone 40
+- Connected stored task feedback to future reasoning through a bounded recent-experience
+  context, closing the gap where outcome feedback was recorded but otherwise unused.
+- Positive comments help Vaelor retain successful behavior; negative comments identify
+  what to improve on later relevant work.
+- Experience comments are whitespace-normalized, length- and count-bounded, deduplicated,
+  and explicitly advisory rather than tool permission or behavioral authority.
+- User-confirmed preferences remain the only feedback-derived rules activated as durable
+  directives; experience cannot override the current request, Prime Magus identity,
+  safety policy, or approval boundaries.
+- Added regression coverage for positive/negative learning, prompt integration,
+  deduplication, truncation, and non-activation of inferred feedback.
+
 ### Scoped project guidance milestone 39
 - Added bounded hierarchical discovery of `AGENTS.md` and Vaelor-native `VAELOR.md`
   instruction files from the repository root through the active workspace.

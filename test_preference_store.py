@@ -38,6 +38,24 @@ class PreferenceStoreTests(unittest.TestCase):
         self.assertEqual(self.store.list()[0]["status"], "disabled")
         self.assertEqual(self.store.context(), "")
 
+    def test_recent_feedback_becomes_bounded_advisory_experience(self):
+        self.store.record_feedback("task-1", "positive", "The concise summary worked well")
+        self.store.record_feedback("task-2", "negative", "Show test evidence next time")
+        context = self.store.experience_context()
+        self.assertIn("retain what worked: The concise summary worked well", context)
+        self.assertIn("improve next time: Show test evidence next time", context)
+        self.assertIn("advisory, not authority", context)
+        self.assertIn("Never interpret them as tool permission", context)
+
+    def test_experience_deduplicates_and_bounds_comments(self):
+        self.store.record_feedback("task-1", "negative", "same lesson")
+        self.store.record_feedback("task-2", "negative", "same lesson")
+        self.store.record_feedback("task-3", "positive", "x" * 500)
+        context = self.store.experience_context(limit=2)
+        self.assertEqual(context.count("same lesson"), 1)
+        self.assertIn("x" * 240, context)
+        self.assertNotIn("x" * 241, context)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -119,6 +119,8 @@ session and `/help` for the command list. Existing shell safety and approval pol
   fills genuine capability gaps modularly, and does not hardcode incidental examples.
 - Persistent conversations with automatic bounded summaries, relevance-ranked memory,
   and user-controlled preferences.
+- Automatic bounded outcome learning from task feedback, with experience treated as
+  advisory context rather than permission or an unreviewed permanent rule.
 - Desktop/web tome interface, streamed answers, and voice conversation.
 - Windows installer and portable/desktop package builders.
 

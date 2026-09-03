@@ -220,6 +220,15 @@ Requires: Windows + Python 3.10+ on PATH. LLM backend (Ollama/LM Studio) still s
   rules may be treated as global; unrelated low-confidence memories stay out of context.
 - Regression coverage lives in `test_memory_retrieval.py`.
 
+### 4.11 Safe outcome adaptation
+- Positive and negative task-feedback comments automatically enter a bounded recent
+  experience block for later reasoning, allowing Vaelor to retain what worked and improve
+  recurring weak spots.
+- Feedback experience is deduplicated and explicitly advisory. It cannot grant tool
+  permission or override the current request, permanent identity, safety, or approvals.
+- Inferred negative lessons remain proposed preferences until the user activates them;
+  only direct user preference declarations become durable active rules automatically.
+
 ---
 
 ## 5. API surface (high level)
