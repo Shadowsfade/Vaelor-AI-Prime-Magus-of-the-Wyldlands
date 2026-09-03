@@ -2,6 +2,15 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Operational-readiness milestone 14
+- Added `GET /readiness` to distinguish a live HTTP process from a Vaelor instance that
+  can actually execute dependable tasks.
+- Readiness verifies registered tools, durable task storage, a running local model
+  backend, and at least one available model.
+- Unready instances return HTTP 503 with structured checks and actionable issues; probe
+  failures are reported without crashing the API.
+- Added deterministic readiness and route status-code tests.
+
 ### Task-API contract milestone 13
 - Added FastAPI integration coverage for task creation, workspace forwarding, background
   execution, clarification gating, cancellation conflicts, missing tasks, and terminal SSE.

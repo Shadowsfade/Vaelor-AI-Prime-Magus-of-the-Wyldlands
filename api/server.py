@@ -9,12 +9,13 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from typing import Any, List, Optional
 
 from core.runtime import VaelorRuntime
+from core.readiness import assess_readiness
 from core.setup_wizard import wizard_state, mark_complete, try_install_ollama_winget, try_pull_ollama_model, detect_backends
 from core.tools.registry import registry as tool_registry
 from spellbook.command_parser import parse_command, parse_tool_command
@@ -392,6 +393,12 @@ def health():
         },
         "ui": {"theme": "arcane_tome", "desktop_capable": True},
     }
+
+
+@app.get("/readiness")
+def readiness():
+    report = assess_readiness(brain, tool_registry, detect_backends)
+    return JSONResponse(report, status_code=200 if report["ready"] else 503)
 
 
 @app.get("/tools")

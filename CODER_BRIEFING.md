@@ -60,6 +60,7 @@ powershell -ExecutionPolicy Bypass -File .\installer\Build-AlphaPackage.ps1
 | `core/task_store.py` | Atomic task state, progress events, interruption recovery |
 | `core/preference_store.py` | User-confirmed preferences and outcome feedback |
 | `core/project_context.py` | Bounded, allowed-root repository context for tasks |
+| `core/readiness.py` | Operational checks for tools, task storage, and local models |
 | `core/memory.py` | Atomic, provenance-aware long-term memory archive |
 | `core/memory_manager.py` | Bounded relevance ranking and context selection |
 | `core/agent_loop.py` | Multi-step tool agent loop (`agent:` / action language) |
@@ -175,6 +176,7 @@ Requires: Windows + Python 3.10+ on PATH. LLM backend (Ollama/LM Studio) still s
 | Method | Path | Notes |
 |--------|------|-------|
 | GET | `/health` | online + voice meta + version |
+| GET | `/readiness` | 200 when task-capable; structured 503 when dependencies are unavailable |
 | POST | `/chat` | text chat |
 | POST | `/call` | voice call turn → text + audio_base64 |
 | POST | `/voice/speak` | TTS only |

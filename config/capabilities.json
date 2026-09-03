@@ -62,6 +62,10 @@
       "description": "bounded task requests with tested create, clarify, cancel, resume, and SSE route contracts"
     },
     {
+      "name": "OperationalReadiness",
+      "description": "task-capability checks for tools, durable storage, backend availability, and installed models"
+    },
+    {
       "name": "UserAdaptation",
       "description": "provenance-aware preferences and task feedback with user-controlled activation"
     },

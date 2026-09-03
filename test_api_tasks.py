@@ -83,6 +83,14 @@ class TaskApiTests(unittest.TestCase):
         self.assertIn("event: result", response.text)
         self.assertIn("FINAL_SUMMARY: SUCCESS done", response.text)
 
+    def test_readiness_uses_service_status_code(self):
+        with patch("api.server.assess_readiness", return_value={
+            "ready": False, "status": "not_ready", "checks": {}, "issues": ["offline"],
+        }):
+            response = self.client.get("/readiness")
+        self.assertEqual(response.status_code, 503)
+        self.assertFalse(response.json()["ready"])
+
 
 if __name__ == "__main__":
     unittest.main()
