@@ -20,11 +20,10 @@
         "Workspace grounding and bounded multi-file source understanding",
         "Operational readiness reporting and focused regression suite",
         "Exact per-action approval and WebUI approve-once/reject controls",
-        "User-facing durable Task Center with submit, inspect, cancel, resume, and clarification controls"
+        "User-facing durable Task Center with submit, inspect, cancel, resume, and clarification controls",
+        "Automatic bounded conversation compaction and per-session summary retention"
     ],
-    "in_progress": [
-        "Automatic conversation summarization and retention policy"
-    ],
+    "in_progress": ["Persistent PTY terminal sessions and native CLI experience"],
     "next_goals": [
         "Clean-machine installer and packaged-runtime acceptance test",
         "Persistent PTY terminal sessions and native CLI experience",

@@ -34,9 +34,13 @@ class VaelorBrain:
             if session_id
             else self.conversations.recall_recent(limit)
         )
-        if not turns:
+        summary = self.conversations.get_summary(session_id) if session_id else ""
+        if not turns and not summary:
             return ""
-        out = "\nRecent conversation history:\n"
+        out = ""
+        if summary:
+            out += "\nEarlier conversation summary:\n" + summary + "\n"
+        out += "\nRecent conversation history:\n"
         for turn in turns:
             out += (
                 "\nUser: "

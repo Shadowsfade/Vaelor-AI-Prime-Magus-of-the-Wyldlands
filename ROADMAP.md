@@ -92,7 +92,7 @@ Required upgrades:
 [x] Relevance search
 [x] Memory ranking
 [x] Duplicate consolidation
-[ ] Automatic summaries
+[x] Automatic bounded summaries and recent-turn retention
 [x] Chat history storage
 
 ---
@@ -177,15 +177,14 @@ The world evolves.
 
 # Current Development Priority
 
-1. Add automatic conversation summarization and retention
-2. Add persistent PTY terminal sessions and native CLI operation
-3. Add codebase indexing and native diff review
-4. Add reusable rules, workflows, and MCP tool extensibility
-5. Add scheduling and recurring task support
-6. Validate installer/runtime behavior on a clean machine
-7. Strengthen user/session identity and remote authentication
-8. Add hardware-aware model routing and multi-agent orchestration
-9. Create Unity/Unreal bridges
+1. Add persistent PTY terminal sessions and native CLI operation
+2. Add codebase indexing and native diff review
+3. Add reusable rules, workflows, and MCP tool extensibility
+4. Add scheduling and recurring task support
+5. Validate installer/runtime behavior on a clean machine
+6. Strengthen user/session identity and remote authentication
+7. Add hardware-aware model routing and multi-agent orchestration
+8. Create Unity/Unreal bridges
 
 The foundation comes first.
 

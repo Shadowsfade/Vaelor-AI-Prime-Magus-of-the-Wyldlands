@@ -82,7 +82,8 @@ Developers may start the API directly:
 - Durable tasks with progress events, cancellation, clarification, deadlines, and resume.
 - Exact one-action approval through API and WebUI.
 - Project grounding and bounded multi-file reading.
-- Persistent conversations, relevance-ranked memory, and user-controlled preferences.
+- Persistent conversations with automatic bounded summaries, relevance-ranked memory,
+  and user-controlled preferences.
 - Desktop/web tome interface, streamed answers, and voice conversation.
 - Windows installer and portable/desktop package builders.
 

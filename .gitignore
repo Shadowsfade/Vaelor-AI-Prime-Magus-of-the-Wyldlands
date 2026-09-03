@@ -14,6 +14,8 @@ config/autonomy.json
 .staging/
 memory/audit_log.jsonl
 memory/conversations.json
+memory/conversation_summaries.json
+memory/conversation_summaries.json.tmp
 memory/desktop_server.log
 memory/development_log.md
 memory/proposals.json

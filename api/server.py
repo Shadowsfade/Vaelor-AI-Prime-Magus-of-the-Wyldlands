@@ -530,7 +530,11 @@ def sessions_get(session_id: str):
         turns = brain.conversations.recall_recent(limit=200, session_id=session_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"session load failed: {e}")
-    return {"session": session, "turns": turns}
+        return {
+            "session": session,
+            "summary": brain.conversations.get_summary(session_id),
+            "turns": turns,
+        }
 
 
 @app.delete("/sessions/{session_id}")

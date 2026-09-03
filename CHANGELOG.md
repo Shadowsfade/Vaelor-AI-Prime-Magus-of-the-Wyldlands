@@ -2,6 +2,17 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Conversation compaction milestone 26
+- Added automatic per-session compaction after bounded history thresholds, preserving
+  recent turns verbatim while rolling older context into a reusable summary.
+- Summary and conversation files now use lock-protected atomic replacement; summaries
+  are size-bounded, isolated by session, exposed through the session API, and removed
+  with their session.
+- Vaelor injects the earlier summary before recent turns so long-running relationships
+  retain decisions and context without overwhelming smaller local models.
+- Added isolated regression coverage for automatic compaction, bounds, session isolation,
+  deletion, and valid persisted JSON; runtime summary files are excluded from Git.
+
 ### Durable Task Center milestone 25
 - Added a tome Task Center that submits requests through the durable task API rather than
   requiring chat-command knowledge.

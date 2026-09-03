@@ -106,6 +106,10 @@
       "description": "tome UI submits and monitors durable tasks with inspect, cancel, resume, clarification, and coordinated approval controls"
     },
     {
+      "name": "ConversationCompaction",
+      "description": "atomic per-session summaries retain older context while bounding raw conversation history for local models"
+    },
+    {
       "name": "UserAdaptation",
       "description": "provenance-aware preferences and task feedback with user-controlled activation"
     },
