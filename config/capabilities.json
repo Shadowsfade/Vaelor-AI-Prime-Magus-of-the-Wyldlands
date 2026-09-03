@@ -162,6 +162,10 @@
       "description": "durable 30-second running-task heartbeats keep quiet model and tool operations visibly alive"
     },
     {
+      "name": "ValidatedSandboxPromotion",
+      "description": "authorized fast-forward promotion binds passing evidence to an exact clean sandbox commit and rejects sandbox or source drift"
+    },
+    {
       "name": "IncrementalTerminalOutput",
       "description": "persistent terminal stdout is emitted in bounded durable chunks through the resumable task event stream"
     },

@@ -350,6 +350,8 @@ If verification fails, keep iterating.
   describe 95-100% confidence when required evidence is failed, skipped, or unknown.
 - Promote sandboxed work to the real target only when the evidence gate passes and the
   promotion itself is within the Apprentice's authorized scope.
+- Commit intended sandbox changes, record the evidence against that exact commit, then use
+  promote_validation_sandbox. If source or sandbox state drifted, do not bypass the gate.
 
 ## FINAL OUTPUT (required to stop)
 Return actions=[] and final with status SUCCESS or FAILED plus a concise summary.

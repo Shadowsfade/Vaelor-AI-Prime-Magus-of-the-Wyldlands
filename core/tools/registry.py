@@ -240,10 +240,13 @@ def register_all_tools():
         from core.sandbox_workspace import (
             create_validation_sandbox, list_validation_sandboxes,
             discard_validation_sandbox, review_validation_sandbox,
+            record_sandbox_validation, promote_validation_sandbox,
         )
         registry.register("create_validation_sandbox", "Create a detached disposable Git worktree from committed state. repo= ref=HEAD confirm=yes", False, create_validation_sandbox, risk="medium")
         registry.register("list_validation_sandboxes", "List Vaelor-managed disposable validation worktrees.", True, list_validation_sandboxes)
         registry.register("review_validation_sandbox", "Run bounded secret-redacting Git review for one managed sandbox_id.", True, review_validation_sandbox)
+        registry.register("record_sandbox_validation", "Evaluate evidence and bind it to one sandbox's exact clean commit. sandbox_id= checks=[...] threshold=95", False, record_sandbox_validation, risk="low")
+        registry.register("promote_validation_sandbox", "Fast-forward a clean unchanged source to one exact validated sandbox commit. sandbox_id= confirm=yes", False, promote_validation_sandbox, risk="high")
         registry.register("discard_validation_sandbox", "Remove one exact managed validation worktree by sandbox_id. confirm=yes", False, discard_validation_sandbox, risk="high")
     except Exception as e:
         print("sandbox register fail", e)

@@ -111,6 +111,8 @@ session and `/help` for the command list. Existing shell safety and approval pol
   required verification is failed, skipped, or unknown.
 - Disposable Git validation sandboxes that isolate experiments from the active checkout
   and can be listed, reviewed, or removed only through managed identifiers.
+- Exact-commit sandbox promotion that requires a clean committed sandbox, passing evidence,
+  unchanged source state, explicit authorization, and a fast-forward-only Git update.
 - Guarded adaptive self-extension: Vaelor recognizes requests to gain reusable abilities,
   fills genuine capability gaps modularly, and does not hardcode incidental examples.
 - Persistent conversations with automatic bounded summaries, relevance-ranked memory,

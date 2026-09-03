@@ -2,6 +2,17 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Validated sandbox promotion milestone 38
+- Added evidence-bound promotion from an exact managed validation sandbox back to its
+  source repository using a fast-forward-only Git merge.
+- Validation records the sandbox's exact clean commit and the evidence-gate report;
+  promotion fails closed if required checks fail, the sandbox changes afterward, or the
+  source repository moves or becomes dirty.
+- Promotion retains generated-ID and managed-root containment checks, requires explicit
+  high-risk authorization, and emits an audit record for the promoted commit.
+- Added real-repository regression coverage for successful promotion, failed evidence,
+  stale validation, and source-branch drift.
+
 ### Managed sandbox review milestone 37
 - Added `review_validation_sandbox`, a read-only bridge from an exact managed sandbox ID
   to Vaelor's bounded native Git review packet.

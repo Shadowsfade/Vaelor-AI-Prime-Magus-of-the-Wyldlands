@@ -7,6 +7,7 @@ from unittest.mock import patch
 from core.sandbox_workspace import (
     create_validation_sandbox, discard_validation_sandbox,
     list_validation_sandboxes, review_validation_sandbox,
+    record_sandbox_validation, promote_validation_sandbox,
 )
 
 
@@ -64,6 +65,62 @@ class SandboxWorkspaceTests(unittest.TestCase):
         self.assertIn(f"Validation sandbox {sandbox['id']}", review)
         self.assertIn("baseline.txt", review)
         self.assertIn("review this", review)
+
+    def commit_sandbox_change(self, sandbox, value="validated"):
+        isolated = Path(sandbox["path"])
+        (isolated / "baseline.txt").write_text(value + "\n", encoding="utf-8")
+        subprocess.run(["git", "add", "baseline.txt"], cwd=isolated, check=True)
+        subprocess.run([
+            "git", "-c", "user.name=Test", "-c", "user.email=test@example.invalid",
+            "commit", "-qm", "sandbox change",
+        ], cwd=isolated, check=True)
+        return isolated
+
+    def passing_checks(self):
+        return [{"name": "tests", "status": "passed", "evidence": "exit 0"}]
+
+    def test_promotes_only_exact_committed_validated_head(self):
+        sandbox = create_validation_sandbox(str(self.repo), confirm="yes")
+        self.commit_sandbox_change(sandbox)
+        record_sandbox_validation(sandbox["id"], self.passing_checks())
+        result = promote_validation_sandbox(sandbox["id"], confirm="yes")
+        self.assertEqual(result["state"], "promoted")
+        self.assertEqual((self.repo / "baseline.txt").read_text(encoding="utf-8"), "validated\n")
+
+    def test_rejects_stale_validation_after_new_commit(self):
+        sandbox = create_validation_sandbox(str(self.repo), confirm="yes")
+        isolated = self.commit_sandbox_change(sandbox, "first")
+        record_sandbox_validation(sandbox["id"], self.passing_checks())
+        (isolated / "later.txt").write_text("later\n", encoding="utf-8")
+        subprocess.run(["git", "add", "later.txt"], cwd=isolated, check=True)
+        subprocess.run([
+            "git", "-c", "user.name=Test", "-c", "user.email=test@example.invalid",
+            "commit", "-qm", "later",
+        ], cwd=isolated, check=True)
+        with self.assertRaisesRegex(ValueError, "changed after validation"):
+            promote_validation_sandbox(sandbox["id"], confirm="yes")
+
+    def test_rejects_failed_evidence(self):
+        sandbox = create_validation_sandbox(str(self.repo), confirm="yes")
+        self.commit_sandbox_change(sandbox)
+        record_sandbox_validation(sandbox["id"], [
+            {"name": "tests", "status": "failed", "evidence": "exit 1"}
+        ])
+        with self.assertRaisesRegex(PermissionError, "evidence gate"):
+            promote_validation_sandbox(sandbox["id"], confirm="yes")
+
+    def test_rejects_source_drift_after_sandbox_creation(self):
+        sandbox = create_validation_sandbox(str(self.repo), confirm="yes")
+        self.commit_sandbox_change(sandbox)
+        record_sandbox_validation(sandbox["id"], self.passing_checks())
+        (self.repo / "source-only.txt").write_text("source drift\n", encoding="utf-8")
+        subprocess.run(["git", "add", "source-only.txt"], cwd=self.repo, check=True)
+        subprocess.run([
+            "git", "-c", "user.name=Test", "-c", "user.email=test@example.invalid",
+            "commit", "-qm", "source drift",
+        ], cwd=self.repo, check=True)
+        with self.assertRaisesRegex(ValueError, "source repository changed"):
+            promote_validation_sandbox(sandbox["id"], confirm="yes")
 
 
 if __name__ == "__main__":

@@ -123,6 +123,7 @@ Required systems:
 [x] Automated testing
 [x] Error recovery
 [x] Safe execution layer
+[x] Evidence-bound exact-commit sandbox promotion
 
 ---
 

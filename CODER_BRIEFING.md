@@ -118,6 +118,10 @@ a persistent semantic/embedding index is not yet implemented.
 Before reporting repository work complete, `review_git_changes` provides name/line scope,
 whitespace checks, a bounded unified diff, conflict-marker warnings, and likely-secret
 redaction without changing the index or worktree.
+For risky implementation work, Vaelor can create and review a managed detached worktree,
+commit the tested result there, bind validation evidence to that exact commit, and promote
+it only through an authorized fast-forward. Any failed evidence, later sandbox commit,
+dirty worktree, or source-branch drift blocks promotion and requires fresh validation.
 For substantial creation work, the agent defines applicable acceptance checks and calls
 `evaluate_validation` with concrete evidence. Unknown/skipped/failed checks receive no
 confidence credit; required failures or unknowns block promotion even above the threshold.
