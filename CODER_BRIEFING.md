@@ -118,6 +118,9 @@ a persistent semantic/embedding index is not yet implemented.
 Before reporting repository work complete, `review_git_changes` provides name/line scope,
 whitespace checks, a bounded unified diff, conflict-marker warnings, and likely-secret
 redaction without changing the index or worktree.
+For substantial creation work, the agent defines applicable acceptance checks and calls
+`evaluate_validation` with concrete evidence. Unknown/skipped/failed checks receive no
+confidence credit; required failures or unknowns block promotion even above the threshold.
 Transient local-model exceptions are retried twice by default. Retry attempts are written
 to the durable task event stream and remain cancellable between attempts.
 Tool observations are bounded per result and across the rolling history so long-running

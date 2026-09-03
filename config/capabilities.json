@@ -70,6 +70,10 @@
       "description": "task-capability checks for tools, durable storage, backend availability, and installed models"
     },
     {
+      "name": "EvidenceValidationGate",
+      "description": "engine-agnostic weighted acceptance contracts that prevent inflated confidence and block unverified promotion"
+    },
+    {
       "name": "BoundedAgentContext",
       "description": "head-tail tool truncation and recency-weighted observation budgets for local models"
     },

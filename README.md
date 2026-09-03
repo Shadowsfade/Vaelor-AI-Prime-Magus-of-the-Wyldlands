@@ -106,6 +106,8 @@ session and `/help` for the command list. Existing shell safety and approval pol
 - Bounded local codebase search with relevance-ranked files and line-numbered snippets.
 - Native read-only Git change review with file/line scope, whitespace checks, conflict
   warnings, and likely-secret redaction.
+- Engine-agnostic evidence contracts and confidence gates that block promotion when
+  required verification is failed, skipped, or unknown.
 - Persistent conversations with automatic bounded summaries, relevance-ranked memory,
   and user-controlled preferences.
 - Desktop/web tome interface, streamed answers, and voice conversation.

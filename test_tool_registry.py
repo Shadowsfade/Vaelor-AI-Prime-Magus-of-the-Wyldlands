@@ -21,6 +21,12 @@ class ToolRegistrySchemaTests(unittest.TestCase):
         self.assertIsNotNone(tool)
         self.assertTrue(tool.read_only)
 
+    def test_validation_gate_is_registered_read_only(self):
+        from core.tools.registry import registry
+        tool = registry.get("evaluate_validation")
+        self.assertIsNotNone(tool)
+        self.assertTrue(tool.read_only)
+
     def setUp(self):
         self.registry = ToolRegistry()
 

@@ -2,6 +2,20 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Evidence-based validation gate milestone 33
+- Added an engine-agnostic `evaluate_validation` tool for explicit functional, build,
+  test, visual, performance, and safety acceptance contracts.
+- Weighted confidence is calculated only from passed evidence; failed, skipped, and
+  unknown checks earn no confidence credit, and any required failure or unknown blocks
+  promotion regardless of the numeric score.
+- Validation inputs, check count, weights, evidence size, and requested threshold are
+  bounded and schema-validated for reliable local-model/tool use.
+- Autonomous guidance now requires substantial creation tasks to plan applicable checks,
+  prefer isolated workspaces, collect concrete evidence, run the gate, and promote only
+  when the evidence contract passes.
+- Added regression coverage for full confidence, unknown evidence, high-score blockers,
+  malformed contracts, and read-only tool registration.
+
 ### Native Git review milestone 32
 - Added `review_git_changes`, a read-only agent tool that assembles changed-file status,
   added/deleted line statistics, `git diff --check`, and a bounded unified diff.

@@ -328,6 +328,12 @@ Before final.status SUCCESS you MUST verify, e.g.:
 - shell_exec: python -m py_compile <files>
 - shell_exec: pytest / npm test / relevant checks
 If verification fails, keep iterating.
+- For substantial creation tasks, first define explicit functional, build, test, visual,
+  performance, and safety checks that apply. Work in an isolated copy/worktree when possible.
+- Record concrete evidence for each applicable check and call evaluate_validation. Never
+  describe 95-100% confidence when required evidence is failed, skipped, or unknown.
+- Promote sandboxed work to the real target only when the evidence gate passes and the
+  promotion itself is within the Apprentice's authorized scope.
 
 ## FINAL OUTPUT (required to stop)
 Return actions=[] and final with status SUCCESS or FAILED plus a concise summary.

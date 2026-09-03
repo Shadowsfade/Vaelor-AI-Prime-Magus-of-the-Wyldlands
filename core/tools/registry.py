@@ -226,6 +226,17 @@ def register_all_tools():
         print("diagnostics register fail", e)
 
     try:
+        from core.validation_gate import evaluate_validation
+        registry.register(
+            "evaluate_validation",
+            "Score an engine-agnostic evidence contract. checks=[{name,status,evidence,required,weight}] threshold=95",
+            True,
+            evaluate_validation,
+        )
+    except Exception as e:
+        print("validation register fail", e)
+
+    try:
         from .unreal_tools import unreal_status, unreal_open_epic_download, unreal_launch_epic
         registry.register("unreal_status", "Detect Unreal/Epic/.uprojects.", True, unreal_status)
         registry.register("unreal_open_epic_download", "Open Epic download page.", False, unreal_open_epic_download)
