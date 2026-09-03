@@ -26,6 +26,7 @@ memory/preferences.json.tmp
 # Keep empty-ish archive template optional; ignore live dumps if huge
 # memory/archive.json may be local - ignore personal content
 memory/archive.json
+memory/archive.json.tmp
 
 # Build artifacts / packages
 build/

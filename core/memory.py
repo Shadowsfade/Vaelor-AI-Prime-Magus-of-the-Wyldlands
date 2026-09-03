@@ -1,6 +1,8 @@
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
+from pathlib import Path
+import threading
 import uuid
 
 
@@ -24,52 +26,44 @@ class VaelorMemory:
     Persistent archive system for Vaelor.
     """
 
-    def __init__(self):
-
-        os.makedirs(
-            MEMORY_DIR,
-            exist_ok=True
-        )
-
-        if not os.path.exists(MEMORY_FILE):
-
+    def __init__(self, path=None):
+        self.path = Path(path or MEMORY_FILE)
+        self._lock = threading.RLock()
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        if not self.path.exists():
             self._save([])
 
 
     def _load(self):
 
-        with open(
-            MEMORY_FILE,
-            "r",
-            encoding="utf-8-sig"
-        ) as file:
-
-            return json.load(file)
+        try:
+            with self._lock:
+                data = json.loads(self.path.read_text(encoding="utf-8-sig"))
+            return data if isinstance(data, list) else []
+        except Exception:
+            return []
 
 
     def _save(self, data):
 
-        with open(
-            MEMORY_FILE,
-            "w",
-            encoding="utf-8"
-        ) as file:
-
-            json.dump(
-                data,
-                file,
-                indent=4
-            )
+        with self._lock:
+            temp = self.path.with_suffix(self.path.suffix + ".tmp")
+            temp.write_text(json.dumps(data, indent=4), encoding="utf-8")
+            os.replace(temp, self.path)
 
 
     def remember(
         self,
         category,
         content,
-        importance=1
+        importance=1,
+        source="user_explicit",
+        confidence=1.0,
+        tags=None,
     ):
 
         archive = self._load()
+        normalized = " ".join(str(content).strip().split()).casefold()
 
 
         for memory in archive:
@@ -77,7 +71,7 @@ class VaelorMemory:
             if (
                 memory["category"] == category
                 and
-                memory["content"] == content
+                " ".join(str(memory.get("content", "")).strip().split()).casefold() == normalized
             ):
 
                 return memory
@@ -88,7 +82,7 @@ class VaelorMemory:
             "id": str(uuid.uuid4()),
 
             "timestamp":
-                datetime.now().isoformat(),
+                datetime.now(timezone.utc).isoformat(),
 
             "category":
                 category,
@@ -96,8 +90,13 @@ class VaelorMemory:
             "importance":
                 importance,
 
-            "content":
-                content
+            "content": " ".join(str(content).strip().split()),
+
+            "source": str(source),
+
+            "confidence": max(0.0, min(float(confidence), 1.0)),
+
+            "tags": [str(tag) for tag in (tags or [])][:20],
         }
 
 

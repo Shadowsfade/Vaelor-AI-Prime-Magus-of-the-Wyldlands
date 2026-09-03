@@ -1,11 +1,20 @@
+import re
+
 from .memory import VaelorMemory
+
+
+TOKEN_RE = re.compile(r"[a-z0-9][a-z0-9_-]{1,}", re.I)
 
 
 class VaelorMemoryManager:
     """Higher-level memory intelligence for Vaelor."""
 
-    def __init__(self):
-        self.memory = VaelorMemory()
+    def __init__(self, path=None):
+        self.memory = VaelorMemory(path)
+
+    @staticmethod
+    def _tokens(text):
+        return set(TOKEN_RE.findall(str(text).casefold()))
 
     def classify_memory(self, content):
         text = content.lower()
@@ -34,29 +43,26 @@ class VaelorMemoryManager:
             return "identity"
         return "fact"
 
-    def remember(self, category, content, importance=1):
+    def remember(self, category, content, importance=1, source="user_explicit", confidence=1.0, tags=None):
         if category == "fact":
             category = self.classify_memory(content)
-        return self.memory.remember(category, content, importance)
+        return self.memory.remember(category, content, importance, source, confidence, tags)
 
     def recall(self, category=None):
         return self.memory.recall(category)
 
     def score_memory(self, memory, prompt):
-        score = 0
+        score = 0.0
         content = memory.get("content", "").lower()
         prompt_l = prompt.lower()
-        # token overlap
-        words = [w.strip(".,!?;:()[]\"'") for w in prompt_l.split() if len(w) > 2]
-        seen = set()
-        for word in words:
-            if word in seen:
-                continue
-            seen.add(word)
-            if word in content:
-                score += 2
+        words = self._tokens(prompt_l)
+        content_words = self._tokens(content)
+        overlap = words & content_words
+        score += len(overlap) * 3
+        if words:
+            score += 5 * (len(overlap) / len(words))
         # bigram bonus
-        toks = words
+        toks = TOKEN_RE.findall(prompt_l)
         for i in range(len(toks) - 1):
             bigram = toks[i] + " " + toks[i + 1]
             if bigram in content:
@@ -71,7 +77,8 @@ class VaelorMemoryManager:
             "fact": 2,
         }
         score += authority.get(memory.get("category", "fact"), 1)
-        score += int(memory.get("importance", 1) or 1)
+        score += max(0, min(int(memory.get("importance", 1) or 1), 10))
+        score *= max(0.0, min(float(memory.get("confidence", 1.0) or 0), 1.0))
         return score
 
     def build_context(self, prompt, limit=8):
@@ -84,8 +91,13 @@ class VaelorMemoryManager:
             key=lambda m: self.score_memory(m, prompt),
             reverse=True,
         )
-        # always include top rules even if weak lexical match
-        rules = [m for m in archive if m.get("category") == "rule"]
+        # Only authoritative rules are global; ordinary rules still require relevance.
+        rules = [
+            m for m in archive
+            if m.get("category") == "rule"
+            and int(m.get("importance", 1) or 1) >= 8
+            and float(m.get("confidence", 1.0) or 0) >= 0.8
+        ]
         selected = []
         seen_ids = set()
         for m in rules[:3] + ranked:
@@ -93,7 +105,7 @@ class VaelorMemoryManager:
             if mid in seen_ids:
                 continue
             # skip zero-relevance non-rules
-            if m.get("category") != "rule" and self.score_memory(m, prompt) < 4:
+            if m not in rules and self.score_memory(m, prompt) < 6:
                 continue
             seen_ids.add(mid)
             selected.append(m)
@@ -101,7 +113,7 @@ class VaelorMemoryManager:
                 break
 
         if not selected:
-            selected = ranked[: min(3, limit)]
+            return ""
 
         lines = [
             f"- [{m.get('category', 'fact')}|imp={m.get('importance', 1)}] {m['content']}"
@@ -116,7 +128,10 @@ class VaelorMemoryManager:
         archive = self.memory.recall()
         cleaned, seen = [], set()
         for item in archive:
-            key = (item["category"], item["content"])
+            key = (
+                item.get("category", "fact"),
+                " ".join(str(item.get("content", "")).casefold().split()),
+            )
             if key not in seen:
                 cleaned.append(item)
                 seen.add(key)

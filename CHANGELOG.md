@@ -2,6 +2,16 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Relevant-memory milestone 7
+- Memory archive updates are now lock-protected and atomically replaced, preventing
+  concurrent writers or interrupted saves from leaving a partial archive.
+- Corrupt archives fail safely as an empty archive instead of interrupting Vaelor.
+- Stored memories include source, confidence, and tags, and normalized duplicate
+  content is rejected.
+- Context retrieval uses bounded relevance scoring; unrelated or low-confidence rules
+  are no longer injected globally into every prompt.
+- Added deterministic corruption, provenance, deduplication, relevance, and ranking tests.
+
 ### User-adaptation milestone 6
 - Added local, user-controlled preferences with source, confidence, scope, status, and
   repeated-evidence tracking.

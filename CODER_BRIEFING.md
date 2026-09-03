@@ -59,6 +59,8 @@ powershell -ExecutionPolicy Bypass -File .\installer\Build-AlphaPackage.ps1
 | `core/action_protocol.py` | Validated JSON decisions, actions, and final results |
 | `core/task_store.py` | Atomic task state, progress events, interruption recovery |
 | `core/preference_store.py` | User-confirmed preferences and outcome feedback |
+| `core/memory.py` | Atomic, provenance-aware long-term memory archive |
+| `core/memory_manager.py` | Bounded relevance ranking and context selection |
 | `core/agent_loop.py` | Multi-step tool agent loop (`agent:` / action language) |
 | `core/tools/` | Tool implementations + `registry.py` |
 | `core/setup_wizard.py` | Hardware scan, Ollama/LM Studio first-run |
@@ -148,6 +150,15 @@ Requires: Windows + Python 3.10+ on PATH. LLM backend (Ollama/LM Studio) still s
 - GitHub private push was **blocked** earlier (no remote / `gh auth` issues) — commits may be local only
 - Version stamp: `1.1.0-alpha` in `api/server.py` health + `config/vaelor.json`
 - Do not commit secrets, large GGUF weights, or personal `memory/` dumps into shared zips (packager strips live memory)
+
+### 4.10 Dependable memory retrieval
+- Archive writes are lock-protected and atomic; malformed archives fail closed to an
+  empty result rather than breaking a task.
+- Memories carry source, confidence, and tags, and normalized duplicate content is
+  suppressed.
+- Prompt context is relevance-ranked and bounded. Only high-confidence, high-importance
+  rules may be treated as global; unrelated low-confidence memories stay out of context.
+- Regression coverage lives in `test_memory_retrieval.py`.
 
 ---
 
