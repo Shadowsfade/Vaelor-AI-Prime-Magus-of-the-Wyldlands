@@ -124,6 +124,7 @@ Required systems:
 [x] Error recovery
 [x] Safe execution layer
 [x] Evidence-bound exact-commit sandbox promotion
+[x] Scoped hierarchical project instructions (`AGENTS.md` / `VAELOR.md`)
 
 ---
 
@@ -180,7 +181,7 @@ The world evolves.
 
 1. Add ConPTY full-screen terminal input and resize support
 2. Extend bounded lexical code discovery with persistent semantic indexing
-3. Add reusable rules, workflows, and MCP tool extensibility
+3. Add reusable workflows and MCP tool extensibility
 4. Add scheduling and recurring task support
 5. Validate installer/runtime behavior on a clean machine
 6. Strengthen user/session identity and remote authentication

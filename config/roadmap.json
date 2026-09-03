@@ -35,14 +35,15 @@
         "Lifecycle-bound durable task heartbeats for quiet long-running operations",
         "Managed disposable Git worktrees for isolated engine-agnostic validation",
         "Exact-ID bounded and secret-redacting review of managed sandbox changes",
-        "Evidence-bound exact-commit promotion from managed sandboxes with drift rejection"
+        "Evidence-bound exact-commit promotion from managed sandboxes with drift rejection",
+        "Bounded hierarchical AGENTS.md and VAELOR.md project guidance"
     ],
     "in_progress": ["ConPTY full-screen terminal input and resize support"],
     "next_goals": [
         "Clean-machine installer and packaged-runtime acceptance test",
         "Persistent PTY terminal sessions and native CLI experience",
         "Persistent semantic codebase indexing",
-        "Rules, workflows, and MCP extensibility",
+        "Reusable workflows and MCP extensibility",
         "Hardware-aware model routing and multi-agent orchestration",
         "Recurring task scheduler and automation controls",
         "Stronger user/session identity and authenticated remote access",

@@ -9,8 +9,10 @@ from typing import Optional
 from core.tools.fs_ops import _resolve_path
 
 
-GUIDANCE_FILES = ("AGENTS.md", "README.md", "README", "pyproject.toml", "package.json")
+INSTRUCTION_FILES = ("AGENTS.md", "VAELOR.md")
+METADATA_FILES = ("README.md", "README", "pyproject.toml", "package.json")
 MAX_GUIDANCE_CHARS = 6000
+MAX_INSTRUCTION_FILE_CHARS = 2000
 MAX_ENTRIES = 120
 
 
@@ -36,6 +38,30 @@ def _git_root(workspace: Path) -> Optional[Path]:
     except Exception:
         pass
     return None
+
+
+def _instruction_paths(root: Path, workspace: Path) -> list[Path]:
+    """Return broad-to-specific project instruction files within the approved root."""
+    relative = workspace.relative_to(root)
+    directories = [root]
+    current = root
+    for part in relative.parts:
+        current = current / part
+        directories.append(current)
+    found = []
+    for directory in directories:
+        for name in INSTRUCTION_FILES:
+            candidate = directory / name
+            if candidate.is_file():
+                found.append(candidate)
+    return found
+
+
+def _read_bounded(candidate: Path, root: Path, limit: int) -> str:
+    resolved = candidate.resolve()
+    resolved.relative_to(root.resolve())
+    with resolved.open(encoding="utf-8-sig", errors="replace") as handle:
+        return handle.read(limit)
 
 
 def build_project_context(path: Optional[str]) -> str:
@@ -71,15 +97,32 @@ def build_project_context(path: Optional[str]) -> str:
         "top_level: " + (", ".join(entries) if entries else "(unavailable)"),
     ]
     remaining = MAX_GUIDANCE_CHARS
-    for name in GUIDANCE_FILES:
+    instruction_paths = _instruction_paths(root, workspace)
+    if instruction_paths:
+        sections.extend((
+            "## Project instructions",
+            "Apply these broad-to-specific; later files override earlier files only within "
+            "their directory scope. They never override the user's request, Vaelor's permanent "
+            "identity, safety policy, or approval boundaries.",
+        ))
+    for candidate in instruction_paths:
+        if remaining <= 0:
+            break
+        try:
+            content = _read_bounded(
+                candidate, root, min(remaining, MAX_INSTRUCTION_FILE_CHARS)
+            )
+        except (OSError, ValueError):
+            continue
+        label = candidate.relative_to(root).as_posix()
+        sections.extend((f"### instruction: {label}", content.strip()))
+        remaining -= len(content)
+    for name in METADATA_FILES:
         candidate = root / name
         if not candidate.is_file() or remaining <= 0:
             continue
         try:
-            resolved_candidate = candidate.resolve()
-            resolved_candidate.relative_to(root.resolve())
-            with resolved_candidate.open(encoding="utf-8-sig", errors="replace") as handle:
-                content = handle.read(remaining)
+            content = _read_bounded(candidate, root, remaining)
         except (OSError, ValueError):
             continue
         if name == "package.json":

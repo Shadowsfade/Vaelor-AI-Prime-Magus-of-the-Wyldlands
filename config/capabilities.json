@@ -166,6 +166,10 @@
       "description": "authorized fast-forward promotion binds passing evidence to an exact clean sandbox commit and rejects sandbox or source drift"
     },
     {
+      "name": "ScopedProjectGuidance",
+      "description": "bounded broad-to-specific AGENTS.md and VAELOR.md discovery applies directory-scoped conventions without overriding identity, safety, approvals, or user intent"
+    },
+    {
       "name": "IncrementalTerminalOutput",
       "description": "persistent terminal stdout is emitted in bounded durable chunks through the resumable task event stream"
     },

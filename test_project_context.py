@@ -37,6 +37,39 @@ class ProjectContextTests(unittest.TestCase):
         self.assertIn('"test": "vitest"', context)
         self.assertNotIn("secret", context)
 
+    def test_instruction_hierarchy_is_broad_to_specific(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            workspace = root / "apps" / "tome"
+            workspace.mkdir(parents=True)
+            (root / "AGENTS.md").write_text("root rule", encoding="utf-8")
+            (root / "apps" / "VAELOR.md").write_text("apps rule", encoding="utf-8")
+            (workspace / "AGENTS.md").write_text("tome rule", encoding="utf-8")
+            with (
+                patch("core.project_context._resolve_path", side_effect=lambda path, must_exist=False: str(Path(path))),
+                patch("core.project_context._git_root", return_value=root),
+            ):
+                context = build_project_context(str(workspace))
+        self.assertLess(context.index("root rule"), context.index("apps rule"))
+        self.assertLess(context.index("apps rule"), context.index("tome rule"))
+        self.assertIn("apps/VAELOR.md", context)
+        self.assertIn("never override", context)
+
+    def test_instructions_are_bounded_per_file_and_precede_metadata(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "AGENTS.md").write_text("A" * 5000, encoding="utf-8")
+            (root / "README.md").write_text("important metadata", encoding="utf-8")
+            with (
+                patch("core.project_context._resolve_path", return_value=str(root)),
+                patch("core.project_context._git_root", return_value=root),
+            ):
+                context = build_project_context(str(root))
+        self.assertIn("A" * 2000, context)
+        self.assertNotIn("A" * 2001, context)
+        self.assertIn("important metadata", context)
+        self.assertLess(context.index("instruction: AGENTS.md"), context.index("### README.md"))
+
     def test_workspace_must_be_directory(self):
         with tempfile.TemporaryDirectory() as temp:
             file_path = Path(temp) / "file.txt"

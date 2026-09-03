@@ -2,6 +2,18 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Scoped project guidance milestone 39
+- Added bounded hierarchical discovery of `AGENTS.md` and Vaelor-native `VAELOR.md`
+  instruction files from the repository root through the active workspace.
+- Guidance is presented broad-to-specific so directory-local instructions can refine
+  repository-wide conventions without leaking into unrelated project areas.
+- Project guidance is explicitly subordinate to the current user request, Vaelor's
+  permanent identity, safety policy, and approval boundaries.
+- Instruction files are root-contained, individually size-bounded, and loaded before
+  general project metadata so one oversized file cannot crowd out all useful context.
+- Added regression coverage for hierarchy order, scope labels, precedence safeguards,
+  bounded reads, and retained metadata context.
+
 ### Validated sandbox promotion milestone 38
 - Added evidence-bound promotion from an exact managed validation sandbox back to its
   source repository using a fast-forward-only Git merge.

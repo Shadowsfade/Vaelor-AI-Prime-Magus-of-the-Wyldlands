@@ -115,6 +115,9 @@ Agent loop can chain tools when user uses action language / `agent:`.
 For unfamiliar repositories, it is instructed to call `search_codebase` before assuming
 file locations. Search is lexical, allowed-root constrained, and globally scan-bounded;
 a persistent semantic/embedding index is not yet implemented.
+Project context discovers `AGENTS.md` and `VAELOR.md` from repository root through the
+active workspace. Instructions apply broad-to-specific within their directory scope and
+remain subordinate to the Apprentice's request, permanent identity, safety, and approvals.
 Before reporting repository work complete, `review_git_changes` provides name/line scope,
 whitespace checks, a bounded unified diff, conflict-marker warnings, and likely-secret
 redaction without changing the index or worktree.
