@@ -101,7 +101,8 @@ powershell -ExecutionPolicy Bypass -File .\installer\Build-AlphaPackage.ps1
 
 ### 4.4 Tools & agent autonomy
 Registered tools include (see `GET /tools`):
-- Files: `project_scanner`, `file_reader`, `read_many_text_files`, `file_editor_propose`, `stage_file`, `scan_unused_files`, proposals approve/reject
+- Files: `project_scanner`, `search_codebase`, `file_reader`, `read_many_text_files`,
+  `file_editor_propose`, `stage_file`, `scan_unused_files`, proposals approve/reject
 - Web: `web_search`, `fetch_url`
 - Shell: `shell_exec`, `shell_which`, `terminal_start`, `terminal_list`, `terminal_run`,
   `terminal_interrupt`, `terminal_close`, `set_autonomy_mode`, `get_autonomy_status`,
@@ -110,6 +111,9 @@ Registered tools include (see `GET /tools`):
 - Unreal (optional): `unreal_status`, `unreal_open_epic_download`, `unreal_launch_epic` if module present
 
 Agent loop can chain tools when user uses action language / `agent:`.
+For unfamiliar repositories, it is instructed to call `search_codebase` before assuming
+file locations. Search is lexical, allowed-root constrained, and globally scan-bounded;
+a persistent semantic/embedding index is not yet implemented.
 Transient local-model exceptions are retried twice by default. Retry attempts are written
 to the durable task event stream and remain cancellable between attempts.
 Tool observations are bounded per result and across the rolling history so long-running

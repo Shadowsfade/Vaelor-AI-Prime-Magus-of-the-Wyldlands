@@ -9,6 +9,12 @@ class ToolRegistrySchemaTests(unittest.TestCase):
         for name in ("terminal_start", "terminal_list", "terminal_run", "terminal_interrupt", "terminal_close"):
             self.assertIsNotNone(registry.get(name), name)
 
+    def test_codebase_search_is_registered_read_only(self):
+        from core.tools.registry import registry
+        tool = registry.get("search_codebase")
+        self.assertIsNotNone(tool)
+        self.assertTrue(tool.read_only)
+
     def setUp(self):
         self.registry = ToolRegistry()
 

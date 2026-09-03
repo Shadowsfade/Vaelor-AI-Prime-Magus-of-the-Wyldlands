@@ -178,7 +178,7 @@ The world evolves.
 # Current Development Priority
 
 1. Add ConPTY full-screen terminal input and resize support
-2. Add codebase indexing and native diff review
+2. Extend bounded lexical code discovery with persistent semantic indexing and native diff review
 3. Add reusable rules, workflows, and MCP tool extensibility
 4. Add scheduling and recurring task support
 5. Validate installer/runtime behavior on a clean machine

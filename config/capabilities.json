@@ -86,6 +86,10 @@
       "description": "allowed-root multi-file source gathering with per-file and total context budgets"
     },
     {
+      "name": "BoundedCodeSearch",
+      "description": "dependency-free relevance-ranked source discovery with line snippets and strict file/byte/root limits"
+    },
+    {
       "name": "CanonicalReleaseMetadata",
       "description": "runtime, API, roadmap, capability, installer, and package versions kept in sync"
     },

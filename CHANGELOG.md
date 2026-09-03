@@ -2,6 +2,19 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Bounded codebase discovery milestone 31
+- Added `search_codebase`, a read-only agent tool that ranks relevant source files and
+  returns compact line-numbered snippets before Vaelor edits an unfamiliar project.
+- Search combines filename and content relevance, uses deterministic ordering, ignores
+  dependency/build/binary content, and requires no embedding service or paid API.
+- Enforced allowed-root resolution, symlink containment, per-file size limits, a 2,000-file
+  ceiling, a 20 MB total scan budget, and a maximum of 30 returned matches.
+- Updated autonomous guidance to search for implementations and symbols instead of
+  guessing file locations, with regression coverage for ranking, exclusions, bounds,
+  invalid queries, and tool registration.
+
+This is immediate bounded lexical discovery; a persistent semantic index remains future work.
+
 ### Incremental terminal visibility milestone 30
 - Persistent terminal commands now emit bounded incremental output chunks while they run,
   rather than withholding all console text until command completion.
