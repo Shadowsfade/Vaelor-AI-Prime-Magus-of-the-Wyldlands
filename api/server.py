@@ -93,6 +93,10 @@ class TaskFeedbackRequest(BaseModel):
     comment: str = ""
 
 
+class TaskCancelRequest(BaseModel):
+    reason: str = "Cancelled by user."
+
+
 @app.get("/preferences")
 def list_preferences(status: Optional[str] = None):
     return {"preferences": brain.list_preferences(status)}
@@ -186,6 +190,16 @@ def resume_task(task_id: str, request: TaskResumeRequest):
         return {"task_id": task_id, "response": brain.resume_task(task_id, request.max_steps)}
     except KeyError:
         raise HTTPException(status_code=404, detail="Task not found")
+
+
+@app.post("/tasks/{task_id}/cancel")
+def cancel_task(task_id: str, request: TaskCancelRequest):
+    try:
+        return brain.cancel_task(task_id, request.reason)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Task not found")
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
 
 
 @app.post("/tasks/{task_id}/feedback")

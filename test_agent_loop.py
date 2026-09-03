@@ -129,6 +129,28 @@ class AgentLoopTests(unittest.TestCase):
             result = run_agent("change x.py twice", model, max_steps=6)
         self.assertEqual(result, "FINAL_SUMMARY: FAILED verification still required")
 
+    def test_cancellation_stops_before_model_call(self):
+        model = ScriptedModel(["FINAL_SUMMARY: SUCCESS should not run"])
+        with patch("core.agent_loop.registry.specs_for_prompt", return_value="tools"):
+            result = run_agent("inspect", model, should_cancel=lambda: True)
+        self.assertEqual(result, "FINAL_SUMMARY: CANCELLED Task cancellation was requested.")
+        self.assertEqual(model.prompts, [])
+
+    def test_cancellation_stops_between_tools(self):
+        model = ScriptedModel([
+            '{"thought":"inspect","actions":['
+            '{"tool":"list_dir","arguments":{"path":"."}},'
+            '{"tool":"list_dir","arguments":{"path":"other"}}],"final":null}',
+        ])
+        checks = iter([False, False, False, True])
+        with (
+            patch("core.agent_loop.registry.specs_for_prompt", return_value="tools"),
+            patch("core.agent_loop.registry.execute", return_value="files") as execute,
+        ):
+            result = run_agent("inspect", model, should_cancel=lambda: next(checks))
+        self.assertTrue(result.startswith("FINAL_SUMMARY: CANCELLED"))
+        execute.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

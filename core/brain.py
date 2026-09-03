@@ -306,12 +306,17 @@ class VaelorBrain:
                 session_context=ctx,
                 require_verification=True,
                 event_callback=lambda event, data: self.tasks.add_event(task_id, event, data),
+                should_cancel=lambda: self.tasks.is_cancelled(task_id),
             )
         except Exception as exc:
             self.tasks.add_event(task_id, "crashed", {"error": str(exc)})
-            self.tasks.update(task_id, status="failed", result=f"Agent error: {exc}")
+            if not self.tasks.is_cancelled(task_id):
+                self.tasks.update(task_id, status="failed", result=f"Agent error: {exc}")
             raise
-        status = "completed" if result.upper().startswith("FINAL_SUMMARY: SUCCESS") else "failed"
+        if result.upper().startswith("FINAL_SUMMARY: CANCELLED") or self.tasks.is_cancelled(task_id):
+            status = "cancelled"
+        else:
+            status = "completed" if result.upper().startswith("FINAL_SUMMARY: SUCCESS") else "failed"
         self.tasks.update(task_id, status=status, result=result)
         self.conversations.remember_turn(f"[agent] {goal}", result, session_id=session_id)
         return result
@@ -321,6 +326,9 @@ class VaelorBrain:
 
     def get_task(self, task_id):
         return self.tasks.get(task_id)
+
+    def cancel_task(self, task_id, reason="Cancelled by user."):
+        return self.tasks.cancel(task_id, reason)
 
     def list_preferences(self, status=None):
         return self.preferences.list(status)
@@ -388,6 +396,8 @@ class VaelorBrain:
             raise KeyError(f"Unknown task: {task_id}")
         if task.get("status") == "completed":
             return task.get("result") or "FINAL_SUMMARY: SUCCESS Task was already complete."
+        if task.get("status") == "cancelled":
+            return task.get("result") or "FINAL_SUMMARY: CANCELLED Task was cancelled."
         return self.run_prepared_task(task_id, max_steps)
 
     def list_tools(self):

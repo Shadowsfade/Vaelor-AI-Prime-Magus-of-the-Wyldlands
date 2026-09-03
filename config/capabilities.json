@@ -38,6 +38,10 @@
       "description": "background task submission and resumable Server-Sent Event progress"
     },
     {
+      "name": "TaskCancellation",
+      "description": "durable cooperative cancellation between model and tool operations"
+    },
+    {
       "name": "UserAdaptation",
       "description": "provenance-aware preferences and task feedback with user-controlled activation"
     },

@@ -112,6 +112,35 @@ class TaskStore:
                 return deepcopy(event)
         raise KeyError(f"Unknown task: {task_id}")
 
+    def cancel(self, task_id: str, reason: str = "Cancelled by user.") -> dict:
+        """Request cancellation and persist it atomically with its audit event."""
+        with self._lock:
+            tasks = self._read()
+            for task in tasks:
+                if task.get("id") != task_id:
+                    continue
+                if task.get("status") == "completed":
+                    raise ValueError("Completed tasks cannot be cancelled.")
+                if task.get("status") == "cancelled":
+                    return deepcopy(task)
+                stamp = _now()
+                task["status"] = "cancelled"
+                task["result"] = str(reason)[:20000]
+                task["updated_at"] = stamp
+                task.setdefault("events", []).append({
+                    "timestamp": stamp,
+                    "type": "cancelled",
+                    "data": {"reason": str(reason)[:8000]},
+                })
+                task["events"] = task["events"][-250:]
+                self._write(tasks)
+                return deepcopy(task)
+        raise KeyError(f"Unknown task: {task_id}")
+
+    def is_cancelled(self, task_id: str) -> bool:
+        task = self.get(task_id)
+        return bool(task and task.get("status") == "cancelled")
+
     def recover_interrupted(self) -> int:
         with self._lock:
             tasks = self._read()

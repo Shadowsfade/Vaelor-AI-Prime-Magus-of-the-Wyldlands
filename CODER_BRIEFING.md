@@ -172,7 +172,7 @@ Requires: Windows + Python 3.10+ on PATH. LLM backend (Ollama/LM Studio) still s
 | POST | `/voice/speak` | TTS only |
 | GET | `/voice/voices` | edge-tts wizard list |
 | GET | `/tools` | tool registry JSON |
-| GET/POST | `/tasks*` | durable background tasks, resume, and SSE progress |
+| GET/POST | `/tasks*` | durable background tasks, cancel/resume, and SSE progress |
 | GET/POST/PATCH | `/preferences*` | user-controlled adaptation and preference state |
 | GET/POST | `/setup*` | first-run wizard |
 | GET | `/greeting` | opening line + optional audio |
@@ -199,6 +199,12 @@ Requires: Windows + Python 3.10+ on PATH. LLM backend (Ollama/LM Studio) still s
 5. Shell write in project OK; `Remove-Item -Recurse -Force C:\Windows` **refused**  
 6. Optional: Summon Call in Chrome/Edge with mic  
 7. Optional: `Build-AlphaPackage.ps1` produces zip + `.sha256`
+
+Task-control regression check:
+
+```powershell
+python -m unittest -v test_task_lifecycle.py test_agent_loop.py
+```
 
 ---
 

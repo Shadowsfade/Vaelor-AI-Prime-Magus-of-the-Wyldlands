@@ -2,6 +2,16 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Task-control milestone 8
+- Added durable, idempotent task cancellation with an audit event and optional reason.
+- The agent checks for cancellation before model calls, after model calls, between tool
+  calls, and before max-budget summarization.
+- Cancellation state cannot be overwritten by a late model result or backend exception,
+  and cancelled tasks are not accidentally resumed.
+- Added `POST /tasks/{task_id}/cancel`; existing task event streams report the cancelled
+  terminal state and result.
+- Added deterministic cancellation timing, persistence, race, and resume tests.
+
 ### Relevant-memory milestone 7
 - Memory archive updates are now lock-protected and atomically replaced, preventing
   concurrent writers or interrupted saves from leaving a partial archive.

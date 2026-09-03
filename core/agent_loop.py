@@ -251,6 +251,7 @@ def run_agent(
     auto_confirm_readonly: bool = True,
     require_verification: bool = True,
     event_callback: Optional[Callable[[str, Dict[str, Any]], None]] = None,
+    should_cancel: Optional[Callable[[], bool]] = None,
 ) -> str:
     """Autonomous ReAct loop. ask_llm(prompt) -> model text."""
     registry  # loaded
@@ -273,8 +274,17 @@ def run_agent(
             # Progress recording must never break task execution.
             pass
 
+    def cancelled() -> bool:
+        try:
+            return bool(should_cancel and should_cancel())
+        except Exception:
+            return False
+
     step = 0
     while step < max_steps:
+        if cancelled():
+            emit("cancellation_observed", phase="before_model")
+            return "FINAL_SUMMARY: CANCELLED Task cancellation was requested."
         step += 1
         prompt_parts = [system, ""]
         if session_context:
@@ -298,6 +308,9 @@ def run_agent(
         prompt = "\n".join(prompt_parts)
 
         reply = ask_llm(prompt)
+        if cancelled():
+            emit("cancellation_observed", phase="after_model", step=step)
+            return "FINAL_SUMMARY: CANCELLED Task cancellation was requested."
         transcript.append(f"STEP {step} MODEL:\n{reply}")
         structured = parse_structured_response(reply)
         if structured.matched and structured.error:
@@ -336,6 +349,9 @@ def run_agent(
                 continue
             step_failed = False
             for name, kwargs in tools:
+                if cancelled():
+                    emit("cancellation_observed", phase="before_tool", step=step, tool=name)
+                    return "FINAL_SUMMARY: CANCELLED Task cancellation was requested."
                 is_verification = _is_verification_action(name, kwargs)
                 is_mutating = _is_mutating_action(name)
                 supports_confirm = registry.accepts_argument(name, "confirm")
@@ -431,6 +447,9 @@ def run_agent(
             continue
 
     # budget exceeded
+    if cancelled():
+        emit("cancellation_observed", phase="before_summary")
+        return "FINAL_SUMMARY: CANCELLED Task cancellation was requested."
     summary_prompt = (
         system
         + f"\n\nGOAL:\n{goal}\n\nOBSERVATIONS:\n"

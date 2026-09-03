@@ -94,6 +94,49 @@ class TaskLifecycleTests(unittest.TestCase):
         self.assertEqual(len(self.brain.list_tasks()), 1)
         self.assertEqual(self.brain.get_task(task["id"])["status"], "completed")
 
+    def test_cancel_is_durable_and_idempotent(self):
+        task = self.brain.tasks.create("inspect project", self.contract.to_dict())
+        cancelled = self.brain.cancel_task(task["id"], "No longer needed.")
+        again = self.brain.cancel_task(task["id"])
+        self.assertEqual(cancelled["status"], "cancelled")
+        self.assertEqual(again["status"], "cancelled")
+        self.assertEqual(len(again["events"]), 1)
+        self.assertEqual(again["events"][0]["type"], "cancelled")
+
+    def test_agent_result_cannot_overwrite_cancelled_state(self):
+        task = self.brain.tasks.create("inspect project", self.contract.to_dict())
+
+        def fake_run_agent(**kwargs):
+            self.brain.cancel_task(task["id"])
+            return "FINAL_SUMMARY: CANCELLED Task cancellation was requested."
+
+        with patch("core.agent_loop.run_agent", side_effect=fake_run_agent):
+            self.brain.run_prepared_task(task["id"])
+        saved = self.brain.get_task(task["id"])
+        self.assertEqual(saved["status"], "cancelled")
+        self.assertTrue(saved["result"].startswith("FINAL_SUMMARY: CANCELLED"))
+
+    def test_cancelled_task_is_not_resumed(self):
+        task = self.brain.tasks.create("inspect project", self.contract.to_dict())
+        self.brain.cancel_task(task["id"])
+        with patch("core.agent_loop.run_agent") as run_agent_mock:
+            self.brain.resume_task(task["id"])
+        run_agent_mock.assert_not_called()
+
+    def test_crash_after_cancel_does_not_overwrite_cancelled_state(self):
+        task = self.brain.tasks.create("inspect project", self.contract.to_dict())
+
+        def cancel_then_crash(**kwargs):
+            self.brain.cancel_task(task["id"], "Stop now.")
+            raise RuntimeError("backend stopped")
+
+        with patch("core.agent_loop.run_agent", side_effect=cancel_then_crash):
+            with self.assertRaises(RuntimeError):
+                self.brain.run_prepared_task(task["id"])
+        saved = self.brain.get_task(task["id"])
+        self.assertEqual(saved["status"], "cancelled")
+        self.assertEqual(saved["result"], "Stop now.")
+
 
 if __name__ == "__main__":
     unittest.main()
