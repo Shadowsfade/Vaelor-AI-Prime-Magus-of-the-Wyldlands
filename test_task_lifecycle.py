@@ -137,6 +137,53 @@ class TaskLifecycleTests(unittest.TestCase):
         self.assertEqual(saved["status"], "cancelled")
         self.assertEqual(saved["result"], "Stop now.")
 
+    def test_clarification_revises_same_task_for_execution(self):
+        initial = TaskIntent(
+            intent="act",
+            goal="delete project",
+            needs_clarification=True,
+            clarification_question="Which project?",
+        )
+        resolved = TaskIntent(
+            intent="act",
+            goal="delete the demo project",
+            success_criteria=["demo project is absent"],
+        )
+        self.brain.understand_task = MagicMock(side_effect=[initial, resolved])
+        task = self.brain.prepare_task("delete it")
+        revised = self.brain.clarify_task(task["id"], "The demo project.")
+        self.assertEqual(revised["id"], task["id"])
+        self.assertEqual(revised["status"], "pending")
+        self.assertIn("The demo project.", revised["request"])
+        self.assertEqual(revised["contract"]["goal"], "delete the demo project")
+        self.assertEqual(revised["events"][-1]["type"], "clarification_received")
+
+    def test_insufficient_clarification_keeps_task_waiting(self):
+        initial = TaskIntent(
+            intent="act", goal="delete project", needs_clarification=True,
+            clarification_question="Which project?",
+        )
+        still_unclear = TaskIntent(
+            intent="act", goal="delete project", needs_clarification=True,
+            clarification_question="Please provide the project path.",
+        )
+        self.brain.understand_task = MagicMock(side_effect=[initial, still_unclear])
+        task = self.brain.prepare_task("delete it")
+        revised = self.brain.clarify_task(task["id"], "That one.")
+        self.assertEqual(revised["status"], "waiting")
+        self.assertEqual(revised["result"], "Please provide the project path.")
+        self.assertEqual(
+            revised["contract"]["clarification_question"],
+            "Please provide the project path.",
+        )
+        self.assertIn("That one.", revised["request"])
+        self.assertEqual(revised["events"][-1]["type"], "clarification_insufficient")
+
+    def test_nonwaiting_task_rejects_clarification(self):
+        task = self.brain.tasks.create("inspect", self.contract.to_dict())
+        with self.assertRaises(ValueError):
+            self.brain.clarify_task(task["id"], "details")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -2,6 +2,14 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Clarification-loop milestone 9
+- Added `POST /tasks/{task_id}/clarify` so an answer can revise and continue the same
+  durable task instead of creating a disconnected replacement.
+- Clarification answers are reclassified into an updated task contract before execution.
+- Still-ambiguous answers remain waiting with the refined question and context persisted;
+  resolved answers return to pending and run in the background.
+- Added deterministic same-task, insufficient-answer, and invalid-state tests.
+
 ### Task-control milestone 8
 - Added durable, idempotent task cancellation with an audit event and optional reason.
 - The agent checks for cancellation before model calls, after model calls, between tool

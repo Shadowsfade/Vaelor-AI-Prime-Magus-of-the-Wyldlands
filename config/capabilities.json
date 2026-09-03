@@ -42,6 +42,10 @@
       "description": "durable cooperative cancellation between model and tool operations"
     },
     {
+      "name": "TaskClarification",
+      "description": "durable clarification answers that revise and continue the original task"
+    },
+    {
       "name": "UserAdaptation",
       "description": "provenance-aware preferences and task feedback with user-controlled activation"
     },

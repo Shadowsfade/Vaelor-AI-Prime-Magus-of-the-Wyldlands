@@ -97,6 +97,11 @@ class TaskCancelRequest(BaseModel):
     reason: str = "Cancelled by user."
 
 
+class TaskClarifyRequest(BaseModel):
+    answer: str
+    max_steps: int = 12
+
+
 @app.get("/preferences")
 def list_preferences(status: Optional[str] = None):
     return {"preferences": brain.list_preferences(status)}
@@ -196,6 +201,19 @@ def resume_task(task_id: str, request: TaskResumeRequest):
 def cancel_task(task_id: str, request: TaskCancelRequest):
     try:
         return brain.cancel_task(task_id, request.reason)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Task not found")
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+
+@app.post("/tasks/{task_id}/clarify")
+def clarify_task(task_id: str, request: TaskClarifyRequest, background_tasks: BackgroundTasks):
+    try:
+        task = brain.clarify_task(task_id, request.answer)
+        if task.get("status") == "pending":
+            background_tasks.add_task(brain.run_prepared_task, task_id, request.max_steps)
+        return task
     except KeyError:
         raise HTTPException(status_code=404, detail="Task not found")
     except ValueError as exc:

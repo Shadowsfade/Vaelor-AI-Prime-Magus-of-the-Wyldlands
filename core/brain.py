@@ -330,6 +330,30 @@ class VaelorBrain:
     def cancel_task(self, task_id, reason="Cancelled by user."):
         return self.tasks.cancel(task_id, reason)
 
+    def clarify_task(self, task_id, answer):
+        task = self.tasks.get(task_id)
+        if task is None:
+            raise KeyError(f"Unknown task: {task_id}")
+        if task.get("status") != "waiting":
+            raise ValueError("Task is not waiting for clarification.")
+        answer = str(answer or "").strip()
+        if not answer:
+            raise ValueError("Clarification answer cannot be empty.")
+        original = task.get("request", "")
+        question = (task.get("contract") or {}).get("clarification_question", "Clarification")
+        revised_request = f"{original}\n\nClarification requested: {question}\nUser answer: {answer}"
+        contract = self.understand_task(revised_request)
+        if contract.intent != "act":
+            contract.intent = "act"
+        if contract.needs_clarification:
+            return self.tasks.keep_waiting(
+                task_id,
+                revised_request,
+                contract.to_dict(),
+                contract.clarification_question,
+            )
+        return self.tasks.revise(task_id, revised_request, contract.to_dict())
+
     def list_preferences(self, status=None):
         return self.preferences.list(status)
 

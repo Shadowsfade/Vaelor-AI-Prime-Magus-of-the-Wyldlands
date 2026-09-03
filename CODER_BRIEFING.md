@@ -172,7 +172,7 @@ Requires: Windows + Python 3.10+ on PATH. LLM backend (Ollama/LM Studio) still s
 | POST | `/voice/speak` | TTS only |
 | GET | `/voice/voices` | edge-tts wizard list |
 | GET | `/tools` | tool registry JSON |
-| GET/POST | `/tasks*` | durable background tasks, cancel/resume, and SSE progress |
+| GET/POST | `/tasks*` | durable background tasks, clarify/cancel/resume, and SSE progress |
 | GET/POST/PATCH | `/preferences*` | user-controlled adaptation and preference state |
 | GET/POST | `/setup*` | first-run wizard |
 | GET | `/greeting` | opening line + optional audio |
