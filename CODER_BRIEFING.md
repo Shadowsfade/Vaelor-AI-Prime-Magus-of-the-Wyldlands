@@ -194,7 +194,7 @@ Requires: Windows + Python 3.10+ on PATH. LLM backend (Ollama/LM Studio) still s
 | POST | `/voice/speak` | TTS only |
 | GET | `/voice/voices` | edge-tts wizard list |
 | GET | `/tools` | tool registry JSON |
-| GET/POST | `/tasks*` | workspace-aware durable tasks, clarify/cancel/resume, and SSE progress |
+| GET/POST | `/tasks*` | workspace-aware durable tasks, clarify/cancel/resume, exact action approve/reject, and SSE progress |
 | GET/POST/PATCH | `/preferences*` | user-controlled adaptation and preference state |
 | GET/POST | `/setup*` | first-run wizard |
 | GET | `/greeting` | opening line + optional audio |
@@ -227,6 +227,11 @@ Task-control regression check:
 ```powershell
 python -m unittest -v test_task_lifecycle.py test_agent_loop.py
 ```
+
+When policy blocks one mutating task action, inspect `pending_approval` on the task and
+send its unchanged 64-character `fingerprint` to `POST /tasks/{task_id}/approve-action`.
+Vaelor resumes that task with a one-time authorization. Use the matching
+`/reject-action` endpoint to cancel it instead; stale fingerprints return HTTP 409.
 
 API contract regression check:
 

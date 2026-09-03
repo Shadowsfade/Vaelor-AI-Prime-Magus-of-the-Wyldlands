@@ -11,6 +11,7 @@ from core.agent_loop import (
     _looks_failed,
     _is_mutating_action,
     _recent_observations,
+    action_fingerprint,
     run_agent,
 )
 
@@ -75,7 +76,7 @@ class AgentLoopTests(unittest.TestCase):
             result = run_agent(
                 "write x", model, event_callback=lambda event, data: events.append(event)
             )
-        self.assertEqual(result, "FINAL_SUMMARY: FAILED approval required")
+        self.assertTrue(result.startswith("FINAL_SUMMARY: WAITING_APPROVAL"))
         execute.assert_not_called()
         self.assertIn("action_blocked", events)
 
@@ -92,7 +93,7 @@ class AgentLoopTests(unittest.TestCase):
             patch("core.agent_loop.registry.execute") as execute,
         ):
             result = run_agent("push changes", model)
-        self.assertEqual(result, "FINAL_SUMMARY: FAILED admin required")
+        self.assertTrue(result.startswith("FINAL_SUMMARY: WAITING_APPROVAL"))
         execute.assert_not_called()
 
     def test_runtime_deadline_stops_before_model(self):
@@ -306,6 +307,51 @@ class AgentLoopTests(unittest.TestCase):
             result = run_agent("inspect", model, should_cancel=lambda: next(checks))
         self.assertTrue(result.startswith("FINAL_SUMMARY: CANCELLED"))
         self.assertEqual(model_calls, 1)
+
+
+    def test_action_fingerprint_is_stable_and_ignores_confirmation(self):
+        first = action_fingerprint("write_text_file", {"path": "x", "content": "y", "confirm": "yes"})
+        second = action_fingerprint("write_text_file", {"content": "y", "confirm": "no", "path": "x"})
+        self.assertEqual(first, second)
+
+    def test_blocked_action_pauses_with_exact_approval_request(self):
+        model = ScriptedModel([
+            '{"thought":"write","actions":[{"tool":"write_text_file",'
+            '"arguments":{"path":"x.txt","content":"x","confirm":"yes"}}],"final":null}',
+        ])
+        requests = []
+        with (
+            patch("core.agent_loop.registry.specs_for_prompt", return_value="tools"),
+            patch("core.agent_loop._autonomy_mode", return_value="supervised"),
+            patch("core.agent_loop.registry.execute") as execute,
+        ):
+            result = run_agent("write x", model, approval_required=requests.append)
+        self.assertTrue(result.startswith("FINAL_SUMMARY: WAITING_APPROVAL"))
+        execute.assert_not_called()
+        self.assertEqual(requests[0]["tool"], "write_text_file")
+        self.assertEqual(requests[0]["arguments"], {"path": "x.txt", "content": "x"})
+
+    def test_exact_approval_is_consumed_and_executes_once(self):
+        arguments = {"path": "x.txt", "content": "x"}
+        fingerprint = action_fingerprint("write_text_file", arguments)
+        model = ScriptedModel([
+            '{"thought":"write","actions":[{"tool":"write_text_file",'
+            '"arguments":{"path":"x.txt","content":"x"}}],"final":null}',
+            '{"thought":"done","actions":[],"final":{"status":"SUCCESS","summary":"written"}}',
+        ])
+        consumed = []
+        with (
+            patch("core.agent_loop.registry.specs_for_prompt", return_value="tools"),
+            patch("core.agent_loop._autonomy_mode", return_value="supervised"),
+            patch("core.agent_loop.registry.execute", return_value="[OK]") as execute,
+        ):
+            result = run_agent(
+                "write x", model, require_verification=False,
+                consume_approval=lambda value: consumed.append(value) or value == fingerprint,
+            )
+        self.assertEqual(result, "FINAL_SUMMARY: SUCCESS written")
+        self.assertEqual(consumed, [fingerprint])
+        execute.assert_called_once_with("write_text_file", path="x.txt", content="x", confirm="yes")
 
 
 if __name__ == "__main__":

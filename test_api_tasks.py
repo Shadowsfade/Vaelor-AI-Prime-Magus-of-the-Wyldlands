@@ -57,6 +57,34 @@ class TaskApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 409)
         self.assertIn("cannot be cancelled", response.json()["detail"])
 
+    def test_approve_action_resumes_same_task(self):
+        fingerprint = "a" * 64
+        self.brain.approve_task_action.return_value = {"id": "task-1", "status": "pending"}
+        response = self.client.post(
+            "/tasks/task-1/approve-action",
+            json={"fingerprint": fingerprint, "max_steps": 9},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.brain.approve_task_action.assert_called_once_with("task-1", fingerprint)
+        self.brain.run_prepared_task.assert_called_once_with("task-1", 9)
+
+    def test_stale_action_approval_is_conflict(self):
+        self.brain.approve_task_action.side_effect = ValueError("stale approval")
+        response = self.client.post(
+            "/tasks/task-1/approve-action", json={"fingerprint": "b" * 64}
+        )
+        self.assertEqual(response.status_code, 409)
+
+    def test_reject_action_does_not_resume_task(self):
+        fingerprint = "c" * 64
+        self.brain.reject_task_action.return_value = {"id": "task-1", "status": "cancelled"}
+        response = self.client.post(
+            "/tasks/task-1/reject-action", json={"fingerprint": fingerprint}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.brain.reject_task_action.assert_called_once_with("task-1", fingerprint)
+        self.brain.run_prepared_task.assert_not_called()
+
     def test_unknown_task_is_404(self):
         self.brain.get_task.return_value = None
         response = self.client.get("/tasks/missing")

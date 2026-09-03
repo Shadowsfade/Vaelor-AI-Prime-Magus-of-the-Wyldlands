@@ -94,6 +94,10 @@
       "description": "copy buttons track streamed response content and finalized Markdown instead of stale placeholders"
     },
     {
+      "name": "ExactActionApproval",
+      "description": "durable per-action approval with exact fingerprints, one-time authorization, reject support, and same-task resume"
+    },
+    {
       "name": "UserAdaptation",
       "description": "provenance-aware preferences and task feedback with user-controlled activation"
     },

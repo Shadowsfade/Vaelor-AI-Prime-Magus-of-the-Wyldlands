@@ -61,6 +61,8 @@ class TaskStore:
                 "attempts": 0,
                 "events": [],
                 "result": None,
+                "pending_approval": None,
+                "authorized_action": None,
             }
             tasks.append(task)
             self._write(tasks[-500:])
@@ -144,6 +146,98 @@ class TaskStore:
         task = self.get(task_id)
         return bool(task and task.get("status") == "cancelled")
 
+    def request_approval(self, task_id: str, action: Dict[str, Any]) -> dict:
+        """Pause for one exact action without widening the task's autonomy policy."""
+        with self._lock:
+            tasks = self._read()
+            for task in tasks:
+                if task.get("id") != task_id:
+                    continue
+                stamp = _now()
+                task["status"] = "waiting"
+                task["waiting_reason"] = "approval"
+                task["pending_approval"] = deepcopy(action)
+                task["authorized_action"] = None
+                task["updated_at"] = stamp
+                task.setdefault("events", []).append({
+                    "timestamp": stamp,
+                    "type": "approval_required",
+                    "data": self._bounded(action),
+                })
+                task["events"] = task["events"][-250:]
+                self._write(tasks)
+                return deepcopy(task)
+        raise KeyError(f"Unknown task: {task_id}")
+
+    def approve_action(self, task_id: str, fingerprint: str) -> dict:
+        with self._lock:
+            tasks = self._read()
+            for task in tasks:
+                if task.get("id") != task_id:
+                    continue
+                pending = task.get("pending_approval") or {}
+                if task.get("status") != "waiting" or task.get("waiting_reason") != "approval":
+                    raise ValueError("Task is not waiting for action approval.")
+                if not fingerprint or fingerprint != pending.get("fingerprint"):
+                    raise ValueError("Approval fingerprint is stale or does not match the pending action.")
+                stamp = _now()
+                task["authorized_action"] = fingerprint
+                task["pending_approval"] = None
+                task["waiting_reason"] = None
+                task["status"] = "pending"
+                task["result"] = None
+                task["updated_at"] = stamp
+                task.setdefault("events", []).append({
+                    "timestamp": stamp, "type": "action_approved",
+                    "data": {"fingerprint": fingerprint},
+                })
+                self._write(tasks)
+                return deepcopy(task)
+        raise KeyError(f"Unknown task: {task_id}")
+
+    def consume_action_approval(self, task_id: str, fingerprint: str) -> bool:
+        """Atomically consume a matching one-time authorization."""
+        with self._lock:
+            tasks = self._read()
+            for task in tasks:
+                if task.get("id") != task_id:
+                    continue
+                if task.get("authorized_action") != fingerprint:
+                    return False
+                task["authorized_action"] = None
+                task["updated_at"] = _now()
+                task.setdefault("events", []).append({
+                    "timestamp": task["updated_at"], "type": "approval_consumed",
+                    "data": {"fingerprint": fingerprint},
+                })
+                self._write(tasks)
+                return True
+        raise KeyError(f"Unknown task: {task_id}")
+
+    def reject_action(self, task_id: str, fingerprint: str) -> dict:
+        with self._lock:
+            tasks = self._read()
+            for task in tasks:
+                if task.get("id") != task_id:
+                    continue
+                pending = task.get("pending_approval") or {}
+                if task.get("status") != "waiting" or pending.get("fingerprint") != fingerprint:
+                    raise ValueError("Rejection fingerprint is stale or does not match the pending action.")
+                stamp = _now()
+                task["status"] = "cancelled"
+                task["waiting_reason"] = None
+                task["pending_approval"] = None
+                task["authorized_action"] = None
+                task["result"] = "Action rejected by user."
+                task["updated_at"] = stamp
+                task.setdefault("events", []).append({
+                    "timestamp": stamp, "type": "action_rejected",
+                    "data": {"fingerprint": fingerprint},
+                })
+                self._write(tasks)
+                return deepcopy(task)
+        raise KeyError(f"Unknown task: {task_id}")
+
     def revise(self, task_id: str, request: str, contract: dict) -> dict:
         """Replace a waiting task's definition while preserving identity and history."""
         with self._lock:
@@ -157,6 +251,7 @@ class TaskStore:
                 task["request"] = str(request)
                 task["contract"] = deepcopy(contract)
                 task["status"] = "pending"
+                task["waiting_reason"] = None
                 task["result"] = None
                 task["updated_at"] = stamp
                 task.setdefault("events", []).append({

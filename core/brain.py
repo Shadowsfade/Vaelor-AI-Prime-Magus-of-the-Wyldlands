@@ -315,13 +315,19 @@ class VaelorBrain:
                 event_callback=lambda event, data: self.tasks.add_event(task_id, event, data),
                 should_cancel=lambda: self.tasks.is_cancelled(task_id),
                 max_runtime_seconds=max_runtime_seconds,
+                approval_required=lambda action: self.tasks.request_approval(task_id, action),
+                consume_approval=lambda fingerprint: self.tasks.consume_action_approval(
+                    task_id, fingerprint
+                ),
             )
         except Exception as exc:
             self.tasks.add_event(task_id, "crashed", {"error": str(exc)})
             if not self.tasks.is_cancelled(task_id):
                 self.tasks.update(task_id, status="failed", result=f"Agent error: {exc}")
             raise
-        if result.upper().startswith("FINAL_SUMMARY: CANCELLED") or self.tasks.is_cancelled(task_id):
+        if result.upper().startswith("FINAL_SUMMARY: WAITING_APPROVAL"):
+            status = "waiting"
+        elif result.upper().startswith("FINAL_SUMMARY: CANCELLED") or self.tasks.is_cancelled(task_id):
             status = "cancelled"
         else:
             status = "completed" if result.upper().startswith("FINAL_SUMMARY: SUCCESS") else "failed"
@@ -338,12 +344,20 @@ class VaelorBrain:
     def cancel_task(self, task_id, reason="Cancelled by user."):
         return self.tasks.cancel(task_id, reason)
 
+    def approve_task_action(self, task_id, fingerprint):
+        return self.tasks.approve_action(task_id, fingerprint)
+
+    def reject_task_action(self, task_id, fingerprint):
+        return self.tasks.reject_action(task_id, fingerprint)
+
     def clarify_task(self, task_id, answer):
         task = self.tasks.get(task_id)
         if task is None:
             raise KeyError(f"Unknown task: {task_id}")
         if task.get("status") != "waiting":
             raise ValueError("Task is not waiting for clarification.")
+        if task.get("waiting_reason") == "approval":
+            raise ValueError("Task is waiting for action approval, not clarification.")
         answer = str(answer or "").strip()
         if not answer:
             raise ValueError("Clarification answer cannot be empty.")
@@ -417,7 +431,7 @@ class VaelorBrain:
         if task is None:
             raise KeyError(f"Unknown task: {task_id}")
         if task.get("status") == "waiting":
-            return task.get("result") or "Task is waiting for clarification."
+            return task.get("result") or "Task is waiting for user input."
         return self.act(
             task.get("request", ""),
             session_id=task.get("session_id"),

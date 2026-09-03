@@ -7,6 +7,7 @@ Self-corrects on failures; requires verification before FINAL_SUMMARY.
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import re
 import time
@@ -251,6 +252,18 @@ def _allows_automatic_action(mode: str, risk: str) -> bool:
     return False
 
 
+def action_fingerprint(name: str, arguments: dict) -> str:
+    """Return a stable identity for one exact action; model confirmation is ignored."""
+    clean = {str(key): value for key, value in (arguments or {}).items() if key != "confirm"}
+    payload = json.dumps(
+        {"tool": str(name), "arguments": clean},
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 def build_react_system_prompt(tool_specs: str) -> str:
     return f"""
 You are Vaelor, an autonomous local coding worker (ReAct agent) for the Apprentice.
@@ -326,6 +339,8 @@ def run_agent(
     model_retries: int = 2,
     max_runtime_seconds: int = 900,
     clock: Callable[[], float] = time.monotonic,
+    approval_required: Optional[Callable[[Dict[str, Any]], None]] = None,
+    consume_approval: Optional[Callable[[str], bool]] = None,
 ) -> str:
     """Autonomous ReAct loop. ask_llm(prompt) -> model text."""
     registry  # loaded
@@ -480,8 +495,14 @@ def run_agent(
                 is_verification = _is_verification_action(name, kwargs)
                 is_mutating = _is_mutating_action(name, kwargs)
                 risk = _action_risk(name, kwargs)
+                fingerprint = action_fingerprint(name, kwargs)
                 supports_confirm = registry.accepts_argument(name, "confirm")
                 allowed = _allows_automatic_action(autonomy_mode, risk)
+                if is_mutating and not allowed and consume_approval is not None:
+                    try:
+                        allowed = bool(consume_approval(fingerprint))
+                    except Exception:
+                        allowed = False
                 if is_mutating and supports_confirm:
                     # Never trust confirmation authored by the model itself.
                     kwargs["confirm"] = "yes" if allowed else "no"
@@ -498,14 +519,24 @@ def run_agent(
                         risk=risk,
                         mode=autonomy_mode,
                         reason=result,
+                        fingerprint=fingerprint,
                     )
-                    observations.append(
-                        f"OBSERVATION:\ntool={name} returncode=1 failed=True\n"
-                        f"args={kwargs}\nstderr:\n{result}"
+                    request = {
+                        "fingerprint": fingerprint,
+                        "tool": name,
+                        "arguments": {
+                            key: value for key, value in kwargs.items() if key != "confirm"
+                        },
+                        "risk": risk,
+                        "mode": autonomy_mode,
+                    }
+                    if approval_required is not None:
+                        approval_required(request)
+                    return (
+                        "FINAL_SUMMARY: WAITING_APPROVAL "
+                        f"Approval required for {risk}-risk action '{name}' "
+                        f"({fingerprint[:12]})."
                     )
-                    transcript.append(observations[-1])
-                    step_failed = True
-                    continue
                 emit("tool_started", step=step, tool=name, arguments=kwargs)
                 try:
                     result = registry.execute(name, **kwargs)

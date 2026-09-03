@@ -106,6 +106,11 @@ class TaskClarifyRequest(BaseModel):
     max_steps: int = Field(default=12, ge=3, le=25)
 
 
+class TaskApprovalRequest(BaseModel):
+    fingerprint: str = Field(min_length=64, max_length=64)
+    max_steps: int = Field(default=12, ge=3, le=25)
+
+
 @app.get("/preferences")
 def list_preferences(status: Optional[str] = None):
     return {"preferences": brain.list_preferences(status)}
@@ -213,6 +218,29 @@ def resume_task(task_id: str, request: TaskResumeRequest):
 def cancel_task(task_id: str, request: TaskCancelRequest):
     try:
         return brain.cancel_task(task_id, request.reason)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Task not found")
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+
+@app.post("/tasks/{task_id}/approve-action")
+def approve_task_action(task_id: str, request: TaskApprovalRequest,
+                        background_tasks: BackgroundTasks):
+    try:
+        task = brain.approve_task_action(task_id, request.fingerprint)
+        background_tasks.add_task(brain.run_prepared_task, task_id, request.max_steps)
+        return task
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Task not found")
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+
+@app.post("/tasks/{task_id}/reject-action")
+def reject_task_action(task_id: str, request: TaskApprovalRequest):
+    try:
+        return brain.reject_task_action(task_id, request.fingerprint)
     except KeyError:
         raise HTTPException(status_code=404, detail="Task not found")
     except ValueError as exc:

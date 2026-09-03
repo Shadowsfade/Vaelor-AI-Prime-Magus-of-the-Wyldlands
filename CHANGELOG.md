@@ -13,6 +13,16 @@
   textarea.
 - Added focused streamed-copy and final-render regression tests.
 
+### Exact action-approval milestone 22
+- Supervised and trusted tasks now pause durably instead of failing when one specific
+  mutating action needs user approval.
+- Pending approvals expose the exact tool, bounded arguments, risk, autonomy mode, and a
+  canonical fingerprint; client-supplied replacement actions are never accepted.
+- Added approve/reject task endpoints. Approval resumes the same task ID and grants a
+  matching authorization exactly once, while stale or mismatched fingerprints fail closed.
+- Added regression coverage for blocked execution, stable fingerprints, durable approval,
+  one-time consumption, rejection, stale conflicts, and background task resumption.
+
 ### Release-truth milestone 20
 - API health, diagnostics, FastAPI metadata, capabilities, roadmap, portable defaults,
   installer scripts, and package names now agree on canonical version `1.1.4-alpha`.

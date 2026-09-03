@@ -44,6 +44,28 @@ class TaskStoreTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.store.update(task["id"], status="imaginary")
 
+    def test_exact_action_approval_is_durable_and_one_time(self):
+        task = self.store.create("write file")
+        action = {"fingerprint": "a" * 64, "tool": "write_text_file", "arguments": {"path": "x"}}
+        waiting = self.store.request_approval(task["id"], action)
+        self.assertEqual(waiting["status"], "waiting")
+        self.assertEqual(waiting["pending_approval"], action)
+        with self.assertRaisesRegex(ValueError, "stale"):
+            self.store.approve_action(task["id"], "b" * 64)
+        approved = self.store.approve_action(task["id"], "a" * 64)
+        self.assertEqual(approved["status"], "pending")
+        self.assertTrue(self.store.consume_action_approval(task["id"], "a" * 64))
+        self.assertFalse(self.store.consume_action_approval(task["id"], "a" * 64))
+
+    def test_reject_action_cancels_only_matching_pending_action(self):
+        task = self.store.create("delete file")
+        action = {"fingerprint": "c" * 64, "tool": "delete_path", "arguments": {"path": "x"}}
+        self.store.request_approval(task["id"], action)
+        rejected = self.store.reject_action(task["id"], "c" * 64)
+        self.assertEqual(rejected["status"], "cancelled")
+        self.assertIsNone(rejected["pending_approval"])
+        self.assertEqual(rejected["events"][-1]["type"], "action_rejected")
+
 
 if __name__ == "__main__":
     unittest.main()
