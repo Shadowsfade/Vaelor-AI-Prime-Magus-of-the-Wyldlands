@@ -163,4 +163,5 @@ Local machine files (not for git): `config/network.json`, `config/setup_complete
 
 ## Version
 
-Alpha **1.1.0-alpha** — free local companion with installer, OS-safe autonomy, tome UI, and wizard voice.
+Alpha **1.1.4-alpha** — local-first companion with durable autonomous tasks, exact-action
+approval, project-aware tools, installer, tome UI, and wizard voice.

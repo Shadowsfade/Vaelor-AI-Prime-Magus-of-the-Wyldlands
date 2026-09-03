@@ -35,6 +35,11 @@ class ReleaseMetadataTests(unittest.TestCase):
         self.assertEqual(server.app.version, VAELOR_VERSION)
         self.assertEqual(server.health()["version"], VAELOR_VERSION)
 
+    def test_user_facing_release_docs_use_canonical_version(self):
+        for relative in ("README.md", "INSTALL.md", "CODER_BRIEFING.md"):
+            text = (ROOT / relative).read_text(encoding="utf-8-sig")
+            self.assertIn(VAELOR_VERSION, text, relative)
+
 
 if __name__ == "__main__":
     unittest.main()

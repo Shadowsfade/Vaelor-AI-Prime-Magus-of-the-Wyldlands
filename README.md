@@ -1,33 +1,109 @@
-# Vaelor (Vay-lore)
+# Vaelor
 
-Free, **local** AI companion — Arcane Archivist of the Wyldlands.  
-You are the **Apprentice**. No subscription required.
+**Vaelor** (pronounced *Vay-lore*) is a local-first AI assistant for Windows. It
+combines private local language models, durable autonomous tasks, guarded file and shell
+tools, project awareness, memory, voice, and an arcane tome interface.
 
-## Quick start (new users)
+Vaelor is currently an alpha. He can complete supervised development tasks, recover from
+tool errors, verify changes, preserve task history, and pause for exact one-action
+approval. He is not yet a complete terminal emulator or a replacement for every feature
+in Warp Agent CLI; see [ROADMAP.md](ROADMAP.md) for the remaining work.
 
-1. Read **[INSTALL.md](INSTALL.md)** (full guide)  
-2. Or just open **[READ ME FIRST.txt](READ%20ME%20FIRST.txt)** and double-click **`INSTALL.bat`**
+## Install on Windows
 
-## What you get
+Requirements:
 
-- Arcane **tome** WebUI / desktop window  
-- Wizard voice TTS (`edge-tts`, default `en-GB-RyanNeural`) + browser mic calling  
-- Local LLM via **Ollama** or **LM Studio**  
-- Tools: files, web research, git, shell (OS-safe admin policy)  
-- Per-machine auto config (paths + free local port; no foreign PC settings)
+- Windows 10 or 11.
+- Internet access during the first installation.
+- Ollama or LM Studio with a local model for useful AI responses.
+- Chrome or Edge if you want browser microphone input.
 
-## Developers
+Installation:
+
+1. Download the repository ZIP from GitHub and extract it.
+2. Double-click `INSTALL.bat`.
+3. If Windows SmartScreen appears, choose **More info**, then **Run anyway**.
+4. Wait for the installer to report **ALL DONE**.
+5. Start Vaelor from the new Desktop or Start Menu shortcut.
+6. Complete the setup grimoire and select your Ollama or LM Studio model.
+
+The installer creates a private installation under `%LOCALAPPDATA%\Vaelor`, chooses an
+available local port, creates an isolated Python environment, and does not package the
+developer's paths, conversations, or memories.
+
+For detailed installation and troubleshooting, read [INSTALL.md](INSTALL.md).
+
+## Use Vaelor
+
+Open the tome, type a request into the parchment box, and press Enter or select **Cast**.
+Useful commands include:
+
+- `remember: <fact>` — save an explicit memory.
+- `tools` — list available tools.
+- `search: <question>` — perform web research.
+- `agent: <task>` — run a multi-step autonomous task.
+- `shell: <command>` — run a shell command under the configured safety policy.
+- `git: status` — inspect the current Git repository.
+- `tool: describe_sandbox` — explain Vaelor's current access policy.
+
+When a task reaches a protected operation, it appears under **Action Approvals** in the
+left sidebar. Review the exact tool, arguments, and risk, then choose **Approve Once** or
+**Reject**. Approval applies only to that exact action and cannot be replayed.
+
+Use **Summon Call** for voice conversation. Browser microphone input works best in Chrome
+or Edge on localhost; spoken output uses the configured Edge TTS voice.
+
+## Run from source
 
 ```powershell
+git clone https://github.com/Shadowsfade/Vaelor-AI-Prime-Magus-of-the-Wyldlands.git
+cd Vaelor-AI-Prime-Magus-of-the-Wyldlands
 .\Start-Vaelor.bat
-# http://localhost:<auto-or-dev-port>
 ```
 
-- `CODER_BRIEFING.md` — architecture for teammates  
-- `CHANGELOG.md` — version history  
-- `installer/` — beginner installer + package builders  
+The launcher creates or repairs `.venv`, installs required packages, starts the API, and
+opens Vaelor using the machine-local port configuration.
 
-## License / privacy
+Developers may start the API directly:
 
-Intended as a **private** project unless you choose otherwise.  
-Do not commit secrets, model weights (`.gguf`), or personal `memory/` dumps.
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn api.server:app --host localhost --port 8000
+```
+
+## Current capabilities
+
+- Ollama and LM Studio local inference.
+- Structured multi-step agent actions with verification and self-correction.
+- Guarded file, shell, Git, web, diagnostic, and project tools.
+- Durable tasks with progress events, cancellation, clarification, deadlines, and resume.
+- Exact one-action approval through API and WebUI.
+- Project grounding and bounded multi-file reading.
+- Persistent conversations, relevance-ranked memory, and user-controlled preferences.
+- Desktop/web tome interface, streamed answers, and voice conversation.
+- Windows installer and portable/desktop package builders.
+
+## Project documentation
+
+- [Installation and troubleshooting](INSTALL.md)
+- [Architecture and developer briefing](CODER_BRIEFING.md)
+- [Product roadmap](ROADMAP.md)
+- [Release and milestone history](CHANGELOG.md)
+- [Installer and packaging notes](installer/README.md)
+- [Safety policy](config/SANDBOX_GOD_MODE.md)
+
+## Verify a development checkout
+
+Run the deterministic focused suite from the repository root:
+
+```powershell
+python -m unittest -v test_web_approvals.py test_web_copy.py test_release_metadata.py test_multi_file_reader.py test_readiness.py test_api_tasks.py test_project_context.py test_safety_defaults.py test_task_lifecycle.py test_agent_loop.py test_task_store.py test_brain_actions.py test_action_protocol.py test_tool_registry.py test_task_intent.py test_memory_retrieval.py test_preference_store.py test_preference_integration.py
+```
+
+## Privacy and safety
+
+Vaelor is local-first, but some optional features—including Edge TTS and web research—may
+contact internet services. Do not commit API keys, private memory files, model weights, or
+machine-local configuration. Mutating tools are governed by supervised, trusted, or admin
+policy, and core operating-system paths remain protected.
+
+Current release: **1.1.4-alpha**.

@@ -177,12 +177,16 @@ The world evolves.
 
 # Current Development Priority
 
-1. Build user-facing durable task controls and approval handoff
+1. Build the full user-facing durable Task Center (approval handoff is complete)
 2. Add automatic conversation summarization and retention
-3. Add scheduling and recurring task support
-4. Validate installer/runtime behavior on a clean machine
-5. Strengthen user/session identity and remote authentication
-6. Create Unity/Unreal bridge
+3. Add persistent PTY terminal sessions and native CLI operation
+4. Add codebase indexing and native diff review
+5. Add reusable rules, workflows, and MCP tool extensibility
+6. Add scheduling and recurring task support
+7. Validate installer/runtime behavior on a clean machine
+8. Strengthen user/session identity and remote authentication
+9. Add hardware-aware model routing and multi-agent orchestration
+10. Create Unity/Unreal bridges
 
 The foundation comes first.
 

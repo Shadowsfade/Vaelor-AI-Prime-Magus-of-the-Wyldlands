@@ -19,13 +19,18 @@
         "Risk-aware supervised, trusted, and admin autonomy",
         "Workspace grounding and bounded multi-file source understanding",
         "Operational readiness reporting and focused regression suite"
+        ,"Exact per-action approval and WebUI approve-once/reject controls"
     ],
     "in_progress": [
-        "User-facing durable task controls and exact approval handoff",
+        "Full user-facing durable Task Center",
         "Automatic conversation summarization and retention policy"
     ],
     "next_goals": [
         "Clean-machine installer and packaged-runtime acceptance test",
+        "Persistent PTY terminal sessions and native CLI experience",
+        "Codebase indexing and native diff review",
+        "Rules, workflows, and MCP extensibility",
+        "Hardware-aware model routing and multi-agent orchestration",
         "Recurring task scheduler and automation controls",
         "Stronger user/session identity and authenticated remote access",
         "Optional local Whisper STT if browser speech is unavailable",

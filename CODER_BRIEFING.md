@@ -1,4 +1,4 @@
-# Vaelor Coder Briefing — 1.1.0-alpha
+# Vaelor Coder Briefing — 1.1.4-alpha
 
 **Product:** Vaelor (“Vay-lore”) — free, local AI companion  
 **Tree:** `S:\VeilorServer\Workspace\Core`  
@@ -43,7 +43,7 @@ Portable zip for testers:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\installer\Build-AlphaPackage.ps1
-# output: dist\Vaelor-Alpha-1.1.0-alpha.zip
+# output: dist\Vaelor-Alpha-1.1.4-alpha.zip
 ```
 
 ---
@@ -112,7 +112,7 @@ tasks do not overwhelm smaller local-model context windows.
 Tasks also persist a wall-clock runtime budget (default 15 minutes) and cooperatively
 stop between model/tool operations when that deadline is exceeded.
 
-### 4.5 Access policy — **full_access_os_safe** (1.1.0-alpha)
+### 4.5 Access policy — **full_access_os_safe** (1.1.4-alpha)
 User request: broad access for installs/dev; **never fully delete core OS files**.
 
 | Setting | Value |

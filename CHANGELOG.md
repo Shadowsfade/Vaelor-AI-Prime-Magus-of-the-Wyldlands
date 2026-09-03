@@ -2,6 +2,14 @@
 
 ## [Unreleased] — 2026-09-02
 
+### GitHub documentation and roadmap-truth milestone 24
+- Rebuilt the GitHub README as a complete newcomer path covering installation, first use,
+  task approvals, source startup, capabilities, verification, documentation, and privacy.
+- Synchronized stale release references in the install guide and coder briefing with the
+  canonical `1.1.4-alpha` version and added regression coverage for those public docs.
+- Marked exact approval complete and expanded the canonical roadmap to cover the Task
+  Center, PTY/CLI runtime, indexing/review, extensibility, model routing, and orchestration.
+
 ### Web approval-controls milestone 23
 - Added an Action Approvals panel to the tome that discovers durable tasks waiting on
   policy and shows each exact tool, argument set, task ID, and risk level.
