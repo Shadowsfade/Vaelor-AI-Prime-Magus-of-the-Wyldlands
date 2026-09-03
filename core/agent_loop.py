@@ -199,8 +199,15 @@ def _is_verification_action(name: str, kwargs: dict) -> bool:
     )
 
 
-def _is_mutating_action(name: str) -> bool:
+def _is_mutating_action(name: str, kwargs: Optional[dict] = None) -> bool:
     """Use registry metadata as the source of truth, with a safe fallback."""
+    if name == "shell_exec":
+        try:
+            from core.tools.shell_exec import _is_mutating
+            return _is_mutating(str((kwargs or {}).get("command", "")))
+        except Exception:
+            # Failure to classify arbitrary shell is never treated as read-only.
+            return True
     tool = registry.get(name)
     if tool is not None:
         return not tool.read_only
@@ -219,6 +226,8 @@ def _action_risk(name: str, kwargs: dict) -> str:
             re.IGNORECASE,
         ):
             return "high"
+        if not _is_mutating_action(name, kwargs):
+            return "read"
     return risk
 
 
@@ -444,7 +453,7 @@ def run_agent(
                     emit("cancellation_observed", phase="before_tool", step=step, tool=name)
                     return "FINAL_SUMMARY: CANCELLED Task cancellation was requested."
                 is_verification = _is_verification_action(name, kwargs)
-                is_mutating = _is_mutating_action(name)
+                is_mutating = _is_mutating_action(name, kwargs)
                 risk = _action_risk(name, kwargs)
                 supports_confirm = registry.accepts_argument(name, "confirm")
                 allowed = _allows_automatic_action(autonomy_mode, risk)

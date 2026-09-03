@@ -2,6 +2,14 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Command-aware shell milestone 17
+- Shell actions are now classified from the command itself instead of treating every
+  `shell_exec` call as a mutation.
+- Supervised mode can run read-only diagnostics and verification commands while still
+  blocking writes, installs, deletes, history changes, and publishing.
+- Classification failures remain fail-closed as mutations.
+- Added deterministic read-only shell classification and supervised execution tests.
+
 ### Risk-aware autonomy milestone 16
 - Tool metadata now exposes `read`, `low`, `medium`, or `high` execution risk to the
   model and API clients.

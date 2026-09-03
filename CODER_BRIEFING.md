@@ -133,6 +133,8 @@ Agent-loop policy is risk-aware: supervised blocks autonomous mutations, trusted
 routine reversible changes but blocks high-risk delete/install/push/policy actions, and
 admin permits high-risk work while the hard OS protections remain active. Confirmation
 written by the model itself is never treated as user authorization.
+Shell policy is command-aware, so supervised mode still permits read-only inspection and
+test commands needed to understand and verify work.
 
 If the machine-local `config/autonomy.json` is absent, malformed, or names an unknown
 mode, Vaelor fails closed to supervised mode. Mutating tools default to `confirm=no`;

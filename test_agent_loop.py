@@ -9,6 +9,7 @@ from core.agent_loop import (
     _allows_automatic_action,
     _bounded_text,
     _looks_failed,
+    _is_mutating_action,
     _recent_observations,
     run_agent,
 )
@@ -34,6 +35,29 @@ class AgentLoopTests(unittest.TestCase):
     def test_shell_risk_detects_destructive_and_publish_commands(self):
         self.assertEqual(_action_risk("shell_exec", {"command": "git push origin main"}), "high")
         self.assertEqual(_action_risk("shell_exec", {"command": "Remove-Item demo.txt"}), "high")
+
+    def test_read_only_shell_is_not_treated_as_mutation(self):
+        kwargs = {"command": "python -m unittest -v test_agent_loop.py"}
+        self.assertFalse(_is_mutating_action("shell_exec", kwargs))
+        self.assertEqual(_action_risk("shell_exec", kwargs), "read")
+
+    def test_supervised_mode_allows_read_only_shell(self):
+        model = ScriptedModel([
+            '{"thought":"inspect","actions":[{"tool":"shell_exec",'
+            '"arguments":{"command":"git status --short","confirm":"yes"}}],"final":null}',
+            '{"thought":"done","actions":[],"final":'
+            '{"status":"SUCCESS","summary":"inspected"}}',
+        ])
+        with (
+            patch("core.agent_loop.registry.specs_for_prompt", return_value="tools"),
+            patch("core.agent_loop._autonomy_mode", return_value="supervised"),
+            patch("core.agent_loop.registry.execute", return_value="[OK]") as execute,
+        ):
+            result = run_agent("inspect status", model)
+        self.assertEqual(result, "FINAL_SUMMARY: SUCCESS inspected")
+        execute.assert_called_once_with(
+            "shell_exec", command="git status --short", confirm="yes"
+        )
 
     def test_supervised_mode_ignores_model_authored_confirmation(self):
         model = ScriptedModel([

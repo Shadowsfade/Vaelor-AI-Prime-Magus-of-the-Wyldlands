@@ -74,6 +74,10 @@
       "description": "tool risk metadata and supervised, trusted, and admin execution policy enforcement"
     },
     {
+      "name": "CommandAwareShell",
+      "description": "read-only shell diagnostics and verification remain available under supervised policy"
+    },
+    {
       "name": "UserAdaptation",
       "description": "provenance-aware preferences and task feedback with user-controlled activation"
     },
