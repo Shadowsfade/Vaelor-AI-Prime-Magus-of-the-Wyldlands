@@ -2,6 +2,14 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Task-API contract milestone 13
+- Added FastAPI integration coverage for task creation, workspace forwarding, background
+  execution, clarification gating, cancellation conflicts, missing tasks, and terminal SSE.
+- Task creation and clarification now reject empty or oversized text and unreasonable
+  agent step budgets at the HTTP boundary.
+- Cancellation reasons and workspace paths are bounded before entering durable state.
+- Added seven deterministic route-level tests using FastAPI's test client.
+
 ### Project-grounding milestone 12
 - Background tasks can now carry an optional validated workspace path through durable
   storage and `POST /tasks`.

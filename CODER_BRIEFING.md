@@ -214,6 +214,12 @@ Task-control regression check:
 python -m unittest -v test_task_lifecycle.py test_agent_loop.py
 ```
 
+API contract regression check:
+
+```powershell
+python -m unittest -v test_api_tasks.py
+```
+
 ---
 
 ## 8. Suggested next work (backlog)

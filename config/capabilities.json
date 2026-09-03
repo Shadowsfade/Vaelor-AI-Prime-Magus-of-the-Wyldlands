@@ -58,6 +58,10 @@
       "description": "workspace-aware tasks with bounded repository structure and guidance context"
     },
     {
+      "name": "ValidatedTaskAPI",
+      "description": "bounded task requests with tested create, clarify, cancel, resume, and SSE route contracts"
+    },
+    {
       "name": "UserAdaptation",
       "description": "provenance-aware preferences and task feedback with user-controlled activation"
     },

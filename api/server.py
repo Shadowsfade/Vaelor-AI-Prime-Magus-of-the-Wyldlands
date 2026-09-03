@@ -11,7 +11,7 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Any, List, Optional
 
 from core.runtime import VaelorRuntime
@@ -70,14 +70,14 @@ class SessionCreateRequest(BaseModel):
 
 
 class TaskResumeRequest(BaseModel):
-    max_steps: int = 12
+    max_steps: int = Field(default=12, ge=3, le=25)
 
 
 class TaskCreateRequest(BaseModel):
-    message: str
+    message: str = Field(min_length=1, max_length=20000)
     session_id: Optional[str] = None
-    max_steps: int = 12
-    workspace: Optional[str] = None
+    max_steps: int = Field(default=12, ge=3, le=25)
+    workspace: Optional[str] = Field(default=None, max_length=4096)
 
 
 class PreferenceCreateRequest(BaseModel):
@@ -95,12 +95,12 @@ class TaskFeedbackRequest(BaseModel):
 
 
 class TaskCancelRequest(BaseModel):
-    reason: str = "Cancelled by user."
+    reason: str = Field(default="Cancelled by user.", max_length=1000)
 
 
 class TaskClarifyRequest(BaseModel):
-    answer: str
-    max_steps: int = 12
+    answer: str = Field(min_length=1, max_length=20000)
+    max_steps: int = Field(default=12, ge=3, le=25)
 
 
 @app.get("/preferences")
