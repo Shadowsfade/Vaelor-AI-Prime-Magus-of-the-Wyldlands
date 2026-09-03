@@ -2,6 +2,15 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Web approval-controls milestone 23
+- Added an Action Approvals panel to the tome that discovers durable tasks waiting on
+  policy and shows each exact tool, argument set, task ID, and risk level.
+- Users can approve one action or reject it directly from the UI; controls submit only
+  the server-issued fingerprint and disable during requests to prevent duplicate clicks.
+- The panel refreshes when the tome opens, after chat and manual refreshes, and every five
+  seconds while open so background tasks become actionable without API tooling.
+- Added static frontend contract coverage while retaining streamed-copy regressions.
+
 ### Live-copy milestone 21
 - Fixed streamed-message copy buttons retaining and copying the original thinking
   placeholder instead of the visible completed response.

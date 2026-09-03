@@ -98,6 +98,10 @@
       "description": "durable per-action approval with exact fingerprints, one-time authorization, reject support, and same-task resume"
     },
     {
+      "name": "WebActionApprovals",
+      "description": "tome UI displays exact pending task actions and provides safe approve-once or reject controls"
+    },
+    {
       "name": "UserAdaptation",
       "description": "provenance-aware preferences and task feedback with user-controlled activation"
     },

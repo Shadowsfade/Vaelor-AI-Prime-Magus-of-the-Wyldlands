@@ -232,6 +232,8 @@ When policy blocks one mutating task action, inspect `pending_approval` on the t
 send its unchanged 64-character `fingerprint` to `POST /tasks/{task_id}/approve-action`.
 Vaelor resumes that task with a one-time authorization. Use the matching
 `/reject-action` endpoint to cancel it instead; stale fingerprints return HTTP 409.
+The tome's **Action Approvals** sidebar panel provides the same flow for normal users and
+polls for newly blocked background tasks while the tome is open.
 
 API contract regression check:
 
