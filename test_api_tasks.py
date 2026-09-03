@@ -104,6 +104,12 @@ class TaskApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 422)
         self.brain.prepare_task.assert_not_called()
 
+    def test_runtime_over_twenty_minutes_is_rejected(self):
+        response = self.client.post(
+            "/tasks", json={"message": "inspect", "max_runtime_seconds": 1201}
+        )
+        self.assertEqual(response.status_code, 422)
+
     def test_terminal_event_stream_includes_result(self):
         self.brain.get_task.return_value = {
             "id": "task-1",

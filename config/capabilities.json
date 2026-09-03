@@ -118,6 +118,18 @@
       "description": "canonical vaelor.py CLI supports one-shot and JSON prompts plus persistent terminal command sessions"
     },
     {
+      "name": "ContextAwareButler",
+      "description": "proactive system-aware advice, independent context gathering, and better-path recommendations"
+    },
+    {
+      "name": "AgentPersistentTerminal",
+      "description": "agent-selectable guarded terminal sessions retain cwd and environment across commands"
+    },
+    {
+      "name": "LiveTaskConsole",
+      "description": "Task Center streams progress, status, tool completion details, and results through resumable SSE"
+    },
+    {
       "name": "UserAdaptation",
       "description": "provenance-aware preferences and task feedback with user-controlled activation"
     },

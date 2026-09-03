@@ -9,6 +9,11 @@ from core.task_store import TaskStore
 
 
 class PreferenceIntegrationTests(unittest.TestCase):
+    def test_general_context_requires_proactive_but_nonobstructive_advice(self):
+        text = self.brain._advisor_block()
+        self.assertIn("Proactively recommend", text)
+        self.assertIn("Do not manufacture objections", text)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         root = Path(self.temp.name)

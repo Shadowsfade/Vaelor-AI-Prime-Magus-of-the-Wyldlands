@@ -149,6 +149,18 @@ def register_all_tools():
         print("shell register fail", e)
 
     try:
+        from core.terminal_session import (
+            terminal_start, terminal_list, terminal_run, terminal_interrupt, terminal_close,
+        )
+        registry.register("terminal_start", "Start a persistent shell session. Optional cwd=.", False, terminal_start, risk="low")
+        registry.register("terminal_list", "List persistent shell sessions and running state.", True, terminal_list)
+        registry.register("terminal_run", "Run a command in a persistent session; cwd and environment survive. session_id= command= timeout=", False, terminal_run)
+        registry.register("terminal_interrupt", "Interrupt the active process in a persistent terminal session.", False, terminal_interrupt, risk="low")
+        registry.register("terminal_close", "Close one persistent terminal session.", False, terminal_close, risk="low")
+    except Exception as e:
+        print("terminal register fail", e)
+
+    try:
         from .git_ops import (
             git_status, git_diff, git_log, git_branch, git_remote,
             git_add, git_commit, git_checkout, git_push, git_pull,

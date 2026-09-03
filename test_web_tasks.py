@@ -24,8 +24,17 @@ class WebTaskCenterRegressionTests(unittest.TestCase):
         self.assertIn("if(tomeOpened){loadTasks();loadApprovals()}", HTML)
 
     def test_task_output_is_rendered_as_text_not_raw_html(self):
-        self.assertIn("addMessage(`Task ${id} — ${task.status}", HTML)
+        self.assertIn("taskConsole.textContent=", HTML)
+        self.assertIn("taskConsole.textContent+=", HTML)
         self.assertNotIn("innerHTML=task.result", HTML)
+
+    def test_task_console_streams_progress_and_results(self):
+        self.assertIn('id="taskConsole"', HTML)
+        self.assertIn("new EventSource(`/tasks/${encodeURIComponent(id)}/events?after=${cursor}`)", HTML)
+        self.assertIn("addEventListener('progress'", HTML)
+        self.assertIn("addEventListener('status'", HTML)
+        self.assertIn("addEventListener('result'", HTML)
+        self.assertIn("taskConsole.textContent", HTML)
 
 
 if __name__ == "__main__":

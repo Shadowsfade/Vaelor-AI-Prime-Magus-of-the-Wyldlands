@@ -2,6 +2,23 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Context-aware butler milestone 28
+- Registered guarded persistent terminal sessions as agent tools, allowing Vaelor to
+  retain working-directory and environment state when a task genuinely requires it.
+- Added proactive but non-obstructive advisory guidance: Vaelor gathers available
+  context first and recommends safer, simpler, faster, or more maintainable approaches
+  with relevant system constraints and tradeoffs.
+- Added current OS, RAM, VRAM, and model-execution advice to autonomous task context.
+- Changed durable task runtime defaults to 15 minutes and enforced a 20-minute hard cap
+  at both the API boundary and agent loop so work cannot silently run indefinitely.
+- Added a live Task Center console backed by resumable Server-Sent Events, with safe text
+  rendering for progress, status, and final results.
+- Added regression coverage for terminal-tool registration and safety classification,
+  runtime enforcement, advisory behavior, and live console contracts.
+
+Task events are now visible live; per-command stdout chunk streaming and ConPTY
+full-screen input/resize remain explicitly in progress.
+
 ### Persistent terminal foundation milestone 27
 - Added managed long-lived PowerShell/bash sessions with retained working directory and
   environment, bounded output, command deadlines, interruption, listing, and cleanup.

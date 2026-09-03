@@ -159,3 +159,27 @@ class TerminalSessionManager:
     def close_all(self):
         for session_id in [item["id"] for item in self.list()]:
             self.close(session_id)
+
+
+manager = TerminalSessionManager()
+
+
+def terminal_start(cwd: str = "") -> dict:
+    return manager.create(cwd or None)
+
+
+def terminal_list() -> list:
+    return manager.list()
+
+
+def terminal_run(session_id: str, command: str, timeout: int = 180,
+                 confirm: str = "no") -> dict:
+    return manager.execute(session_id, command, timeout=timeout, confirm=confirm)
+
+
+def terminal_interrupt(session_id: str) -> dict:
+    return manager.interrupt(session_id)
+
+
+def terminal_close(session_id: str) -> dict:
+    return manager.close(session_id)

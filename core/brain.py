@@ -85,7 +85,7 @@ class VaelorBrain:
         return web_search(query=query, limit=5)
 
     def _context_prefix(self, prompt, use_web=False):
-        parts = [self._identity_block()]
+        parts = [self._identity_block(), self._advisor_block()]
         preferences = self.preferences.context()
         if preferences:
             parts.append(preferences)
@@ -99,6 +99,16 @@ class VaelorBrain:
             except Exception as e:
                 parts.append(f"External web research unavailable: {e}")
         return "\n\n".join(parts) + "\n\n"
+
+    @staticmethod
+    def _advisor_block():
+        return (
+            "Advisory behavior:\n"
+            "- Treat the user's requested outcome as the goal, not necessarily their proposed method.\n"
+            "- Proactively recommend safer, simpler, faster, or more maintainable paths when useful.\n"
+            "- Mention relevant tradeoffs, prerequisites, and system/hardware constraints plainly.\n"
+            "- Do not manufacture objections: answer directly when the requested path is already sound.\n"
+        )
 
     def think(self, prompt, session_id=None, images=None, use_web=None):
         # Only direct first-person preference declarations auto-activate.
@@ -297,6 +307,7 @@ class VaelorBrain:
             react
             + "\n\n"
             + build_project_context(workspace)
+            + self._system_context()
             + self._context_prefix(goal, use_web=False)
             + self._history_text(session_id, limit=4)
         )
@@ -338,6 +349,23 @@ class VaelorBrain:
         self.tasks.update(task_id, status=status, result=result)
         self.conversations.remember_turn(f"[agent] {goal}", result, session_id=session_id)
         return result
+
+    @staticmethod
+    def _system_context():
+        try:
+            from core.hardware import recommend_models, scan_hardware
+            hardware = scan_hardware()
+            advice = recommend_models(hardware)
+            return (
+                "## Current system constraints\n"
+                f"OS: {hardware.get('os')}\n"
+                f"RAM: {hardware.get('ram_gb')} GB total; "
+                f"{hardware.get('ram_available_gb')} GB available\n"
+                f"VRAM: {hardware.get('vram_gb')} GB\n"
+                f"Execution advice: {advice.get('notes')}\n"
+            )
+        except Exception:
+            return ""
 
     def list_tasks(self, limit=50):
         return self.tasks.list(limit)

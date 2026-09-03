@@ -22,9 +22,12 @@
         "Exact per-action approval and WebUI approve-once/reject controls",
         "User-facing durable Task Center with submit, inspect, cancel, resume, and clarification controls",
         "Automatic bounded conversation compaction and per-session summary retention"
-        ,"Persistent guarded terminal foundation and repaired native Vaelor CLI"
+        ,"Persistent guarded terminal foundation and repaired native Vaelor CLI",
+        "Context-aware butler judgment with system-aware recommendations",
+        "Agent-selectable persistent terminal tools with command-aware safety",
+        "Live Task Center console and enforced 20-minute task ceiling"
     ],
-    "in_progress": ["ConPTY full-screen interaction, live terminal streaming, and resize support"],
+    "in_progress": ["Per-command stdout chunk streaming plus ConPTY full-screen interaction and resize support"],
     "next_goals": [
         "Clean-machine installer and packaged-runtime acceptance test",
         "Persistent PTY terminal sessions and native CLI experience",

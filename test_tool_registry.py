@@ -4,6 +4,11 @@ from core.tools.registry import ToolRegistry
 
 
 class ToolRegistrySchemaTests(unittest.TestCase):
+    def test_persistent_terminal_tools_are_registered(self):
+        from core.tools.registry import registry
+        for name in ("terminal_start", "terminal_list", "terminal_run", "terminal_interrupt", "terminal_close"):
+            self.assertIsNotNone(registry.get(name), name)
+
     def setUp(self):
         self.registry = ToolRegistry()
 

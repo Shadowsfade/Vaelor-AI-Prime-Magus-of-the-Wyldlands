@@ -52,7 +52,9 @@ left sidebar. Review the exact tool, arguments, and risk, then choose **Approve 
 
 Use **Task Center** to launch work that should continue as a durable background task. Its
 cards show current status and provide View, Cancel, Resume, or Clarify controls when those
-actions are valid.
+actions are valid. Select **View** to open a live console showing timestamped progress,
+status changes, tool completion details, and the final result. Tasks default to a
+15-minute runtime budget and cannot exceed 20 minutes.
 
 Use **Summon Call** for voice conversation. Browser microphone input works best in Chrome
 or Edge on localhost; spoken output uses the configured Edge TTS voice.
@@ -93,6 +95,10 @@ session and `/help` for the command list. Existing shell safety and approval pol
 - Structured multi-step agent actions with verification and self-correction.
 - Guarded file, shell, Git, web, diagnostic, and project tools.
 - Durable tasks with progress events, cancellation, clarification, deadlines, and resume.
+- Proactive, system-aware task guidance that gathers context and recommends useful
+  alternatives or tradeoffs instead of blindly following a weak implementation path.
+- Agent-selectable persistent terminal sessions for workflows that require retained cwd
+  or environment state.
 - Exact one-action approval through API and WebUI.
 - Project grounding and bounded multi-file reading.
 - Persistent conversations with automatic bounded summaries, relevance-ranked memory,

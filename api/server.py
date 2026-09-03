@@ -80,7 +80,7 @@ class TaskCreateRequest(BaseModel):
     session_id: Optional[str] = None
     max_steps: int = Field(default=12, ge=3, le=25)
     workspace: Optional[str] = Field(default=None, max_length=4096)
-    max_runtime_seconds: int = Field(default=900, ge=10, le=7200)
+    max_runtime_seconds: int = Field(default=900, ge=10, le=1200)
 
 
 class PreferenceCreateRequest(BaseModel):

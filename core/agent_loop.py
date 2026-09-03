@@ -203,7 +203,7 @@ def _is_verification_action(name: str, kwargs: dict) -> bool:
 
 def _is_mutating_action(name: str, kwargs: Optional[dict] = None) -> bool:
     """Use registry metadata as the source of truth, with a safe fallback."""
-    if name == "shell_exec":
+    if name in ("shell_exec", "terminal_run"):
         try:
             from core.tools.shell_exec import _is_mutating
             return _is_mutating(str((kwargs or {}).get("command", "")))
@@ -219,7 +219,7 @@ def _is_mutating_action(name: str, kwargs: Optional[dict] = None) -> bool:
 def _action_risk(name: str, kwargs: dict) -> str:
     tool = registry.get(name)
     risk = getattr(tool, "risk", None) or ("read" if tool and tool.read_only else "medium")
-    if name == "shell_exec":
+    if name in ("shell_exec", "terminal_run"):
         command = str(kwargs.get("command", ""))
         if re.search(
             r"\b(remove-item|rm|del|erase|rmdir|rd|git\s+(push|reset|clean|rebase)|"
@@ -301,6 +301,20 @@ If OBSERVATION shows returncode != 0, Refused, Traceback, or stderr errors:
 - Diagnose the error in thought.
 - Call a corrective tool, then re-verify.
 
+## BUTLER JUDGMENT AND CONTEXT
+- Do not take requests blindly when a safer, simpler, faster, or more maintainable path
+  would better satisfy the goal. Briefly state the recommendation and relevant tradeoff,
+  then proceed with the best in-scope path unless the choice materially changes intent.
+- Gather missing context yourself with read-only project, file, git, diagnostic, and web
+  tools before asking the Apprentice. Ask only when a decision truly requires them.
+- Prefer dedicated file and Git tools for structured operations. Use shell_exec for
+  independent commands. Use terminal_start + terminal_run only when state must persist
+  across commands, such as cd, environment activation, REPLs, debuggers, SSH, or services.
+- Consider available CPU, RAM, GPU/VRAM, operating system, dependencies, and existing
+  project conventions. Explain meaningful system constraints in the final summary.
+- Never leave work silently hanging. Tools and tasks have deadlines; report what is
+  running through progress events and return an honest failure or interruption on timeout.
+
 ## VERIFICATION (mandatory before success)
 Before final.status SUCCESS you MUST verify, e.g.:
 - shell_exec: python -m py_compile <files>
@@ -354,7 +368,7 @@ def run_agent(
     autonomy_mode = _autonomy_mode()
     max_steps = max(3, min(int(max_steps or DEFAULT_MAX_STEPS), 25))
     model_retries = max(0, min(int(model_retries or 0), 3))
-    max_runtime_seconds = max(10, min(int(max_runtime_seconds or 900), 7200))
+    max_runtime_seconds = max(10, min(int(max_runtime_seconds or 900), 1200))
     deadline = clock() + max_runtime_seconds
 
     def emit(event_type: str, **data: Any) -> None:

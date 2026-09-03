@@ -33,6 +33,19 @@ class AgentLoopTests(unittest.TestCase):
         self.assertFalse(_allows_automatic_action("supervised", "low"))
         self.assertTrue(_allows_automatic_action("admin", "high"))
 
+    def test_persistent_terminal_commands_are_classified_by_effect(self):
+        self.assertFalse(_is_mutating_action("terminal_run", {"command": "git status"}))
+        self.assertTrue(_is_mutating_action("terminal_run", {"command": "mkdir demo"}))
+
+    def test_agent_runtime_is_hard_capped_at_twenty_minutes(self):
+        ticks = iter([0.0, 1201.0])
+        with patch("core.agent_loop.registry.specs_for_prompt", return_value="tools"):
+            result = run_agent(
+                "inspect", ScriptedModel([]), max_runtime_seconds=7200,
+                clock=lambda: next(ticks),
+            )
+        self.assertIn("1200s runtime limit", result)
+
     def test_shell_risk_detects_destructive_and_publish_commands(self):
         self.assertEqual(_action_risk("shell_exec", {"command": "git push origin main"}), "high")
         self.assertEqual(_action_risk("shell_exec", {"command": "Remove-Item demo.txt"}), "high")

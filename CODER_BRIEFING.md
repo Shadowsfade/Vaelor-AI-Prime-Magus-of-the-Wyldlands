@@ -100,7 +100,9 @@ powershell -ExecutionPolicy Bypass -File .\installer\Build-AlphaPackage.ps1
 Registered tools include (see `GET /tools`):
 - Files: `project_scanner`, `file_reader`, `read_many_text_files`, `file_editor_propose`, `stage_file`, `scan_unused_files`, proposals approve/reject
 - Web: `web_search`, `fetch_url`
-- Shell: `shell_exec`, `shell_which`, `set_autonomy_mode`, `get_autonomy_status`, `describe_sandbox`
+- Shell: `shell_exec`, `shell_which`, `terminal_start`, `terminal_list`, `terminal_run`,
+  `terminal_interrupt`, `terminal_close`, `set_autonomy_mode`, `get_autonomy_status`,
+  `describe_sandbox`
 - Git: status/diff/log/branch/remote/add/commit/checkout/pull/push (force-push disabled)
 - Unreal (optional): `unreal_status`, `unreal_open_epic_download`, `unreal_launch_epic` if module present
 
@@ -110,7 +112,10 @@ to the durable task event stream and remain cancellable between attempts.
 Tool observations are bounded per result and across the rolling history so long-running
 tasks do not overwhelm smaller local-model context windows.
 Tasks also persist a wall-clock runtime budget (default 15 minutes) and cooperatively
-stop between model/tool operations when that deadline is exceeded.
+stop between model/tool operations when that deadline is exceeded. Both the API and agent
+enforce a 20-minute maximum. Autonomous task context includes current OS/RAM/VRAM advice,
+and directs the model to inspect available context and suggest materially better paths.
+The Task Center View action consumes the resumable SSE stream in a live, text-safe console.
 
 ### 4.5 Access policy — **full_access_os_safe** (1.1.4-alpha)
 User request: broad access for installs/dev; **never fully delete core OS files**.
