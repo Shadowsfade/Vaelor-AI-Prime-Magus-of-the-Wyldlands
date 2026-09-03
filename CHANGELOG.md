@@ -2,6 +2,19 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Task-understanding milestone 2
+- Added a structured task contract with intent, normalized goal, observable success
+  criteria, explicit constraints, and clarification state.
+- Natural-language requests are classified before execution instead of relying only on
+  keyword routing.
+- Action contracts are carried into the agent loop so planning and completion are tied
+  to the user's requested outcome.
+- Material ambiguity pauses for one focused clarification rather than guessing and acting.
+- Malformed or unavailable classifier output falls back to the existing conservative
+  detector, preserving offline behavior.
+- Added deterministic tests for JSON extraction, fallback behavior, clarification,
+  action routing, and task-contract construction.
+
 ### Reliability milestone 1
 - Agent mutations now require a passing verification before success can be reported.
 - Any mutation after verification invalidates the earlier verification result.

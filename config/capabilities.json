@@ -22,6 +22,10 @@
       "description": "multi-step TOOL/FINAL with auto-confirm in admin"
     },
     {
+      "name": "TaskUnderstanding",
+      "description": "structured intent, normalized goals, constraints, success criteria, and clarification"
+    },
+    {
       "name": "ConsoleHomebrew",
       "description": "game-console-only verified public CFW/homebrew guides"
     },

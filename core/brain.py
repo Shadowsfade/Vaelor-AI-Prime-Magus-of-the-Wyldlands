@@ -2,6 +2,7 @@ from spellbook.spell_router import cast_spell, cast_spell_stream
 
 from .memory_manager import VaelorMemoryManager
 from .conversation_memory import VaelorConversationMemory
+from .task_intent import TaskIntent, classify_task
 
 
 class VaelorBrain:
@@ -88,10 +89,17 @@ class VaelorBrain:
         return "\n\n".join(parts) + "\n\n"
 
     def think(self, prompt, session_id=None, images=None, use_web=None):
-        # Oz-like auto tool use for action requests (free local tools only)
-        if not images and self.wants_action(prompt):
+        # Build an explicit task contract before deciding whether to use tools.
+        task = None
+        if not images:
+            task = self.understand_task(prompt)
+        if task and task.needs_clarification:
+            response = task.clarification_question
+            self.conversations.remember_turn(prompt, response, session_id=session_id)
+            return response
+        if task and task.should_act:
             try:
-                return self.act(prompt, session_id=session_id)
+                return self.act(prompt, session_id=session_id, task_contract=task)
             except Exception as exc:
                 response = (
                     "Vaelor could not complete the requested action because the agent loop "
@@ -230,7 +238,16 @@ class VaelorBrain:
         ):
             return True
         return False
-    def act(self, goal, session_id=None, max_steps=12):
+
+    def understand_task(self, prompt: str) -> TaskIntent:
+        """Translate natural language into an explicit, validated task contract."""
+        return classify_task(
+            request=prompt,
+            ask_classifier=lambda request: cast_spell("fast_thought", request),
+            fallback_should_act=self.wants_action(prompt),
+        )
+
+    def act(self, goal, session_id=None, max_steps=12, task_contract=None):
         """Autonomous ReAct coding worker loop (tools + self-correct + verify)."""
         from core.agent_loop import run_agent
         from spellbook.spell_router import cast_spell
@@ -250,8 +267,13 @@ class VaelorBrain:
             ) else "core_reasoning"
             return cast_spell(spell, prompt)
 
+        agent_goal = (
+            task_contract.as_agent_goal(goal)
+            if isinstance(task_contract, TaskIntent)
+            else goal
+        )
         result = run_agent(
-            goal=goal,
+            goal=agent_goal,
             ask_llm=ask_llm,
             max_steps=max_steps or 12,
             session_context=ctx,

@@ -55,6 +55,7 @@ powershell -ExecutionPolicy Bypass -File .\installer\Build-AlphaPackage.ps1
 | `api/server.py` | FastAPI routes: chat, call, voice, setup, tools, static WebUI |
 | `core/runtime.py` | Bootstraps brain + config |
 | `core/brain.py` | Reasoning, memory hooks, tool use, agent act |
+| `core/task_intent.py` | Structured intent, goals, constraints, success criteria |
 | `core/agent_loop.py` | Multi-step tool agent loop (`agent:` / action language) |
 | `core/tools/` | Tool implementations + `registry.py` |
 | `core/setup_wizard.py` | Hardware scan, Ollama/LM Studio first-run |
