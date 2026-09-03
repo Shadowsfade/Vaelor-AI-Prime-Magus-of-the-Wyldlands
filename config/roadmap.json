@@ -33,7 +33,8 @@
         "Engine-agnostic evidence contracts, honest confidence scoring, and promotion gating",
         "Guarded reusable-capability recognition and modular self-extension policy",
         "Lifecycle-bound durable task heartbeats for quiet long-running operations",
-        "Managed disposable Git worktrees for isolated engine-agnostic validation"
+        "Managed disposable Git worktrees for isolated engine-agnostic validation",
+        "Exact-ID bounded and secret-redacting review of managed sandbox changes"
     ],
     "in_progress": ["ConPTY full-screen terminal input and resize support"],
     "next_goals": [

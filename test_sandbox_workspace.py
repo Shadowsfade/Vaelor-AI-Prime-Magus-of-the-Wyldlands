@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from core.sandbox_workspace import (
     create_validation_sandbox, discard_validation_sandbox,
-    list_validation_sandboxes,
+    list_validation_sandboxes, review_validation_sandbox,
 )
 
 
@@ -55,6 +55,15 @@ class SandboxWorkspaceTests(unittest.TestCase):
     def test_rejects_arbitrary_identifier(self):
         with self.assertRaises(ValueError):
             discard_validation_sandbox("../../repo", confirm="yes")
+
+    def test_reviews_sandbox_by_managed_id(self):
+        sandbox = create_validation_sandbox(str(self.repo), confirm="yes")
+        target = Path(sandbox["path"]) / "baseline.txt"
+        target.write_text("review this\n", encoding="utf-8")
+        review = review_validation_sandbox(sandbox["id"])
+        self.assertIn(f"Validation sandbox {sandbox['id']}", review)
+        self.assertIn("baseline.txt", review)
+        self.assertIn("review this", review)
 
 
 if __name__ == "__main__":

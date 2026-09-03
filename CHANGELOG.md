@@ -2,6 +2,16 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Managed sandbox review milestone 37
+- Added `review_validation_sandbox`, a read-only bridge from an exact managed sandbox ID
+  to Vaelor's bounded native Git review packet.
+- Sandbox review verifies manifest existence, generated-ID syntax, managed-root containment,
+  and worktree availability before reading changes.
+- Review output includes sandbox provenance and inherits changed-file/line scope, whitespace
+  checks, conflict warnings, bounded diffs, and likely-secret redaction.
+- Added real-worktree regression coverage proving modified sandbox content is reviewable
+  by ID and registered as read-only without exposing arbitrary temporary paths.
+
 ### Disposable validation sandbox milestone 36
 - Added managed detached Git worktrees for engine-agnostic experimentation and validation
   without modifying the user's active checkout or including its uncommitted drafts.

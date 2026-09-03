@@ -344,7 +344,8 @@ If verification fails, keep iterating.
 - For substantial creation tasks, first define explicit functional, build, test, visual,
   performance, and safety checks that apply. Work in an isolated copy/worktree when possible.
 - For Git projects, use create_validation_sandbox for risky experiments or broad changes,
-  run tools against its returned path, and discard only by its managed ID after evidence is retained.
+  run tools against its returned path, review it by managed ID, and discard only by that
+  managed ID after evidence is retained.
 - Record concrete evidence for each applicable check and call evaluate_validation. Never
   describe 95-100% confidence when required evidence is failed, skipped, or unknown.
 - Promote sandboxed work to the real target only when the evidence gate passes and the

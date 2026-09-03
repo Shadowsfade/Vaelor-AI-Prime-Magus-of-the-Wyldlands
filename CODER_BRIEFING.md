@@ -128,7 +128,8 @@ still requires normal safety, tests, documentation, evidence, diff review, and r
 Git-backed projects can use `create_validation_sandbox` to obtain a detached temporary
 worktree from committed state. The returned path is used by normal tools; manifests are
 listed with `list_validation_sandboxes`, and destructive cleanup requires the exact managed
-ID through `discard_validation_sandbox`. Uncommitted source-checkout work is never copied.
+ID through `discard_validation_sandbox`. `review_validation_sandbox` feeds one managed ID
+through the bounded secret-redacting Git review path. Uncommitted source work is never copied.
 Transient local-model exceptions are retried twice by default. Retry attempts are written
 to the durable task event stream and remain cancellable between attempts.
 Tool observations are bounded per result and across the rolling history so long-running

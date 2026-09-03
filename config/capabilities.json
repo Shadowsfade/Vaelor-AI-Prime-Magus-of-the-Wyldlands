@@ -78,6 +78,10 @@
       "description": "managed detached Git worktrees isolate experiments from active checkouts with exact-ID lifecycle controls"
     },
     {
+      "name": "ManagedSandboxReview",
+      "description": "exact-ID sandbox provenance and changes flow through bounded secret-redacting native Git review"
+    },
+    {
       "name": "AdaptiveSelfExtension",
       "description": "recognizes reusable capability requests and fills genuine gaps through guarded modular tested extensions without hardcoding examples"
     },

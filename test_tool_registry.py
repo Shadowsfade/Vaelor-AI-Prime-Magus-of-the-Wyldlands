@@ -31,6 +31,7 @@ class ToolRegistrySchemaTests(unittest.TestCase):
         from core.tools.registry import registry
         self.assertEqual(registry.get("create_validation_sandbox").risk, "medium")
         self.assertTrue(registry.get("list_validation_sandboxes").read_only)
+        self.assertTrue(registry.get("review_validation_sandbox").read_only)
         self.assertEqual(registry.get("discard_validation_sandbox").risk, "high")
 
     def setUp(self):

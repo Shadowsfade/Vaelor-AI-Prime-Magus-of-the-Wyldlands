@@ -11,6 +11,7 @@ import uuid
 
 from core.tools.fs_ops import _resolve_path
 from core.tools.git_ops import _auto_ok
+from core.tools.git_ops import review_git_changes
 from core.tools.shell_exec import _audit
 
 
@@ -90,6 +91,24 @@ def list_validation_sandboxes() -> list:
         except (OSError, ValueError, TypeError):
             continue
     return items
+
+
+def review_validation_sandbox(sandbox_id: str) -> str:
+    """Review one exact managed sandbox through the secret-redacting Git review path."""
+    manifest_path = _manifest_path(sandbox_id)
+    if not manifest_path.is_file():
+        raise KeyError(f"unknown validation sandbox: {sandbox_id}")
+    data = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
+    worktrees, _ = _locations()
+    destination = Path(data["path"]).resolve()
+    destination.relative_to(worktrees.resolve())
+    if not destination.is_dir():
+        raise FileNotFoundError(f"validation sandbox is missing: {sandbox_id}")
+    return (
+        f"Validation sandbox {sandbox_id}\n"
+        f"source={data['source_repo']}\nref={data['ref']}\npath={destination}\n\n"
+        + review_git_changes(repo=str(destination))
+    )
 
 
 def discard_validation_sandbox(sandbox_id: str, confirm: str = "no") -> dict:
