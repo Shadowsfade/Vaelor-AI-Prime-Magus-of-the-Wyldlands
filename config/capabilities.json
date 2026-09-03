@@ -110,6 +110,14 @@
       "description": "atomic per-session summaries retain older context while bounding raw conversation history for local models"
     },
     {
+      "name": "PersistentTerminalFoundation",
+      "description": "guarded long-lived PowerShell/bash sessions retain cwd and environment with timeout, interrupt, audit, and cleanup controls"
+    },
+    {
+      "name": "NativeCLI",
+      "description": "canonical vaelor.py CLI supports one-shot and JSON prompts plus persistent terminal command sessions"
+    },
+    {
       "name": "UserAdaptation",
       "description": "provenance-aware preferences and task feedback with user-controlled activation"
     },

@@ -2,6 +2,20 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Persistent terminal foundation milestone 27
+- Added managed long-lived PowerShell/bash sessions with retained working directory and
+  environment, bounded output, command deadlines, interruption, listing, and cleanup.
+- Persistent commands reuse the existing OS-wreck protection, mutation classification,
+  autonomy policy, and audit trail instead of introducing an unguarded shell path.
+- Replaced the broken legacy `vaelor.py` router with a canonical native CLI supporting
+  one-shot prompts, JSON output, version reporting, persistent `!command` execution,
+  terminal restart/close commands, and reliable shutdown cleanup.
+- Added real PowerShell integration tests for retained environment/cwd, safety rejection,
+  supervised confirmation, unknown sessions, cleanup, and CLI argument/version contracts.
+
+This is the persistent terminal foundation; ConPTY full-screen input, resize, and live
+streaming remain explicitly in progress.
+
 ### Conversation compaction milestone 26
 - Added automatic per-session compaction after bounded history thresholds, preserving
   recent turns verbatim while rolling older context into a reusable summary.

@@ -74,6 +74,19 @@ Developers may start the API directly:
 .\.venv\Scripts\python.exe -m uvicorn api.server:app --host localhost --port 8000
 ```
 
+The native CLI also supports one-shot prompts and persistent terminal state:
+
+```powershell
+python vaelor.py --version
+python vaelor.py "Explain this repository"
+python vaelor.py --json "Summarize the current project"
+python vaelor.py --terminal --cwd C:\Projects\MyProject
+```
+
+Inside interactive CLI mode, prefix a shell command with `!`. Working-directory and
+environment changes persist until `/close` or exit. Use `/terminal <path>` to restart the
+session and `/help` for the command list. Existing shell safety and approval policy applies.
+
 ## Current capabilities
 
 - Ollama and LM Studio local inference.

@@ -40,6 +40,11 @@ class ReleaseMetadataTests(unittest.TestCase):
             text = (ROOT / relative).read_text(encoding="utf-8-sig")
             self.assertIn(VAELOR_VERSION, text, relative)
 
+    def test_native_cli_uses_canonical_version_module(self):
+        text = (ROOT / "vaelor.py").read_text(encoding="utf-8-sig")
+        self.assertIn("from core.version import VAELOR_VERSION", text)
+        self.assertNotIn('VAELOR_VERSION = "', text)
+
 
 if __name__ == "__main__":
     unittest.main()

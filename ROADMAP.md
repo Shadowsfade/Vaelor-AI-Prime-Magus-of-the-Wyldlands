@@ -177,7 +177,7 @@ The world evolves.
 
 # Current Development Priority
 
-1. Add persistent PTY terminal sessions and native CLI operation
+1. Extend the persistent terminal foundation with ConPTY full-screen control and live streaming
 2. Add codebase indexing and native diff review
 3. Add reusable rules, workflows, and MCP tool extensibility
 4. Add scheduling and recurring task support
