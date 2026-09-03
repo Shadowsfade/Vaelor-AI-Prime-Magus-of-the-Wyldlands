@@ -11,15 +11,6 @@
   file is reported without discarding successfully gathered context.
 - Added deterministic ordering, typed-input, file-count, total-budget, and partial-failure tests.
 
-### Multi-file understanding milestone 19
-- Added `read_many_text_files`, a read-only typed tool that gathers up to 20 related
-  source files in one agent action.
-- Per-file and total character budgets prevent repository exploration from overwhelming
-  local-model context windows.
-- Every path is resolved through existing allowed-root policy; one unreadable or blocked
-  file is reported without discarding successfully gathered context.
-- Added deterministic ordering, typed-input, file-count, total-budget, and partial-failure tests.
-
 ### Task-deadline milestone 18
 - Durable tasks now carry a bounded wall-clock runtime budget in addition to their step
   budget, configurable through `POST /tasks` from 10 seconds to two hours.
