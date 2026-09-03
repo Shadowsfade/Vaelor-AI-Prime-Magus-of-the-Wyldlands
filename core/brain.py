@@ -324,20 +324,22 @@ class VaelorBrain:
 
         agent_goal = task_contract.as_agent_goal(goal)
         try:
-            result = run_agent(
-                goal=agent_goal,
-                ask_llm=ask_llm,
-                max_steps=max_steps or 12,
-                session_context=ctx,
-                require_verification=True,
-                event_callback=lambda event, data: self.tasks.add_event(task_id, event, data),
-                should_cancel=lambda: self.tasks.is_cancelled(task_id),
-                max_runtime_seconds=max_runtime_seconds,
-                approval_required=lambda action: self.tasks.request_approval(task_id, action),
-                consume_approval=lambda fingerprint: self.tasks.consume_action_approval(
-                    task_id, fingerprint
-                ),
-            )
+            from core.task_heartbeat import TaskHeartbeat
+            with TaskHeartbeat(self.tasks, task_id):
+                result = run_agent(
+                    goal=agent_goal,
+                    ask_llm=ask_llm,
+                    max_steps=max_steps or 12,
+                    session_context=ctx,
+                    require_verification=True,
+                    event_callback=lambda event, data: self.tasks.add_event(task_id, event, data),
+                    should_cancel=lambda: self.tasks.is_cancelled(task_id),
+                    max_runtime_seconds=max_runtime_seconds,
+                    approval_required=lambda action: self.tasks.request_approval(task_id, action),
+                    consume_approval=lambda fingerprint: self.tasks.consume_action_approval(
+                        task_id, fingerprint
+                    ),
+                )
         except Exception as exc:
             self.tasks.add_event(task_id, "crashed", {"error": str(exc)})
             if not self.tasks.is_cancelled(task_id):

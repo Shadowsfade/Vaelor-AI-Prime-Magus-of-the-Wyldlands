@@ -55,7 +55,8 @@ Use **Task Center** to launch work that should continue as a durable background 
 cards show current status and provide View, Cancel, Resume, or Clarify controls when those
 actions are valid. Select **View** to open a live console showing timestamped progress,
 status changes, incremental persistent-terminal output, tool completion details, and the
-final result. Tasks default to a
+final result. Quiet tasks emit a durable activity heartbeat every 30 seconds so extended
+model or tool operations do not appear silently hung. Tasks default to a
 15-minute runtime budget and cannot exceed 20 minutes.
 
 Use **Summon Call** for voice conversation. Browser microphone input works best in Chrome

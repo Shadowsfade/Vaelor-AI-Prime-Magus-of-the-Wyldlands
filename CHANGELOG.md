@@ -2,6 +2,16 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Durable activity heartbeat milestone 35
+- Added lifecycle-bound task supervision that emits a durable “Vaelor is still working”
+  heartbeat every 30 seconds while a task remains in the running state.
+- Heartbeats flow through the existing resumable SSE Task Center console, complementing
+  incremental terminal output when a model call or quiet tool produces no visible text.
+- Heartbeat threads stop on context exit or as soon as task state is no longer running;
+  event-storage failures cannot interrupt the underlying task.
+- Added regression coverage for emission, terminal-state suppression, shutdown without
+  leaked events, task lifecycle compatibility, and safe frontend rendering.
+
 ### Guarded adaptive self-extension milestone 34
 - Extended structured task intent with a durable `reusable_capability` signal and reason,
   allowing Vaelor to distinguish one-off execution from requests to gain a future ability.

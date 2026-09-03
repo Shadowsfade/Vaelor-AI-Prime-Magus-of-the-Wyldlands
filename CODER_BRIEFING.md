@@ -136,6 +136,8 @@ and directs the model to inspect available context and suggest materially better
 The Task Center View action consumes the resumable SSE stream in a live, text-safe console.
 Agent calls to `terminal_run` additionally emit bounded `terminal_output` chunks into that
 stream while the command is running. Full-screen ConPTY input/resize is still pending.
+All durable runs also use a lifecycle-bound 30-second heartbeat. It is visible through the
+same resumable stream and terminates when the task leaves `running` or execution unwinds.
 
 ### 4.5 Access policy — **full_access_os_safe** (1.1.4-alpha)
 User request: broad access for installs/dev; **never fully delete core OS files**.

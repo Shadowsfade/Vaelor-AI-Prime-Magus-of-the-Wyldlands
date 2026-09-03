@@ -35,7 +35,7 @@ class WebTaskCenterRegressionTests(unittest.TestCase):
         self.assertIn("addEventListener('status'", HTML)
         self.assertIn("addEventListener('result'", HTML)
         self.assertIn("taskConsole.textContent", HTML)
-        self.assertIn("data.chunk||data.result", HTML)
+        self.assertIn("data.chunk||data.message||data.result", HTML)
 
 
 if __name__ == "__main__":
