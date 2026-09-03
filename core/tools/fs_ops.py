@@ -23,10 +23,10 @@ def _load_autonomy() -> dict:
     except Exception:
         return {
             "default_cwd": PROJECT_ROOT,
-            "allowed_roots": [PROJECT_ROOT, os.path.expanduser("~")],
+            "allowed_roots": [PROJECT_ROOT],
             "protected_delete_roots": [r"C:\Windows", r"C:\Program Files", r"C:\ProgramData"],
             "allowed_user_profile": os.path.expanduser("~"),
-            "mode": "admin",
+            "mode": "supervised",
         }
 
 
@@ -200,7 +200,7 @@ def read_text_file(path: str = "", start_line: str = "", end_line: str = "") -> 
     return f"----- {full} lines {s}-{e} of {len(lines)} -----\n{body}"
 
 
-def write_text_file(path: str = "", content: str = "", mode: str = "overwrite", confirm: str = "yes") -> str:
+def write_text_file(path: str = "", content: str = "", mode: str = "overwrite", confirm: str = "no") -> str:
     """Write text file under allowed roots. mode=overwrite|append. Blocks OS-protected paths."""
     if str(confirm).lower() not in ("yes", "true", "1", "y"):
         return "Refused: write_text_file needs confirm=yes"
@@ -228,7 +228,7 @@ def write_text_file(path: str = "", content: str = "", mode: str = "overwrite", 
     return f"Wrote {len(content)} chars to {full} (mode={m})"
 
 
-def apply_patch(path: str = "", old: str = "", new: str = "", confirm: str = "yes") -> str:
+def apply_patch(path: str = "", old: str = "", new: str = "", confirm: str = "no") -> str:
     """Replace exact old text with new text in a file (one occurrence)."""
     if str(confirm).lower() not in ("yes", "true", "1", "y"):
         return "Refused: apply_patch needs confirm=yes"
@@ -300,7 +300,7 @@ def grep_files(query: str = "", path: str = ".", glob: str = "*.py", max_hits: s
     return f"Grep results ({len(hits)}):\n" + "\n".join(hits)
 
 
-def make_dir(path: str = "", confirm: str = "yes") -> str:
+def make_dir(path: str = "", confirm: str = "no") -> str:
     if str(confirm).lower() not in ("yes", "true", "1", "y"):
         return "Refused: make_dir needs confirm=yes"
     try:
@@ -312,7 +312,7 @@ def make_dir(path: str = "", confirm: str = "yes") -> str:
         return f"Refused: {e}"
 
 
-def delete_path(path: str = "", recursive: str = "no", confirm: str = "yes") -> str:
+def delete_path(path: str = "", recursive: str = "no", confirm: str = "no") -> str:
     """Delete file or directory under allowed roots. Blocks core OS trees. confirm=yes."""
     if str(confirm).lower() not in ("yes", "true", "1", "y"):
         return "Refused: delete_path needs confirm=yes"

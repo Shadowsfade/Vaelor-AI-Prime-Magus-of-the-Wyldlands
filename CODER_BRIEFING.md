@@ -123,6 +123,11 @@ User request: broad access for installs/dev; **never fully delete core OS files*
 
 Implementation: `core/tools/shell_exec.py` + `config/autonomy.json`.
 
+If the machine-local `config/autonomy.json` is absent, malformed, or names an unknown
+mode, Vaelor fails closed to supervised mode. Mutating tools default to `confirm=no`;
+trusted/admin behavior is available only from a valid local policy or an explicit mode
+change.
+
 ### 4.6 Setup wizard / hardware
 - `/setup` API: backends detect, complete, optional winget Ollama install, model pull
 - Tier guidance: RTX 2060 6GB → efficient 7B–9B Q4 class

@@ -49,22 +49,30 @@ DELETE_VERBS = [
 ]
 
 def load_autonomy() -> dict:
+    defaults = {
+        "mode": "supervised",
+        "auto_confirm_mutations": False,
+        "allow_installs": False,
+        "sandbox_enforced": True,
+        "require_sandbox_paths_in_commands": True,
+        "protected_delete_roots": [r"C:\Windows", r"C:\Windows\System32", r"C:\Program Files", r"C:\ProgramData"],
+        "allowed_user_profile": os.path.expanduser("~"),
+        "audit_log": "memory/audit_log.jsonl",
+        "max_timeout_seconds": 180,
+        "default_cwd": PROJECT_ROOT,
+    }
     try:
         with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
+            loaded = json.load(f)
+        if not isinstance(loaded, dict):
+            return defaults
+        cfg = {**defaults, **loaded}
+        if str(cfg.get("mode", "")).lower() not in ("supervised", "trusted", "admin"):
+            cfg["mode"] = "supervised"
+            cfg["auto_confirm_mutations"] = False
+        return cfg
     except Exception:
-        return {
-            "mode": "admin",
-            "auto_confirm_mutations": True,
-            "allow_installs": True,
-            "sandbox_enforced": False,
-            "require_sandbox_paths_in_commands": False,
-            "protected_delete_roots": [r"C:\Windows", r"C:\Windows\System32", r"C:\Program Files", r"C:\ProgramData"],
-            "allowed_user_profile": os.path.expanduser("~"),
-            "audit_log": "memory/audit_log.jsonl",
-            "max_timeout_seconds": 1800,
-            "default_cwd": PROJECT_ROOT,
-        }
+        return defaults
 
 def _norm(p: str) -> str:
     return os.path.normcase(os.path.abspath(os.path.expandvars(os.path.expanduser(p))))
@@ -173,7 +181,7 @@ def _resolve_cwd(cwd: Optional[str]) -> str:
         raise ValueError(f"cwd is not a directory: {candidate}")
     return candidate
 
-def shell_exec(command: str = "", cwd: str = "", timeout: int = DEFAULT_TIMEOUT, confirm: str = "yes") -> str:
+def shell_exec(command: str = "", cwd: str = "", timeout: int = DEFAULT_TIMEOUT, confirm: str = "no") -> str:
     """Run almost any command. Blocks only OS-core destruction."""
     command = (command or "").strip()
     if not command:

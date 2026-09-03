@@ -46,6 +46,10 @@
       "description": "durable clarification answers that revise and continue the original task"
     },
     {
+      "name": "FailClosedAutonomy",
+      "description": "missing or invalid local policy defaults to supervised execution with explicit mutation confirmation"
+    },
+    {
       "name": "UserAdaptation",
       "description": "provenance-aware preferences and task feedback with user-controlled activation"
     },

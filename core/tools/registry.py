@@ -111,7 +111,16 @@ def register_all_tools():
     registry.register("stage_file", "Create staging copy for editing. Requires path=.", True, stage_file)
     registry.register("scan_unused_files", "Find unused/empty Python files.", True, scan_unused_files)
     registry.register("list_proposals", "List pending file-change proposals.", True, lambda: str(list_pending()))
-    registry.register("approve_change", "Apply pending proposal. Requires proposal_id=.", False, lambda proposal_id="", confirm="yes": approve_change(proposal_id))
+    registry.register(
+        "approve_change",
+        "Apply pending proposal. Requires proposal_id= and confirm=yes.",
+        False,
+        lambda proposal_id="", confirm="no": (
+            approve_change(proposal_id)
+            if str(confirm).lower() in ("yes", "true", "1", "y")
+            else "Refused: approve_change needs confirm=yes"
+        ),
+    )
     registry.register("reject_change", "Reject pending proposal. Requires proposal_id=.", True, lambda proposal_id="": reject_change(proposal_id))
 
     try:

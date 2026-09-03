@@ -2,6 +2,14 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Fail-closed safety milestone 10
+- Missing, malformed, or invalid machine-local autonomy policy now defaults to supervised
+  mode with mutation auto-confirmation and silent installs disabled.
+- Shell and filesystem mutation functions now default to `confirm=no`; callers must
+  deliberately authorize writes, patches, directories, deletions, and mutating commands.
+- Proposal approval now enforces its documented explicit-confirmation requirement.
+- Added deterministic missing-policy, invalid-mode, shell, filesystem, and proposal tests.
+
 ### Clarification-loop milestone 9
 - Added `POST /tasks/{task_id}/clarify` so an answer can revise and continue the same
   durable task instead of creating a disconnected replacement.
