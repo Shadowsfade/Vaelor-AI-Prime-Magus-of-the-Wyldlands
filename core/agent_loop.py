@@ -557,7 +557,18 @@ def run_agent(
                     )
                 emit("tool_started", step=step, tool=name, arguments=kwargs)
                 try:
-                    result = registry.execute(name, **kwargs)
+                    if name == "terminal_run" and event_callback is not None:
+                        from core.terminal_session import terminal_output_events
+                        with terminal_output_events(lambda chunk: emit(
+                            "terminal_output",
+                            step=step,
+                            tool=name,
+                            session_id=kwargs.get("session_id"),
+                            chunk=chunk,
+                        )):
+                            result = registry.execute(name, **kwargs)
+                    else:
+                        result = registry.execute(name, **kwargs)
                 except Exception as e:
                     result = f"Tool '{name}' failed: {e}"
                 meta = _classify_observation(name, kwargs, _bounded_text(result))

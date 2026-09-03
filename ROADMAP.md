@@ -177,7 +177,7 @@ The world evolves.
 
 # Current Development Priority
 
-1. Extend live task visibility with per-command stdout chunks and ConPTY full-screen control/resize
+1. Add ConPTY full-screen terminal input and resize support
 2. Add codebase indexing and native diff review
 3. Add reusable rules, workflows, and MCP tool extensibility
 4. Add scheduling and recurring task support

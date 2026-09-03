@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from core.terminal_session import TerminalSessionManager
+from core.terminal_session import TerminalSessionManager, terminal_output_events
 
 
 class TerminalSessionTests(unittest.TestCase):
@@ -56,6 +56,15 @@ class TerminalSessionTests(unittest.TestCase):
     def test_close_removes_session(self):
         self.manager.close(self.session["id"])
         self.assertEqual(self.manager.list(), [])
+
+    def test_command_output_is_emitted_incrementally(self):
+        streamed = []
+        command = "Write-Output alpha; Write-Output omega" if os.name == "nt" else "printf 'alpha\\nomega\\n'"
+        with terminal_output_events(streamed.append):
+            result = self.manager.execute(self.session["id"], command)
+        self.assertEqual(result["returncode"], 0)
+        self.assertIn("alpha", "".join(streamed))
+        self.assertIn("omega", "".join(streamed))
 
 
 if __name__ == "__main__":

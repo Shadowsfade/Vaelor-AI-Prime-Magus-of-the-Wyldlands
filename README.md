@@ -54,7 +54,8 @@ left sidebar. Review the exact tool, arguments, and risk, then choose **Approve 
 Use **Task Center** to launch work that should continue as a durable background task. Its
 cards show current status and provide View, Cancel, Resume, or Clarify controls when those
 actions are valid. Select **View** to open a live console showing timestamped progress,
-status changes, tool completion details, and the final result. Tasks default to a
+status changes, incremental persistent-terminal output, tool completion details, and the
+final result. Tasks default to a
 15-minute runtime budget and cannot exceed 20 minutes.
 
 Use **Summon Call** for voice conversation. Browser microphone input works best in Chrome

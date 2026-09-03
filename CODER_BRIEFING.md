@@ -119,6 +119,8 @@ stop between model/tool operations when that deadline is exceeded. Both the API 
 enforce a 20-minute maximum. Autonomous task context includes current OS/RAM/VRAM advice,
 and directs the model to inspect available context and suggest materially better paths.
 The Task Center View action consumes the resumable SSE stream in a live, text-safe console.
+Agent calls to `terminal_run` additionally emit bounded `terminal_output` chunks into that
+stream while the command is running. Full-screen ConPTY input/resize is still pending.
 
 ### 4.5 Access policy — **full_access_os_safe** (1.1.4-alpha)
 User request: broad access for installs/dev; **never fully delete core OS files**.

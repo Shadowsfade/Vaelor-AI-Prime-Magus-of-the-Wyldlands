@@ -1,6 +1,8 @@
 """Persistent shell sessions for Vaelor's native CLI and future terminal UI."""
 from __future__ import annotations
 
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 import os
 from pathlib import Path
@@ -15,6 +17,18 @@ from core.tools.shell_exec import _audit, _is_mutating, _is_os_wreck, _resolve_c
 
 
 MAX_SESSION_OUTPUT = 30000
+MAX_STREAM_CHUNK = 4000
+_OUTPUT_CALLBACK = ContextVar("vaelor_terminal_output_callback", default=None)
+
+
+@contextmanager
+def terminal_output_events(callback):
+    """Temporarily expose terminal output without adding callbacks to the tool schema."""
+    token = _OUTPUT_CALLBACK.set(callback)
+    try:
+        yield
+    finally:
+        _OUTPUT_CALLBACK.reset(token)
 
 
 @dataclass
@@ -105,8 +119,27 @@ class TerminalSessionManager:
             session.process.stdin.write(payload)
             session.process.stdin.flush()
             chunks = []
+            stream_chunks = []
+            stream_size = 0
+            last_stream = time.monotonic()
             returncode = None
             deadline = time.monotonic() + timeout
+
+            def flush_stream():
+                nonlocal stream_chunks, stream_size, last_stream
+                if not stream_chunks:
+                    return
+                callback = _OUTPUT_CALLBACK.get()
+                payload = "".join(stream_chunks)[-MAX_STREAM_CHUNK:]
+                stream_chunks = []
+                stream_size = 0
+                last_stream = time.monotonic()
+                if callback:
+                    try:
+                        callback(payload)
+                    except Exception:
+                        pass
+
             while time.monotonic() < deadline:
                 try:
                     line = session.output.get(timeout=min(0.1, deadline - time.monotonic()))
@@ -121,6 +154,11 @@ class TerminalSessionManager:
                         returncode = 1
                     break
                 chunks.append(line)
+                stream_chunks.append(line)
+                stream_size += len(line)
+                if stream_size >= 2048 or time.monotonic() - last_stream >= 0.25:
+                    flush_stream()
+            flush_stream()
             if returncode is None:
                 raise TimeoutError(f"Command exceeded {timeout}s; session remains available.")
             output = "".join(chunks).strip()

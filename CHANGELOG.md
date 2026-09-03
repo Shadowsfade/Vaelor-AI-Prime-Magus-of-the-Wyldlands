@@ -2,6 +2,20 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Incremental terminal visibility milestone 30
+- Persistent terminal commands now emit bounded incremental output chunks while they run,
+  rather than withholding all console text until command completion.
+- Agent-run terminal chunks are stored as durable `terminal_output` events and delivered
+  through the existing resumable task SSE stream, preserving visibility across reconnects.
+- The Task Center live console renders streamed chunks as safe text and continues to show
+  lifecycle status, completion metadata, and final results.
+- Output callbacks are isolated from the public tool schema, callback failures cannot
+  break command execution, and chunk/event retention remains bounded.
+- Added real-shell regression coverage for incremental output and frontend coverage for
+  rendering terminal chunks.
+
+Full-screen ConPTY input and resize support remain in progress for interactive terminal UIs.
+
 ### Prime Magus identity invariant milestone 29
 - Made **Vaelor, Prime Magus of the Wyldlands** the canonical permanent title across
   runtime identity, personality, and portable configuration.

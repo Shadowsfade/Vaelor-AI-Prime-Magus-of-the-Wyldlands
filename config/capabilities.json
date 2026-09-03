@@ -134,6 +134,10 @@
       "description": "Task Center streams progress, status, tool completion details, and results through resumable SSE"
     },
     {
+      "name": "IncrementalTerminalOutput",
+      "description": "persistent terminal stdout is emitted in bounded durable chunks through the resumable task event stream"
+    },
+    {
       "name": "UserAdaptation",
       "description": "provenance-aware preferences and task feedback with user-controlled activation"
     },
