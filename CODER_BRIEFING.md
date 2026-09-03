@@ -103,6 +103,8 @@ Registered tools include (see `GET /tools`):
 - Unreal (optional): `unreal_status`, `unreal_open_epic_download`, `unreal_launch_epic` if module present
 
 Agent loop can chain tools when user uses action language / `agent:`.
+Transient local-model exceptions are retried twice by default. Retry attempts are written
+to the durable task event stream and remain cancellable between attempts.
 
 ### 4.5 Access policy — **full_access_os_safe** (1.1.0-alpha)
 User request: broad access for installs/dev; **never fully delete core OS files**.

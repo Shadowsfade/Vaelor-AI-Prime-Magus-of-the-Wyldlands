@@ -2,6 +2,15 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Model-resilience milestone 11
+- Local model decision and final-summary calls now retry transient exceptions up to two
+  times by default, with a bounded configurable maximum.
+- Every retry emits a durable `model_retry` progress event with phase, attempt, remaining
+  retries, and the error for diagnosis.
+- Cancellation is checked between retry attempts, and exhausted retries raise a concise
+  error that the durable task lifecycle records as a failure.
+- Added deterministic recovery, exhaustion, event, and cancellation tests.
+
 ### Fail-closed safety milestone 10
 - Missing, malformed, or invalid machine-local autonomy policy now defaults to supervised
   mode with mutation auto-confirmation and silent installs disabled.

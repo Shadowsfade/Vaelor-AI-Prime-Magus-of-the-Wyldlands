@@ -50,6 +50,10 @@
       "description": "missing or invalid local policy defaults to supervised execution with explicit mutation confirmation"
     },
     {
+      "name": "ModelResilience",
+      "description": "bounded local-model retries with durable progress events and cancellation checks"
+    },
+    {
       "name": "UserAdaptation",
       "description": "provenance-aware preferences and task feedback with user-controlled activation"
     },

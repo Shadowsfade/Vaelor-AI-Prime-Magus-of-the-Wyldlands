@@ -142,7 +142,7 @@ class AgentLoopTests(unittest.TestCase):
             '{"tool":"list_dir","arguments":{"path":"."}},'
             '{"tool":"list_dir","arguments":{"path":"other"}}],"final":null}',
         ])
-        checks = iter([False, False, False, True])
+        checks = iter([False, False, False, False, True])
         with (
             patch("core.agent_loop.registry.specs_for_prompt", return_value="tools"),
             patch("core.agent_loop.registry.execute", return_value="files") as execute,
@@ -150,6 +150,49 @@ class AgentLoopTests(unittest.TestCase):
             result = run_agent("inspect", model, should_cancel=lambda: next(checks))
         self.assertTrue(result.startswith("FINAL_SUMMARY: CANCELLED"))
         execute.assert_called_once()
+
+    def test_transient_model_failure_is_retried(self):
+        calls = []
+
+        def model(prompt):
+            calls.append(prompt)
+            if len(calls) == 1:
+                raise ConnectionError("local backend warming up")
+            return "FINAL_SUMMARY: SUCCESS backend recovered"
+
+        events = []
+        with patch("core.agent_loop.registry.specs_for_prompt", return_value="tools"):
+            result = run_agent(
+                "inspect",
+                model,
+                event_callback=lambda event, data: events.append((event, data)),
+            )
+        self.assertEqual(result, "FINAL_SUMMARY: SUCCESS backend recovered")
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(events[0][0], "model_retry")
+        self.assertEqual(events[0][1]["retries_remaining"], 2)
+
+    def test_exhausted_model_retries_raise_clear_error(self):
+        def model(prompt):
+            raise ConnectionError("backend offline")
+
+        with patch("core.agent_loop.registry.specs_for_prompt", return_value="tools"):
+            with self.assertRaisesRegex(RuntimeError, "failed after 2 attempt"):
+                run_agent("inspect", model, model_retries=1)
+
+    def test_cancellation_is_checked_between_model_retries(self):
+        model_calls = 0
+        checks = iter([False, False, True])
+
+        def model(prompt):
+            nonlocal model_calls
+            model_calls += 1
+            raise ConnectionError("backend offline")
+
+        with patch("core.agent_loop.registry.specs_for_prompt", return_value="tools"):
+            result = run_agent("inspect", model, should_cancel=lambda: next(checks))
+        self.assertTrue(result.startswith("FINAL_SUMMARY: CANCELLED"))
+        self.assertEqual(model_calls, 1)
 
 
 if __name__ == "__main__":

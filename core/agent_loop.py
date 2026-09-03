@@ -252,6 +252,7 @@ def run_agent(
     require_verification: bool = True,
     event_callback: Optional[Callable[[str, Dict[str, Any]], None]] = None,
     should_cancel: Optional[Callable[[], bool]] = None,
+    model_retries: int = 2,
 ) -> str:
     """Autonomous ReAct loop. ask_llm(prompt) -> model text."""
     registry  # loaded
@@ -264,6 +265,7 @@ def run_agent(
     unverified_mutation = False
     auto_yes = _auto_confirm()
     max_steps = max(3, min(int(max_steps or DEFAULT_MAX_STEPS), 25))
+    model_retries = max(0, min(int(model_retries or 0), 3))
 
     def emit(event_type: str, **data: Any) -> None:
         if event_callback is None:
@@ -279,6 +281,28 @@ def run_agent(
             return bool(should_cancel and should_cancel())
         except Exception:
             return False
+
+    def ask_model(prompt: str, phase: str, step_number: int) -> str:
+        last_error = None
+        for attempt in range(model_retries + 1):
+            if cancelled():
+                emit("cancellation_observed", phase=f"before_{phase}", step=step_number)
+                return "FINAL_SUMMARY: CANCELLED Task cancellation was requested."
+            try:
+                return ask_llm(prompt)
+            except Exception as exc:
+                last_error = exc
+                emit(
+                    "model_retry",
+                    phase=phase,
+                    step=step_number,
+                    attempt=attempt + 1,
+                    retries_remaining=model_retries - attempt,
+                    error=str(exc),
+                )
+        raise RuntimeError(
+            f"Model call failed after {model_retries + 1} attempt(s): {last_error}"
+        ) from last_error
 
     step = 0
     while step < max_steps:
@@ -307,7 +331,9 @@ def run_agent(
         )
         prompt = "\n".join(prompt_parts)
 
-        reply = ask_llm(prompt)
+        reply = ask_model(prompt, "decision", step)
+        if reply.upper().startswith("FINAL_SUMMARY: CANCELLED"):
+            return reply
         if cancelled():
             emit("cancellation_observed", phase="after_model", step=step)
             return "FINAL_SUMMARY: CANCELLED Task cancellation was requested."
@@ -457,7 +483,9 @@ def run_agent(
         + "\n\nSYSTEM: Max iterations reached without clean finish.\n"
         + "Return one JSON object with actions=[] and final status SUCCESS or FAILED.\n"
     )
-    last = ask_llm(summary_prompt)
+    last = ask_model(summary_prompt, "summary", max_steps)
+    if last.upper().startswith("FINAL_SUMMARY: CANCELLED"):
+        return last
     structured = parse_structured_response(last)
     if structured.matched and not structured.error:
         tools = structured.actions
