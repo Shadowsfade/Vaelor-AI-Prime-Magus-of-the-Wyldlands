@@ -102,6 +102,10 @@
       "description": "tome UI displays exact pending task actions and provides safe approve-once or reject controls"
     },
     {
+      "name": "DurableTaskCenter",
+      "description": "tome UI submits and monitors durable tasks with inspect, cancel, resume, clarification, and coordinated approval controls"
+    },
+    {
       "name": "UserAdaptation",
       "description": "provenance-aware preferences and task feedback with user-controlled activation"
     },

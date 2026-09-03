@@ -2,6 +2,16 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Durable Task Center milestone 25
+- Added a tome Task Center that submits requests through the durable task API rather than
+  requiring chat-command knowledge.
+- Recent tasks expose status and waiting reason plus safe View, Cancel, Resume, and
+  Clarify controls appropriate to each lifecycle state.
+- Task and approval panels refresh together after actions and every five seconds while
+  the tome is open, keeping background execution visible and actionable.
+- Added frontend contract tests for submission, lifecycle controls, polling, and safe
+  result rendering.
+
 ### GitHub documentation and roadmap-truth milestone 24
 - Rebuilt the GitHub README as a complete newcomer path covering installation, first use,
   task approvals, source startup, capabilities, verification, documentation, and privacy.

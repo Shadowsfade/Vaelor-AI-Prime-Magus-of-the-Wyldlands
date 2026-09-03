@@ -50,6 +50,10 @@ When a task reaches a protected operation, it appears under **Action Approvals**
 left sidebar. Review the exact tool, arguments, and risk, then choose **Approve Once** or
 **Reject**. Approval applies only to that exact action and cannot be replayed.
 
+Use **Task Center** to launch work that should continue as a durable background task. Its
+cards show current status and provide View, Cancel, Resume, or Clarify controls when those
+actions are valid.
+
 Use **Summon Call** for voice conversation. Browser microphone input works best in Chrome
 or Edge on localhost; spoken output uses the configured Edge TTS voice.
 

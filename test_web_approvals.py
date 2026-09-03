@@ -26,7 +26,7 @@ class WebApprovalRegressionTests(unittest.TestCase):
         self.assertIn("Approve Once", HTML)
 
     def test_approval_list_refreshes_while_tome_is_open(self):
-        self.assertIn("if(tomeOpened)loadApprovals()", HTML)
+        self.assertIn("if(tomeOpened){loadTasks();loadApprovals()}", HTML)
 
 
 if __name__ == "__main__":

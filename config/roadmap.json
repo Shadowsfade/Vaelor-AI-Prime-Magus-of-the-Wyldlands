@@ -18,11 +18,11 @@
         "Relevance-ranked provenance-aware memory and controlled user preferences",
         "Risk-aware supervised, trusted, and admin autonomy",
         "Workspace grounding and bounded multi-file source understanding",
-        "Operational readiness reporting and focused regression suite"
-        ,"Exact per-action approval and WebUI approve-once/reject controls"
+        "Operational readiness reporting and focused regression suite",
+        "Exact per-action approval and WebUI approve-once/reject controls",
+        "User-facing durable Task Center with submit, inspect, cancel, resume, and clarification controls"
     ],
     "in_progress": [
-        "Full user-facing durable Task Center",
         "Automatic conversation summarization and retention policy"
     ],
     "next_goals": [
