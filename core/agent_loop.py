@@ -42,6 +42,33 @@ MUTATING = {
 }
 
 DEFAULT_MAX_STEPS = 12
+MAX_TOOL_RESULT_CHARS = 12000
+MAX_OBSERVATION_CONTEXT_CHARS = 30000
+
+
+def _bounded_text(value: Any, limit: int = MAX_TOOL_RESULT_CHARS) -> str:
+    text = str(value or "")
+    if len(text) <= limit:
+        return text
+    marker = f"\n...[truncated {len(text) - limit} or more chars]...\n"
+    available = max(2, limit - len(marker))
+    head = max(1, int(available * 0.7))
+    tail = max(1, available - head)
+    return text[:head] + marker + text[-tail:]
+
+
+def _recent_observations(observations: List[str], limit: int = MAX_OBSERVATION_CONTEXT_CHARS) -> str:
+    selected = []
+    used = 0
+    for observation in reversed(observations):
+        separator = 2 if selected else 0
+        remaining = limit - used - separator
+        if remaining <= 0:
+            break
+        piece = observation if len(observation) <= remaining else observation[-remaining:]
+        selected.append(piece)
+        used += len(piece) + separator
+    return "\n\n".join(reversed(selected))
 
 
 def _parse_kwargs(blob: str) -> Dict[str, str]:
@@ -315,7 +342,11 @@ def run_agent(
             prompt_parts += [session_context.strip(), ""]
         prompt_parts += [f"GOAL:\n{goal}\n"]
         if observations:
-            prompt_parts += ["## Prior OBSERVATIONS (most recent last)", "\n\n".join(observations[-12:]), ""]
+            prompt_parts += [
+                "## Prior OBSERVATIONS (most recent last)",
+                _recent_observations(observations),
+                "",
+            ]
         if last_failed:
             prompt_parts.append(
                 "SYSTEM: Last tool failed. Analyze the error in thought, then return "
@@ -391,7 +422,7 @@ def run_agent(
                     result = registry.execute(name, **kwargs)
                 except Exception as e:
                     result = f"Tool '{name}' failed: {e}"
-                meta = _classify_observation(name, kwargs, str(result))
+                meta = _classify_observation(name, kwargs, _bounded_text(result))
                 emit(
                     "tool_completed",
                     step=step,
@@ -479,7 +510,7 @@ def run_agent(
     summary_prompt = (
         system
         + f"\n\nGOAL:\n{goal}\n\nOBSERVATIONS:\n"
-        + "\n\n".join(observations[-14:])
+        + _recent_observations(observations)
         + "\n\nSYSTEM: Max iterations reached without clean finish.\n"
         + "Return one JSON object with actions=[] and final status SUCCESS or FAILED.\n"
     )

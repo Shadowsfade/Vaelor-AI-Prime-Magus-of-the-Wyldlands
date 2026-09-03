@@ -1,7 +1,15 @@
 import unittest
 from unittest.mock import patch
 
-from core.agent_loop import _auto_confirm, _looks_failed, run_agent
+from core.agent_loop import (
+    MAX_OBSERVATION_CONTEXT_CHARS,
+    MAX_TOOL_RESULT_CHARS,
+    _auto_confirm,
+    _bounded_text,
+    _looks_failed,
+    _recent_observations,
+    run_agent,
+)
 
 
 class ScriptedModel:
@@ -15,6 +23,21 @@ class ScriptedModel:
 
 
 class AgentLoopTests(unittest.TestCase):
+    def test_large_tool_result_keeps_head_and_tail_with_bound(self):
+        value = "HEAD" + ("x" * 20000) + "TAIL"
+        bounded = _bounded_text(value)
+        self.assertLessEqual(len(bounded), MAX_TOOL_RESULT_CHARS)
+        self.assertTrue(bounded.startswith("HEAD"))
+        self.assertTrue(bounded.endswith("TAIL"))
+        self.assertIn("truncated", bounded)
+
+    def test_observation_context_prefers_most_recent_with_bound(self):
+        observations = ["old-" + ("a" * 20000), "new-" + ("b" * 20000)]
+        context = _recent_observations(observations)
+        self.assertLessEqual(len(context), MAX_OBSERVATION_CONTEXT_CHARS)
+        self.assertIn("new-", context)
+        self.assertNotIn("old-", context)
+
     def test_missing_policy_does_not_auto_confirm(self):
         with patch("builtins.open", side_effect=FileNotFoundError):
             self.assertFalse(_auto_confirm())

@@ -107,6 +107,8 @@ Registered tools include (see `GET /tools`):
 Agent loop can chain tools when user uses action language / `agent:`.
 Transient local-model exceptions are retried twice by default. Retry attempts are written
 to the durable task event stream and remain cancellable between attempts.
+Tool observations are bounded per result and across the rolling history so long-running
+tasks do not overwhelm smaller local-model context windows.
 
 ### 4.5 Access policy — **full_access_os_safe** (1.1.0-alpha)
 User request: broad access for installs/dev; **never fully delete core OS files**.

@@ -2,6 +2,15 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Context-budget milestone 15
+- Individual tool results are bounded before entering agent observations while retaining
+  both the beginning and end for commands whose decisive error appears last.
+- Prior observations now use an exact rolling character budget that favors the newest
+  evidence instead of growing with every agent step.
+- Max-budget finalization uses the same bounded context, reducing local-model overload
+  and preserving coherence on longer jobs.
+- Added deterministic exact-bound, truncation, and recency tests.
+
 ### Operational-readiness milestone 14
 - Added `GET /readiness` to distinguish a live HTTP process from a Vaelor instance that
   can actually execute dependable tasks.

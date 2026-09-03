@@ -66,6 +66,10 @@
       "description": "task-capability checks for tools, durable storage, backend availability, and installed models"
     },
     {
+      "name": "BoundedAgentContext",
+      "description": "head-tail tool truncation and recency-weighted observation budgets for local models"
+    },
+    {
       "name": "UserAdaptation",
       "description": "provenance-aware preferences and task feedback with user-controlled activation"
     },
