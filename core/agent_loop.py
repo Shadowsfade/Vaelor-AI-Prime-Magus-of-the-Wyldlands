@@ -99,6 +99,8 @@ def _looks_failed(result: str) -> bool:
     if not r:
         return False
     low = r.lower()
+    if low.startswith("unknown tool:"):
+        return True
     if low.startswith("refused:"):
         return True
     if "tool '" in low and "failed:" in low:
@@ -151,7 +153,30 @@ def _auto_confirm() -> bool:
         mode = (cfg.get("mode") or "admin").lower()
         return mode in ("admin", "trusted") or bool(cfg.get("auto_confirm_mutations", True))
     except Exception:
-        return True
+        # Missing or malformed policy must never grant mutation access.
+        return False
+
+
+def _is_verification_action(name: str, kwargs: dict) -> bool:
+    """Return whether a tool call is a recognized, outcome-bearing check."""
+    if name != "shell_exec":
+        return False
+    cmd = str(kwargs.get("command", "")).lower()
+    return any(
+        marker in cmd
+        for marker in (
+            "py_compile", "pytest", "unittest", "npm test", "npm run test",
+            "pnpm test", "yarn test", "cargo test", "go test", "dotnet test",
+        )
+    )
+
+
+def _is_mutating_action(name: str) -> bool:
+    """Use registry metadata as the source of truth, with a safe fallback."""
+    tool = registry.get(name)
+    if tool is not None:
+        return not tool.read_only
+    return name in MUTATING
 
 
 def build_react_system_prompt(tool_specs: str) -> str:
@@ -235,6 +260,7 @@ def run_agent(
     transcript: List[str] = []
     last_failed = False
     verified_hint = False
+    unverified_mutation = False
     auto_yes = _auto_confirm()
     max_steps = max(3, min(int(max_steps or DEFAULT_MAX_STEPS), 25))
 
@@ -270,10 +296,12 @@ def run_agent(
         if tools:
             step_failed = False
             for name, kwargs in tools:
-                if "confirm" not in kwargs and name in MUTATING:
+                is_verification = _is_verification_action(name, kwargs)
+                is_mutating = _is_mutating_action(name)
+                if "confirm" not in kwargs and is_mutating:
                     kwargs["confirm"] = "yes" if auto_yes else "no"
                 # force confirm yes on shell when admin
-                if auto_yes and name in MUTATING:
+                if auto_yes and is_mutating:
                     kwargs["confirm"] = "yes"
                 try:
                     result = registry.execute(name, **kwargs)
@@ -291,12 +319,13 @@ def run_agent(
                 transcript.append(obs)
                 if meta["failed"]:
                     step_failed = True
-                # heuristic: verification commands
-                cmd = str(kwargs.get("command", "")).lower()
-                if name == "shell_exec" and not meta["failed"] and any(
-                    k in cmd for k in ("py_compile", "pytest", "npm test", "unittest", "cargo test")
-                ):
+                if is_verification and not meta["failed"]:
                     verified_hint = True
+                    unverified_mutation = False
+                elif is_mutating and not meta["failed"]:
+                    # Any successful mutation after a check invalidates that check.
+                    unverified_mutation = True
+                    verified_hint = False
             last_failed = step_failed
             if final_summary:
                 # only allow SUCCESS if not immediately after failure without fix — still return
@@ -304,6 +333,12 @@ def run_agent(
                     last_failed = True
                     observations.append(
                         "OBSERVATION:\nSYSTEM: FINAL_SUMMARY SUCCESS rejected because last tools failed. Continue fixing."
+                    )
+                    continue
+                if require_verification and "SUCCESS" in final_summary.upper() and unverified_mutation:
+                    observations.append(
+                        "OBSERVATION:\nSYSTEM: FINAL_SUMMARY SUCCESS rejected because changes "
+                        "were made after the last passing verification. Run a relevant test."
                     )
                     continue
                 return final_summary
@@ -316,10 +351,22 @@ def run_agent(
                 )
                 last_failed = True
                 continue
+            if require_verification and "SUCCESS" in final_summary.upper() and unverified_mutation:
+                observations.append(
+                    "OBSERVATION:\nSYSTEM: Cannot report SUCCESS: mutations have not been "
+                    "verified. Run a relevant test first."
+                )
+                continue
             return final_summary
 
         if legacy_final and not tools:
             # Promote legacy FINAL to structured form if model forgot
+            if require_verification and unverified_mutation:
+                observations.append(
+                    "OBSERVATION:\nSYSTEM: Cannot report SUCCESS: mutations have not been "
+                    "verified. Run a relevant test first."
+                )
+                continue
             return f"FINAL_SUMMARY: SUCCESS {legacy_final}"
 
         if not tools and not final_summary and not legacy_final:
@@ -344,6 +391,8 @@ def run_agent(
     last = ask_llm(summary_prompt)
     tools, final_summary, legacy_final, _ = _extract_actions(last)
     if final_summary:
+        if require_verification and unverified_mutation and "SUCCESS" in final_summary.upper():
+            return "FINAL_SUMMARY: FAILED Reached max iterations with unverified changes."
         return final_summary
     if legacy_final:
         return f"FINAL_SUMMARY: FAILED {legacy_final}"

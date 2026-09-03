@@ -1,5 +1,24 @@
 # Changelog
 
+## [Unreleased] — 2026-09-02
+
+### Reliability milestone 1
+- Agent mutations now require a passing verification before success can be reported.
+- Any mutation after verification invalidates the earlier verification result.
+- Mutation classification now follows registered tool metadata.
+- Missing or malformed autonomy policy fails closed instead of enabling auto-confirm.
+- Unknown tools are classified as failures, allowing the agent to recover honestly.
+- Agent-loop exceptions are surfaced and recorded instead of silently falling back to chat.
+- Added deterministic unit tests for verification enforcement, mutation invalidation,
+  policy fallback, unknown tools, read-only completion, and visible agent failures.
+- Diagnostics now checks the configured per-machine API host and port.
+
+### Project workflow
+- Major completed milestones must be documented, verified, committed, and pushed with
+  their implementation so GitHub remains the cross-session source of truth.
+
+---
+
 ## [1.1.4-alpha] — 2026-08-03
 ### Added
 - **Debug Console** (header Debug): /diagnostics for models/backends/host/client log

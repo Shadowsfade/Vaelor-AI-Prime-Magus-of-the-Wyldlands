@@ -1,7 +1,11 @@
 import os
 import shutil
 import subprocess
+from pathlib import Path
+
 import requests
+
+from core.netbind import load_network_config
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -134,16 +138,22 @@ check(
 # FastAPI
 #
 
+_net = load_network_config(Path(BASE_DIR))
+_api_host = _net.get("host") or "localhost"
+_api_port = _net.get("port") or 8765
+_health_url = f"http://{_api_host}:{_api_port}/health"
+
 try:
 
     response = requests.get(
-        "http://127.0.0.1:8000/health",
+        _health_url,
         timeout=2
     )
 
     check(
         "FastAPI",
-        response.status_code == 200
+        response.status_code == 200,
+        _health_url,
     )
 
 except Exception:
@@ -151,7 +161,7 @@ except Exception:
     check(
         "FastAPI",
         False,
-        "Not Running"
+        f"Not Running ({_health_url})",
     )
 
 print()

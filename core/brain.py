@@ -92,8 +92,13 @@ class VaelorBrain:
         if not images and self.wants_action(prompt):
             try:
                 return self.act(prompt, session_id=session_id)
-            except Exception:
-                pass
+            except Exception as exc:
+                response = (
+                    "Vaelor could not complete the requested action because the agent loop "
+                    f"failed: {exc}"
+                )
+                self.conversations.remember_turn(prompt, response, session_id=session_id)
+                return response
         if use_web is None:
             use_web = self.needs_web(prompt)
         enhanced = (
