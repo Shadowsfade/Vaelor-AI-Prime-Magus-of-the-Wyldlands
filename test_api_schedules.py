@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -7,6 +8,7 @@ from fastapi.testclient import TestClient
 
 import api.server as server
 from core.scheduler import ScheduleStore
+from core.api_security import ApiAccessPolicy
 
 
 class ScheduleApiTests(unittest.TestCase):
@@ -56,6 +58,35 @@ class ScheduleApiTests(unittest.TestCase):
         headers["Origin"] = "http://localhost:8765"
         allowed = self.client.options("/tasks", headers=headers)
         self.assertEqual(allowed.headers.get("access-control-allow-origin"), "http://localhost:8765")
+
+    def test_browser_token_exchange_rejects_unconfigured_or_wrong_token(self):
+        response = self.client.post(
+            "/auth/token", headers={"Authorization": "Bearer " + "x" * 40}
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertNotIn("vaelor_api_token", response.cookies)
+
+    def test_local_browser_auth_status_requires_no_token(self):
+        response = self.client.get("/auth/status")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            {"authentication_required": False, "authenticated": True},
+        )
+
+    def test_valid_browser_exchange_sets_strict_httponly_cookie(self):
+        token = "z" * 40
+        token_path = Path(self.temp.name) / "api_access.json"
+        token_path.write_text(json.dumps({"token": token}), encoding="utf-8")
+        with patch.object(server, "api_access_policy", ApiAccessPolicy(token_path)):
+            response = self.client.post(
+                "/auth/token", headers={"Authorization": "Bearer " + token}
+            )
+        self.assertEqual(response.status_code, 200)
+        cookie = response.headers.get("set-cookie", "").lower()
+        self.assertIn("vaelor_api_token=", cookie)
+        self.assertIn("httponly", cookie)
+        self.assertIn("samesite=strict", cookie)
 
 
 if __name__ == "__main__":

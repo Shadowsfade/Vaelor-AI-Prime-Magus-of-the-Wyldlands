@@ -2,6 +2,20 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Authenticated remote Tome milestone 47
+- Added a remote browser bootstrap that exposes only the static Tome shell and auth-status
+  check before authentication; protected API, task, memory, tool, and schedule routes remain denied.
+- The Tome prompts for the private API token only when reached from a non-loopback client,
+  exchanges it through an independently validated bearer request, and receives an HttpOnly,
+  SameSite=Strict session cookie without writing credentials to browser storage.
+- Added explicit login status and logout endpoints; invalid or unconfigured credentials can
+  never issue an authenticated cookie, even when token exchange is called from loopback.
+- Added an opt-in remote launcher requiring an explicit validated host/interface, an existing
+  local token config, and a non-privileged port. Default launchers remain loopback-only.
+- Added regression coverage for public bootstrap scope, protected routes, cookie authentication,
+  token exchange rejection/success, cookie attributes, browser storage avoidance, failed-auth
+  boot blocking, and launcher host validation.
+
 ### Authenticated API boundary milestone 46
 - Added an ASGI access boundary that validates loopback Host headers to block DNS-rebinding
   access to Vaelor's local API, complementing the loopback-only CORS policy.

@@ -1632,7 +1632,24 @@ if(streamToggle) streamToggle.classList.add('active');
   } catch (e) { console.warn('desktopMode', e); }
 })();
 
-bootInstallerFlow();
+async function ensureRemoteAuthentication(){
+  try{
+    const statusResponse=await fetch('/auth/status');
+    if(!statusResponse.ok)return false;
+    const status=await statusResponse.json();
+    if(!status.authentication_required||status.authenticated)return true;
+    const token=window.prompt('Remote Vaelor access requires the private API token:');
+    if(!token)return false;
+    const login=await fetch('/auth/token',{method:'POST',headers:{'Authorization':'Bearer '+token}});
+    if(!login.ok){showError('Remote authentication failed.');return false}
+    return true;
+  }catch(err){showError('Could not verify Vaelor access: '+err.message);return false}
+}
+async function secureBoot(){
+  if(await ensureRemoteAuthentication())bootInstallerFlow();
+  else setCoverLocked(true,'Remote authentication required');
+}
+secureBoot();
 console.log('[Vaelor UI] tome open handlers restored');
 </script>
 </body>

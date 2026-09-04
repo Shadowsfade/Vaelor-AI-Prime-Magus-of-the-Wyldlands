@@ -135,6 +135,8 @@ session and `/help` for the command list. Existing shell safety and approval pol
 - Loopback-only browser CORS, preventing unrelated websites from calling the local control API.
 - DNS-rebinding Host validation and opt-in bearer-token authentication for non-loopback API
   clients; remote binding remains disabled by default.
+- Opt-in authenticated remote Tome login using an ephemeral bearer exchange and strict
+  HttpOnly cookie, with explicit trusted-interface launch and no browser token storage.
 - Windows installer and portable/desktop package builders.
 
 ## Project documentation

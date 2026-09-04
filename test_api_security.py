@@ -12,14 +12,14 @@ async def ok_app(scope, receive, send):
     await send({"type": "http.response.body", "body": b"ok"})
 
 
-def request(middleware, client, host, headers=None):
+def request(middleware, client, host, headers=None, path="/"):
     sent = []
     raw_headers = [(b"host", host.encode("ascii"))]
     raw_headers.extend(
         (key.lower().encode("ascii"), value.encode("ascii"))
         for key, value in (headers or {}).items()
     )
-    scope = {"type": "http", "client": (client, 1234), "headers": raw_headers}
+    scope = {"type": "http", "client": (client, 1234), "headers": raw_headers, "path": path, "method": "GET"}
     async def receive():
         return {"type": "http.request", "body": b"", "more_body": False}
     async def send(message):
@@ -50,7 +50,7 @@ class ApiSecurityTests(unittest.TestCase):
         self.assertIn("Host header", body["detail"])
 
     def test_remote_access_fails_closed_without_configured_token(self):
-        status, body = request(self.middleware, "100.64.0.2", "vaelor.local")
+        status, body = request(self.middleware, "100.64.0.2", "vaelor.local", path="/tasks")
         self.assertEqual(status, 403)
         self.assertIn("disabled", body["detail"])
 
@@ -68,12 +68,28 @@ class ApiSecurityTests(unittest.TestCase):
         self.assertEqual(bearer[0], 200)
         self.assertEqual(alternate[0], 200)
 
+    def test_remote_cookie_token_is_accepted(self):
+        token = "c" * 40
+        self.path.write_text(json.dumps({"token": token}), encoding="utf-8")
+        response = request(
+            self.middleware, "100.64.0.2", "vaelor.local",
+            {"Cookie": f"vaelor_api_token={token}"},
+        )
+        self.assertEqual(response[0], 200)
+
+    def test_remote_can_load_only_public_tome_bootstrap_without_token(self):
+        self.assertEqual(request(self.middleware, "100.64.0.2", "vaelor.local")[0], 200)
+        status = request(self.middleware, "100.64.0.2", "vaelor.local", path="/auth/status")
+        self.assertEqual(status[0], 200)
+        denied = request(self.middleware, "100.64.0.2", "vaelor.local", path="/api")
+        self.assertEqual(denied[0], 403)
+
     def test_short_or_wrong_token_never_enables_remote_access(self):
         self.path.write_text(json.dumps({"token": "short"}), encoding="utf-8")
-        self.assertEqual(request(self.middleware, "10.0.0.2", "host", {"X-Vaelor-Token": "short"})[0], 403)
+        self.assertEqual(request(self.middleware, "10.0.0.2", "host", {"X-Vaelor-Token": "short"}, path="/tasks")[0], 403)
         token = "b" * 40
         self.path.write_text(json.dumps({"token": token}), encoding="utf-8")
-        self.assertEqual(request(self.middleware, "10.0.0.2", "host", {"Authorization": "Bearer wrong"})[0], 403)
+        self.assertEqual(request(self.middleware, "10.0.0.2", "host", {"Authorization": "Bearer wrong"}, path="/tasks")[0], 403)
 
     def test_token_generation_is_strong_atomic_and_no_overwrite_by_default(self):
         token = generate_api_access_token(self.path)

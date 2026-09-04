@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hmac
+from http.cookies import SimpleCookie
 import ipaddress
 import json
 import os
@@ -60,7 +61,8 @@ class ApiAccessPolicy:
         }
 
     def authorize(self, client_host: str, host_header: str,
-                  authorization: str = "", alternate_token: str = "") -> tuple[bool, str]:
+                  authorization: str = "", alternate_token: str = "",
+                  cookie_token: str = "") -> tuple[bool, str]:
         if _is_loopback(client_host):
             if client_host == "testclient" or _hostname(host_header) in LOCAL_HOSTS:
                 return True, "local"
@@ -68,7 +70,7 @@ class ApiAccessPolicy:
         expected = self.token()
         if expected is None:
             return False, "remote API access is disabled"
-        supplied = str(alternate_token or "").strip()
+        supplied = str(alternate_token or cookie_token or "").strip()
         auth = str(authorization or "").strip()
         if auth.lower().startswith("bearer "):
             supplied = auth[7:].strip()
@@ -91,9 +93,21 @@ class ApiAccessMiddleware:
             for key, value in scope.get("headers", [])
         }
         client = scope.get("client") or ("", 0)
+        client_host = str(client[0])
+        path = str(scope.get("path") or "")
+        method = str(scope.get("method") or "GET").upper()
+        if not _is_loopback(client_host) and method == "GET" and path in {"/", "/auth/status", "/favicon.ico"}:
+            await self.app(scope, receive, send)
+            return
+        cookies = SimpleCookie()
+        try:
+            cookies.load(headers.get("cookie", ""))
+            cookie_token = cookies.get("vaelor_api_token").value if cookies.get("vaelor_api_token") else ""
+        except Exception:
+            cookie_token = ""
         allowed, reason = self.policy.authorize(
-            str(client[0]), headers.get("host", ""),
-            headers.get("authorization", ""), headers.get("x-vaelor-token", ""),
+            client_host, headers.get("host", ""), headers.get("authorization", ""),
+            headers.get("x-vaelor-token", ""), cookie_token,
         )
         if allowed:
             await self.app(scope, receive, send)

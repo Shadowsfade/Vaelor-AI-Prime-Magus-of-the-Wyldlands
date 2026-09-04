@@ -198,6 +198,10 @@
       "description": "loopback Host validation blocks DNS rebinding and non-loopback API clients fail closed without a constant-time-checked local bearer token"
     },
     {
+      "name": "AuthenticatedRemoteTome",
+      "description": "remote browsers receive only the Tome bootstrap before bearer exchange establishes a strict HttpOnly session; binding requires an explicit trusted interface"
+    },
+    {
       "name": "IncrementalTerminalOutput",
       "description": "persistent terminal stdout is emitted in bounded durable chunks through the resumable task event stream"
     },

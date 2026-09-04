@@ -168,15 +168,25 @@ API deployment, run:
 .\.venv\Scripts\python.exe .\installer\Configure-Remote-API.py
 ```
 
-The token is shown once and stored in ignored local `config/api_access.json`. Existing
+The token is shown by the setup command and stored in ignored local `config/api_access.json`. Existing
 tokens are not replaced unless you deliberately rerun with `--force`, which invalidates
 clients using the old token.
 
 Non-loopback API requests must send either `Authorization: Bearer <token>` or
 `X-Vaelor-Token: <token>`. Only expose the API over Tailscale/a trusted VPN or HTTPS;
 plain HTTP on an untrusted network exposes bearer credentials. Token generation does not
-change Vaelor's loopback binding or firewall. The browser Tome does not yet support remote
-token login, so this milestone is for authenticated API/CLI clients.
+change Vaelor's loopback binding or firewall.
+
+To deliberately launch on a chosen Tailscale/VPN address:
+
+```powershell
+.\.venv\Scripts\python.exe .\installer\start_remote_api.py --host YOUR_TRUSTED_IP --port 8765
+```
+
+Open `http://YOUR_TRUSTED_IP:8765/` and enter the private token when the Tome asks. The
+token is exchanged for a strict HttpOnly browser session and is not saved to browser
+storage. Default Vaelor launchers remain local-only. Prefer HTTPS whenever the transport
+is not already protected by a trusted encrypted VPN.
 
 ---
 

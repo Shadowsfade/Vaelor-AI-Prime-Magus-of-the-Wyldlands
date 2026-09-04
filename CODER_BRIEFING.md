@@ -205,7 +205,8 @@ change.
 - Scheduled Rituals shows timing, run state, errors, pause/resume, and the last run through
   the same streamed Task Center console used for interactive work.
 - Browser CORS and Host validation are loopback-only by default. Non-loopback API clients
-  require a strong local token; remote browser Tome authentication remains future work.
+  require a strong local token. The remote Tome loads only its static bootstrap before an
+  ephemeral bearer exchange establishes a strict HttpOnly same-origin session cookie.
 
 ### 4.8 Alpha installer (new in 1.1.0-alpha)
 | Artifact | Purpose |

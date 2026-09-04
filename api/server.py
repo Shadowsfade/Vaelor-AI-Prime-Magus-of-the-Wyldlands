@@ -7,7 +7,7 @@ import asyncio
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -16,7 +16,7 @@ from typing import Any, List, Optional
 
 from core.runtime import VaelorRuntime
 from core.readiness import assess_readiness
-from core.api_security import ApiAccessMiddleware
+from core.api_security import ApiAccessMiddleware, ApiAccessPolicy
 from core.version import VAELOR_VERSION
 from core.setup_wizard import wizard_state, mark_complete, try_install_ollama_winget, try_pull_ollama_model, detect_backends
 from core.tools.registry import registry as tool_registry
@@ -31,7 +31,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.add_middleware(ApiAccessMiddleware)
+api_access_policy = ApiAccessPolicy()
+app.add_middleware(ApiAccessMiddleware, policy=api_access_policy)
 
 runtime = VaelorRuntime()
 brain = runtime.brain
@@ -137,6 +138,43 @@ class ScheduleCreateRequest(BaseModel):
 
 class ScheduleStatusRequest(BaseModel):
     enabled: bool
+
+
+@app.get("/auth/status")
+def auth_status(request: Request):
+    client_host = request.client.host if request.client else ""
+    cookie_token = request.cookies.get("vaelor_api_token", "")
+    allowed, _ = api_access_policy.authorize(
+        client_host, request.headers.get("host", ""),
+        request.headers.get("authorization", ""),
+        request.headers.get("x-vaelor-token", ""), cookie_token,
+    )
+    local = client_host in {"testclient", "localhost", "127.0.0.1", "::1"}
+    return {"authentication_required": not local, "authenticated": bool(allowed)}
+
+
+@app.post("/auth/token")
+def authenticate_browser(request: Request, response: Response):
+    authorization = request.headers.get("authorization", "")
+    token = authorization[7:].strip() if authorization.lower().startswith("bearer ") else ""
+    if not token:
+        raise HTTPException(status_code=400, detail="Bearer token required")
+    valid, _ = api_access_policy.authorize(
+        "0.0.0.0", request.headers.get("host", ""), authorization,
+    )
+    if not valid:
+        raise HTTPException(status_code=403, detail="Valid configured token required")
+    response.set_cookie(
+        "vaelor_api_token", token, httponly=True, samesite="strict",
+        secure=request.url.scheme == "https", path="/",
+    )
+    return {"authenticated": True}
+
+
+@app.post("/auth/logout")
+def logout_browser(response: Response):
+    response.delete_cookie("vaelor_api_token", path="/", samesite="strict")
+    return {"authenticated": False}
 
 
 @app.get("/schedules")

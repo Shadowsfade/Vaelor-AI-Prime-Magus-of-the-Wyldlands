@@ -44,7 +44,8 @@
         "Durable non-overlapping recurring task schedules with pause/resume controls",
         "Loopback-only browser-origin access to the local control API",
         "Tome Scheduled Rituals observability, pause/resume, and last-run live console access",
-        "DNS-rebinding defense and opt-in token-authenticated non-loopback API access"
+        "DNS-rebinding defense and opt-in token-authenticated non-loopback API access",
+        "Authenticated remote Tome bootstrap with strict HttpOnly session and explicit trusted-interface launch"
     ],
     "in_progress": ["ConPTY full-screen terminal input and resize support"],
     "next_goals": [
@@ -53,7 +54,7 @@
         "Persistent semantic codebase indexing",
         "MCP tool extensibility",
         "Multi-agent orchestration",
-        "Stronger user/session identity and authenticated remote browser access",
+        "Stronger user/session identity and profile separation",
         "Optional local Whisper STT if browser speech is unavailable",
         "Unity and Unreal project intelligence bridges",
         "Vision and local image generation when hardware allows"
