@@ -34,6 +34,12 @@ class ToolRegistrySchemaTests(unittest.TestCase):
             self.assertIsNotNone(tool, name)
             self.assertTrue(tool.read_only)
 
+    def test_scheduler_tools_have_safe_risk_metadata(self):
+        from core.tools.registry import registry
+        self.assertEqual(registry.get("create_recurring_task").risk, "high")
+        self.assertTrue(registry.get("list_recurring_tasks").read_only)
+        self.assertEqual(registry.get("set_recurring_task_enabled").risk, "high")
+
     def test_validation_sandbox_tools_have_safe_risk_metadata(self):
         from core.tools.registry import registry
         self.assertEqual(registry.get("create_validation_sandbox").risk, "medium")

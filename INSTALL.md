@@ -157,7 +157,7 @@ cd <Vaelor-Core>
 - Package zip: `installer\Build-AlphaPackage.ps1` → `dist\Vaelor-Alpha-*.zip`
 - Desktop exe: `installer\Build-Vaelor-Exe.ps1` → `dist\Vaelor\Vaelor.exe`
 
-Local machine files (not for git): `config/network.json`, `config/setup_complete.json`, live `memory/`, `.venv/`, `dist/`, `build/`.
+Local machine files (not for git): `config/network.json`, `config/setup_complete.json`, live `memory/` (including tasks, preferences, and schedules), `.venv/`, `dist/`, `build/`.
 
 ---
 

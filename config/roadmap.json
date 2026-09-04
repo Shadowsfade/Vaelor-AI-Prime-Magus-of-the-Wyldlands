@@ -40,7 +40,9 @@
         "Bounded advisory outcome learning from positive and negative task feedback",
         "Canonical Prime Magus identity and honest emerging-Wyldlands reality across inference paths",
         "Scoped reusable project workflows with declared inputs and ordinary action-policy enforcement",
-        "Hardware-aware installed-model routing with provider-specific fallback selection"
+        "Hardware-aware installed-model routing with provider-specific fallback selection",
+        "Durable non-overlapping recurring task schedules with pause/resume controls",
+        "Loopback-only browser-origin access to the local control API"
     ],
     "in_progress": ["ConPTY full-screen terminal input and resize support"],
     "next_goals": [
@@ -49,7 +51,6 @@
         "Persistent semantic codebase indexing",
         "MCP tool extensibility",
         "Multi-agent orchestration",
-        "Recurring task scheduler and automation controls",
         "Stronger user/session identity and authenticated remote access",
         "Optional local Whisper STT if browser speech is unavailable",
         "Unity and Unreal project intelligence bridges",

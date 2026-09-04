@@ -26,13 +26,25 @@ app = FastAPI(title="Vaelor API", version=VAELOR_VERSION)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origin_regex=r"https?://(?:localhost|127\.0\.0\.1)(?::\d+)?",
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 runtime = VaelorRuntime()
 brain = runtime.brain
+from core.scheduler import SchedulerService, schedule_store
+scheduler_service = SchedulerService(schedule_store, brain)
+
+
+@app.on_event("startup")
+def start_scheduler_service():
+    scheduler_service.start()
+
+
+@app.on_event("shutdown")
+def stop_scheduler_service():
+    scheduler_service.stop()
 
 
 class ChatRequest(BaseModel):
@@ -109,6 +121,45 @@ class TaskClarifyRequest(BaseModel):
 class TaskApprovalRequest(BaseModel):
     fingerprint: str = Field(min_length=64, max_length=64)
     max_steps: int = Field(default=12, ge=3, le=25)
+
+
+class ScheduleCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    prompt: str = Field(min_length=1, max_length=20000)
+    interval_seconds: int = Field(ge=300, le=2592000)
+    workspace: Optional[str] = Field(default=None, max_length=4096)
+    enabled: bool = True
+    max_steps: int = Field(default=12, ge=3, le=25)
+    max_runtime_seconds: int = Field(default=900, ge=10, le=1200)
+
+
+class ScheduleStatusRequest(BaseModel):
+    enabled: bool
+
+
+@app.get("/schedules")
+def list_schedules(limit: int = 50):
+    return {"schedules": schedule_store.list(limit)}
+
+
+@app.post("/schedules")
+def create_schedule(request: ScheduleCreateRequest):
+    try:
+        return schedule_store.create(
+            request.name, request.prompt, request.interval_seconds,
+            request.workspace, request.enabled, request.max_steps,
+            request.max_runtime_seconds,
+        )
+    except (ValueError, PermissionError, FileNotFoundError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.patch("/schedules/{schedule_id}")
+def update_schedule(schedule_id: str, request: ScheduleStatusRequest):
+    try:
+        return schedule_store.set_enabled(schedule_id, request.enabled)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Schedule not found")
 
 
 @app.get("/preferences")

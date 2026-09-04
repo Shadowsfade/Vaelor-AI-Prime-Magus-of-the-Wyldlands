@@ -129,6 +129,7 @@ Required systems:
 [x] Canonical Prime Magus and emerging Wyldlands reality across inference paths
 [x] Scoped reusable project workflows with ordinary action-policy enforcement
 [x] Hardware-aware installed-model routing and provider-specific fallback
+[x] Durable non-overlapping recurring task scheduler and controls
 
 ---
 
@@ -186,11 +187,10 @@ The world evolves.
 1. Add ConPTY full-screen terminal input and resize support
 2. Extend bounded lexical code discovery with persistent semantic indexing
 3. Add MCP tool extensibility
-4. Add scheduling and recurring task support
-5. Validate installer/runtime behavior on a clean machine
-6. Strengthen user/session identity and remote authentication
-7. Add multi-agent orchestration
-8. Create Unity/Unreal bridges
+4. Validate installer/runtime behavior on a clean machine
+5. Strengthen user/session identity and remote authentication
+6. Add multi-agent orchestration
+7. Create Unity/Unreal bridges
 
 The foundation comes first.
 

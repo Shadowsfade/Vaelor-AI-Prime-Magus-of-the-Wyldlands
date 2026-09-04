@@ -100,6 +100,8 @@ session and `/help` for the command list. Existing shell safety and approval pol
 - Structured multi-step agent actions with verification and self-correction.
 - Guarded file, shell, Git, web, diagnostic, and project tools.
 - Durable tasks with progress events, cancellation, clarification, deadlines, and resume.
+- Durable recurring interval tasks with atomic scheduling, no overlapping runs, pause/resume
+  controls, and the same approval and verification pipeline as interactive work.
 - Proactive, system-aware task guidance that gathers context and recommends useful
   alternatives or tradeoffs instead of blindly following a weak implementation path.
 - Canonical Prime Magus identity across every reasoning path, with the Wyldlands treated
@@ -128,6 +130,7 @@ session and `/help` for the command list. Existing shell safety and approval pol
 - Automatic bounded outcome learning from task feedback, with experience treated as
   advisory context rather than permission or an unreviewed permanent rule.
 - Desktop/web tome interface, streamed answers, and voice conversation.
+- Loopback-only browser CORS, preventing unrelated websites from calling the local control API.
 - Windows installer and portable/desktop package builders.
 
 ## Project documentation

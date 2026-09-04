@@ -2,6 +2,24 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Durable recurring automation milestone 44
+- Added an atomic local schedule store and background interval runner that creates ordinary
+  durable Vaelor tasks with the existing context, approvals, runtime ceiling, events,
+  interruption handling, cancellation, and verification behavior.
+- Schedules use a five-minute minimum and 30-day maximum interval, advance `next_run_at`
+  atomically before launching, persist run/error/task provenance, and never overlap a
+  pending, running, or approval/clarification-waiting run from the same schedule.
+- Interrupted historical runs do not freeze future recurrence; preparation failures are
+  recorded and retried only at the next interval rather than in a tight loop.
+- Malformed schedule storage fails closed without overwrite, while scheduler-loop errors
+  are audited without terminating the background service.
+- Added list/create and pause/resume API controls plus high-risk agent tools for explicit
+  recurring requests. Vaelor is forbidden from inferring recurrence from one-time work.
+- Restricted browser CORS from every website to loopback origins, preventing arbitrary web
+  pages from controlling Vaelor's powerful local API while preserving Tome and CLI access.
+- Added regression coverage for durability, interval bounds, atomic claims, no-overlap,
+  restart behavior, failures, boolean parsing, API controls, CORS, and tool risk metadata.
+
 ### Hardware-aware installed-model routing milestone 43
 - Replaced static runtime model dispatch with one route decision based on the configured
   preference and models actually reported by each local backend.

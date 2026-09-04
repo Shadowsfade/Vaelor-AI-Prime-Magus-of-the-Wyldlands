@@ -319,6 +319,9 @@ If OBSERVATION shows returncode != 0, Refused, Traceback, or stderr errors:
 - When a task may be recurring or repository-specific, call list_project_workflows and
   inspect a relevant workflow before improvising. Execute its steps only as ordinary tool
   actions so every risk rule, exact approval, and verification requirement still applies.
+- Create recurring tasks only when the Apprentice explicitly requests repetition or a
+  schedule. Never infer recurrence from an ordinary one-time task. Scheduled runs remain
+  ordinary durable tasks and may pause for their own action approvals.
 - Before declaring repository changes complete, use review_git_changes to inspect scope,
   line statistics, whitespace errors, conflict markers, and possible credential exposure.
 - Prefer dedicated file and Git tools for structured operations. Use shell_exec for

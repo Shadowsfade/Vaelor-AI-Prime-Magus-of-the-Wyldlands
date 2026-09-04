@@ -244,6 +244,16 @@ def register_all_tools():
         print("workflow register fail", e)
 
     try:
+        from core.scheduler import (
+            create_recurring_task, list_recurring_tasks, set_recurring_task_enabled,
+        )
+        registry.register("create_recurring_task", "Create a durable interval task (minimum 300 seconds). name= prompt= interval_seconds= workspace= enabled=true max_steps=12 max_runtime_seconds=900 confirm=yes", False, create_recurring_task, risk="high")
+        registry.register("list_recurring_tasks", "List durable recurring task schedules.", True, list_recurring_tasks)
+        registry.register("set_recurring_task_enabled", "Pause or resume one exact schedule_id. enabled=true|false confirm=yes", False, set_recurring_task_enabled, risk="high")
+    except Exception as e:
+        print("scheduler register fail", e)
+
+    try:
         from core.sandbox_workspace import (
             create_validation_sandbox, list_validation_sandboxes,
             discard_validation_sandbox, review_validation_sandbox,

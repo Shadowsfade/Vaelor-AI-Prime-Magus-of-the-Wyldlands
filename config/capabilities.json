@@ -182,6 +182,14 @@
       "description": "runtime preserves explicit or installed configured models, otherwise selects installed chat models by task affinity and cached VRAM capacity with provider-specific fallback"
     },
     {
+      "name": "DurableRecurringTasks",
+      "description": "atomic interval schedules launch non-overlapping ordinary durable tasks with pause/resume controls, provenance, approvals, runtime limits, and verification"
+    },
+    {
+      "name": "LoopbackBrowserOriginGuard",
+      "description": "browser CORS is restricted to localhost and loopback origins so arbitrary websites cannot invoke Vaelor's local control API"
+    },
+    {
       "name": "IncrementalTerminalOutput",
       "description": "persistent terminal stdout is emitted in bounded durable chunks through the resumable task event stream"
     },
