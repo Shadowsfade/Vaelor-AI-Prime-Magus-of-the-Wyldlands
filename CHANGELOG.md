@@ -2,6 +2,20 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Hardware-aware installed-model routing milestone 43
+- Replaced static runtime model dispatch with one route decision based on the configured
+  preference and models actually reported by each local backend.
+- An explicitly requested model and any installed configured model are preserved; when the
+  configured model is absent, Vaelor selects an installed conversational model appropriate
+  to reasoning, coding, or fast-response work and the detected VRAM class.
+- Embedding and reranking models are excluded from chat selection when alternatives exist.
+- Cross-backend recovery now chooses a model available on the fallback provider instead of
+  retrying the failed provider's potentially nonexistent model name.
+- Hardware detection is cached for five minutes and skipped when no adaptive selection is
+  needed, preventing repeated Windows GPU probes from adding per-request latency.
+- Added deterministic regression coverage for configured/explicit preservation, coding and
+  fast-task affinity, VRAM limits, cached probing, provider routing, and integrated fallback.
+
 ### Reusable project workflows milestone 42
 - Added read-only discovery and validation for declarative `.vaelor/workflows/*.json`
   workflows from repository root through the active workspace.

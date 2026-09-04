@@ -13,6 +13,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
 import time
 from typing import Any, Dict, Generator, List, Optional, Union
 
@@ -21,6 +22,8 @@ import requests
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_DIR = os.path.join(BASE_DIR, "config")
 SPELLBOOK_DIR = os.path.dirname(os.path.abspath(__file__))
+_HARDWARE_CACHE = {"timestamp": 0.0, "value": None}
+HARDWARE_CACHE_SECONDS = 300
 
 
 def _load_json(path: str) -> dict:
@@ -100,6 +103,113 @@ def resolve_provider(preferred: Optional[str] = None) -> str:
     if lm["ok"]:
         return "lmstudio"
     return pref if pref != "auto" else "ollama"
+
+
+def _model_size_billions(name: str) -> Optional[float]:
+    match = re.search(r"(?:^|[-_:])(\d+(?:\.\d+)?)b(?:$|[-_:])", str(name), re.I)
+    return float(match.group(1)) if match else None
+
+
+def _hardware_model_cap(hw: Optional[dict] = None) -> float:
+    if hw is None:
+        hw = _cached_hardware()
+    vram = float((hw or {}).get("vram_mb") or 0)
+    if vram >= 22000:
+        return 32
+    if vram >= 12000:
+        return 14
+    if vram >= 8000:
+        return 14
+    if vram >= 6000:
+        return 9
+    if vram >= 4000:
+        return 7
+    return 3
+
+
+def _cached_hardware() -> dict:
+    now = time.monotonic()
+    cached = _HARDWARE_CACHE.get("value")
+    if cached is not None and now - float(_HARDWARE_CACHE.get("timestamp") or 0) < HARDWARE_CACHE_SECONDS:
+        return cached
+    hw = {}
+    try:
+        from core.hardware import scan_hardware
+        hw = scan_hardware()
+    except Exception:
+        pass
+    _HARDWARE_CACHE.update({"timestamp": now, "value": hw})
+    return hw
+
+
+def select_available_model(
+    configured: str, available: List[str], spell: str, hw: Optional[dict] = None
+) -> str:
+    """Choose an installed chat model without overriding an installed configured model."""
+    models = [str(item) for item in available if str(item).strip()]
+    if configured in models or not models:
+        return configured
+    chat_models = [
+        item for item in models
+        if not re.search(r"\b(embed|embedding|rerank)\b", item, re.I)
+    ] or models
+    cap = _hardware_model_cap(hw)
+
+    def score(name: str) -> tuple:
+        lower = name.lower()
+        size = _model_size_billions(name)
+        fits = size is None or size <= cap
+        affinity = 0
+        if spell == "code_forge" and "coder" in lower:
+            affinity += 40
+        if spell == "fast_thought" and size is not None:
+            affinity += max(0, 20 - size)
+        if "vaelor" in lower:
+            affinity += 25
+        capacity = size if size is not None else 0
+        return (1 if fits else 0, affinity, capacity if fits else -capacity, lower)
+
+    return max(chat_models, key=score)
+
+
+def resolve_route(
+    spell: str = "core_reasoning",
+    provider: Optional[str] = None,
+    model: Optional[str] = None,
+    hw: Optional[dict] = None,
+) -> dict:
+    """Resolve primary and fallback provider/model pairs from one backend probe snapshot."""
+    settings = get_backend_settings()
+    preferred = (provider or settings["provider"] or "auto").lower()
+    ollama = probe_ollama(settings["ollama_url"])
+    lmstudio = probe_lmstudio(settings["lmstudio_url"])
+    if preferred == "ollama" and ollama["ok"]:
+        active = "ollama"
+    elif preferred in ("lmstudio", "lm_studio", "lms") and lmstudio["ok"]:
+        active = "lmstudio"
+    elif preferred == "auto" and ollama["ok"]:
+        active = "ollama"
+    elif lmstudio["ok"]:
+        active = "lmstudio"
+    elif ollama["ok"]:
+        active = "ollama"
+    else:
+        active = "lmstudio" if preferred in ("lmstudio", "lm_studio", "lms") else "ollama"
+    configured = model or get_spell_model(spell)
+    active_probe = ollama if active == "ollama" else lmstudio
+    selected = configured if model else select_available_model(configured, active_probe["models"], spell, hw)
+    other = "lmstudio" if active == "ollama" else "ollama"
+    other_probe = lmstudio if other == "lmstudio" else ollama
+    fallback = None
+    if other_probe["ok"]:
+        fallback_model = configured if model else select_available_model(configured, other_probe["models"], spell, hw)
+        fallback = {"provider": other, "model": fallback_model}
+    return {
+        "provider": active,
+        "model": selected,
+        "fallback": fallback,
+        "configured_model": configured,
+    }
 
 
 def get_spell_model(spell_name: str = "core_reasoning") -> str:
@@ -208,8 +318,9 @@ def chat(
     temperature: Optional[float] = None,
 ) -> str:
     settings = get_backend_settings()
-    backend = resolve_provider(provider)
-    model_name = model or get_spell_model(spell)
+    route = resolve_route(spell=spell, provider=provider, model=model)
+    backend = route["provider"]
+    model_name = route["model"]
     timeout = settings["timeout"]
     msgs = _messages(prompt, system=system, images=images, history=history)
 
@@ -231,19 +342,23 @@ def chat(
             images=images,
         )
     except Exception as e:
-        # Cross-backend fallback
+        # Cross-backend fallback uses a model known to that provider when available.
         try:
-            if backend == "ollama":
+            fallback = route.get("fallback")
+            if not fallback:
+                raise RuntimeError("no alternate local model backend is available")
+            fallback_model = fallback["model"]
+            if fallback["provider"] == "lmstudio":
                 return _openai_chat(
                     base_url=settings["lmstudio_url"],
-                    model=model_name,
+                    model=fallback_model,
                     messages=msgs,
                     timeout=timeout,
                     temperature=temperature,
                 )
             return _ollama_chat(
                 base_url=settings["ollama_url"],
-                model=model_name,
+                model=fallback_model,
                 messages=msgs,
                 timeout=timeout,
                 images=images,
@@ -262,8 +377,9 @@ def chat_stream(
 ) -> Generator[str, None, None]:
     """Yield text chunks from streaming backend."""
     settings = get_backend_settings()
-    backend = resolve_provider(provider)
-    model_name = model or get_spell_model(spell)
+    route = resolve_route(spell=spell, provider=provider, model=model)
+    backend = route["provider"]
+    model_name = route["model"]
     timeout = settings["timeout"]
     msgs = _messages(prompt, system=system, history=history)
 

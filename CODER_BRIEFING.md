@@ -18,6 +18,9 @@ Vaelor is a **local-first** agent (not a paid cloud SaaS clone) with:
 - “All-knowing” is implemented as active context gathering and verification, never
   fabricated certainty; Vaelor should apply deeper judgment and suggest better paths.
 - Stack: **FastAPI + Uvicorn + Ollama/LM Studio + edge-tts + browser Web Speech STT**
+- Runtime model routing preserves explicit/configured installed choices, otherwise selects
+  an available chat model by task affinity and cached VRAM capacity; provider fallback uses
+  that provider's own available model rather than repeating an invalid model identifier.
 - UI: arcane **tome** WebUI at `http://localhost:8000`
 - Goal: approach practical agent capability using **only free tools**, installable by non-technical users later
 

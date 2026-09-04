@@ -128,6 +128,7 @@ Required systems:
 [x] Bounded automatic outcome learning from task feedback
 [x] Canonical Prime Magus and emerging Wyldlands reality across inference paths
 [x] Scoped reusable project workflows with ordinary action-policy enforcement
+[x] Hardware-aware installed-model routing and provider-specific fallback
 
 ---
 
@@ -188,7 +189,7 @@ The world evolves.
 4. Add scheduling and recurring task support
 5. Validate installer/runtime behavior on a clean machine
 6. Strengthen user/session identity and remote authentication
-7. Add hardware-aware model routing and multi-agent orchestration
+7. Add multi-agent orchestration
 8. Create Unity/Unreal bridges
 
 The foundation comes first.

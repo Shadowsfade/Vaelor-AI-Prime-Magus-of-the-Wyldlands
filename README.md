@@ -95,6 +95,8 @@ session and `/help` for the command list. Existing shell safety and approval pol
 ## Current capabilities
 
 - Ollama and LM Studio local inference.
+- Installed-model-aware routing that preserves explicit choices, adapts fallback selection
+  to task type and available VRAM, and chooses models independently across local providers.
 - Structured multi-step agent actions with verification and self-correction.
 - Guarded file, shell, Git, web, diagnostic, and project tools.
 - Durable tasks with progress events, cancellation, clarification, deadlines, and resume.

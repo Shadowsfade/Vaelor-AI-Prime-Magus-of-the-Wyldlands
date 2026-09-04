@@ -178,6 +178,10 @@
       "description": "bounded hierarchical JSON task recipes validate declared inputs and registered tools, then rely on normal per-action risk, approval, and verification enforcement"
     },
     {
+      "name": "HardwareAwareModelRouting",
+      "description": "runtime preserves explicit or installed configured models, otherwise selects installed chat models by task affinity and cached VRAM capacity with provider-specific fallback"
+    },
+    {
       "name": "IncrementalTerminalOutput",
       "description": "persistent terminal stdout is emitted in bounded durable chunks through the resumable task event stream"
     },
