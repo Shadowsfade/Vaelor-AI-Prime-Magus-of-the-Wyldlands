@@ -2,6 +2,20 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Authenticated API boundary milestone 46
+- Added an ASGI access boundary that validates loopback Host headers to block DNS-rebinding
+  access to Vaelor's local API, complementing the loopback-only CORS policy.
+- Genuine non-loopback clients now fail closed unless a 32+ character local token is
+  configured and supplied as `Authorization: Bearer` or `X-Vaelor-Token`.
+- Proxy forwarding headers are intentionally not trusted, explicit/environment tokens are
+  constant-time compared, and malformed, short, missing, or incorrect tokens never enable
+  remote access.
+- Added an opt-in token generator that writes ignored local config atomically and refuses
+  accidental replacement unless `--force` is explicit. It does not enable network binding.
+- Diagnostics report only whether authentication is enabled and its source, never the token.
+- Added isolated regressions for IPv4/IPv6 loopback, DNS rebinding, disabled remote access,
+  both token headers, invalid tokens, atomic generation, overwrite refusal, and secret-free status.
+
 ### Tome schedule controls milestone 45
 - Added a Scheduled Rituals panel to the Tome showing each schedule's active/paused state,
   interval, next run, run count, last error, and latest durable task.

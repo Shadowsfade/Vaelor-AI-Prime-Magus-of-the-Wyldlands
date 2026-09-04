@@ -133,6 +133,8 @@ session and `/help` for the command list. Existing shell safety and approval pol
   advisory context rather than permission or an unreviewed permanent rule.
 - Desktop/web tome interface, streamed answers, and voice conversation.
 - Loopback-only browser CORS, preventing unrelated websites from calling the local control API.
+- DNS-rebinding Host validation and opt-in bearer-token authentication for non-loopback API
+  clients; remote binding remains disabled by default.
 - Windows installer and portable/desktop package builders.
 
 ## Project documentation

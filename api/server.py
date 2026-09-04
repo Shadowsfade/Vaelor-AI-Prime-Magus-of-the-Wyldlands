@@ -16,6 +16,7 @@ from typing import Any, List, Optional
 
 from core.runtime import VaelorRuntime
 from core.readiness import assess_readiness
+from core.api_security import ApiAccessMiddleware
 from core.version import VAELOR_VERSION
 from core.setup_wizard import wizard_state, mark_complete, try_install_ollama_winget, try_pull_ollama_model, detect_backends
 from core.tools.registry import registry as tool_registry
@@ -30,6 +31,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(ApiAccessMiddleware)
 
 runtime = VaelorRuntime()
 brain = runtime.brain
@@ -839,6 +841,11 @@ def diagnostics():
         info["recommendation"] = recommend_models(hw)
     except Exception as e:
         info["errors"].append(f"hardware: {e}")
+    try:
+        from core.api_security import ApiAccessPolicy
+        info["api_access"] = ApiAccessPolicy().status()
+    except Exception as e:
+        info["errors"].append(f"api_access: {e}")
     # Ollama/LM quick probe summary
     b = info.get("backends") or {}
     o = b.get("ollama") or {}

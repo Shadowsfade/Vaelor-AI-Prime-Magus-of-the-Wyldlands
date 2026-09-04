@@ -67,6 +67,7 @@ powershell -ExecutionPolicy Bypass -File .\installer\Build-AlphaPackage.ps1
 | `core/action_protocol.py` | Validated JSON decisions, actions, and final results |
 | `core/task_store.py` | Atomic task state, progress events, interruption recovery |
 | `core/scheduler.py` | Atomic recurring schedules, no-overlap runner, pause/resume |
+| `core/api_security.py` | Loopback Host guard and opt-in remote API bearer authentication |
 | `core/preference_store.py` | User-confirmed preferences and outcome feedback |
 | `core/project_context.py` | Bounded, allowed-root repository context for tasks |
 | `core/readiness.py` | Operational checks for tools, task storage, and local models |
@@ -203,6 +204,8 @@ change.
 - Status/tools surfaces
 - Scheduled Rituals shows timing, run state, errors, pause/resume, and the last run through
   the same streamed Task Center console used for interactive work.
+- Browser CORS and Host validation are loopback-only by default. Non-loopback API clients
+  require a strong local token; remote browser Tome authentication remains future work.
 
 ### 4.8 Alpha installer (new in 1.1.0-alpha)
 | Artifact | Purpose |

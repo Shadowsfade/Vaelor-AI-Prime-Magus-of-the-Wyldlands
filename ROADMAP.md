@@ -131,6 +131,7 @@ Required systems:
 [x] Hardware-aware installed-model routing and provider-specific fallback
 [x] Durable non-overlapping recurring task scheduler and controls
 [x] Tome schedule observability, pause/resume, and last-run console access
+[x] DNS-rebinding defense and opt-in authenticated non-loopback API boundary
 
 ---
 
@@ -189,7 +190,7 @@ The world evolves.
 2. Extend bounded lexical code discovery with persistent semantic indexing
 3. Add MCP tool extensibility
 4. Validate installer/runtime behavior on a clean machine
-5. Strengthen user/session identity and remote authentication
+5. Strengthen user/session identity and add authenticated remote browser access
 6. Add multi-agent orchestration
 7. Create Unity/Unreal bridges
 

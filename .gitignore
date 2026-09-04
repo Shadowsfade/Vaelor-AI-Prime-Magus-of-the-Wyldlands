@@ -11,6 +11,7 @@ config/setup_complete.json
 config/overnight_build.json
 config/network.json
 config/autonomy.json
+config/api_access.json
 .staging/
 memory/audit_log.jsonl
 memory/conversations.json

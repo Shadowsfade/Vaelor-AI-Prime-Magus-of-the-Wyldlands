@@ -159,6 +159,25 @@ cd <Vaelor-Core>
 
 Local machine files (not for git): `config/network.json`, `config/setup_complete.json`, live `memory/` (including tasks, preferences, and schedules), `.venv/`, `dist/`, `build/`.
 
+## Optional authenticated remote API
+
+Vaelor remains bound to loopback by default. To prepare a token for an intentional remote
+API deployment, run:
+
+```powershell
+.\.venv\Scripts\python.exe .\installer\Configure-Remote-API.py
+```
+
+The token is shown once and stored in ignored local `config/api_access.json`. Existing
+tokens are not replaced unless you deliberately rerun with `--force`, which invalidates
+clients using the old token.
+
+Non-loopback API requests must send either `Authorization: Bearer <token>` or
+`X-Vaelor-Token: <token>`. Only expose the API over Tailscale/a trusted VPN or HTTPS;
+plain HTTP on an untrusted network exposes bearer credentials. Token generation does not
+change Vaelor's loopback binding or firewall. The browser Tome does not yet support remote
+token login, so this milestone is for authenticated API/CLI clients.
+
 ---
 
 ## Version
