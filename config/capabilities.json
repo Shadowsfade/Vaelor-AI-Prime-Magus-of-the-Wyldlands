@@ -202,6 +202,10 @@
       "description": "remote browsers receive only the Tome bootstrap before bearer exchange establishes a strict HttpOnly session; binding requires an explicit trusted interface"
     },
     {
+      "name": "CleanPackageAcceptance",
+      "description": "isolated portable-package builds verify checksum, privacy exclusions, fresh loopback configuration, packaged imports, API health, authentication status, and Tome startup"
+    },
+    {
       "name": "IncrementalTerminalOutput",
       "description": "persistent terminal stdout is emitted in bounded durable chunks through the resumable task event stream"
     },

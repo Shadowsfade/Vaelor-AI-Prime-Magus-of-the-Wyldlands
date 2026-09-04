@@ -45,11 +45,12 @@
         "Loopback-only browser-origin access to the local control API",
         "Tome Scheduled Rituals observability, pause/resume, and last-run live console access",
         "DNS-rebinding defense and opt-in token-authenticated non-loopback API access",
-        "Authenticated remote Tome bootstrap with strict HttpOnly session and explicit trusted-interface launch"
+        "Authenticated remote Tome bootstrap with strict HttpOnly session and explicit trusted-interface launch",
+        "Isolated clean-package privacy, configuration, and runtime acceptance gate"
     ],
     "in_progress": ["ConPTY full-screen terminal input and resize support"],
     "next_goals": [
-        "Clean-machine installer and packaged-runtime acceptance test",
+        "Full interactive installer validation on additional physical clean machines",
         "Persistent PTY terminal sessions and native CLI experience",
         "Persistent semantic codebase indexing",
         "MCP tool extensibility",

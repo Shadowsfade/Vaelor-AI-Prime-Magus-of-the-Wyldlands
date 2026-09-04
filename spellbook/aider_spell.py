@@ -1,8 +1,21 @@
 import subprocess
 import os
+import json
+from pathlib import Path
 
 
-WORKSPACE = r"S:\VeilorServer\Workspace"
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def configured_workspace() -> str:
+    try:
+        config = json.loads((ROOT / "config" / "vaelor.json").read_text(encoding="utf-8-sig"))
+        candidate = Path(str((config.get("workspace") or {}).get("path") or "")).expanduser()
+        if candidate.is_dir():
+            return str(candidate.resolve())
+    except (OSError, ValueError, TypeError):
+        pass
+    return str(ROOT)
 
 
 def cast_aider_spell(task):
@@ -23,7 +36,7 @@ def cast_aider_spell(task):
     try:
         result = subprocess.run(
             command,
-            cwd=WORKSPACE,
+            cwd=configured_workspace(),
             capture_output=True,
             text=True
         )

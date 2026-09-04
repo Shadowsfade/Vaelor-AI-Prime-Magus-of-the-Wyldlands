@@ -138,6 +138,8 @@ session and `/help` for the command list. Existing shell safety and approval pol
 - Opt-in authenticated remote Tome login using an ephemeral bearer exchange and strict
   HttpOnly cookie, with explicit trusted-interface launch and no browser token storage.
 - Windows installer and portable/desktop package builders.
+- Isolated clean-package acceptance gate covering checksums, privacy, fresh configuration,
+  packaged imports, API health, authentication status, and Tome startup.
 
 ## Project documentation
 

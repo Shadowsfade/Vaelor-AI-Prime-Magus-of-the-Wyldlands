@@ -5,8 +5,8 @@ approve_change() is the ONLY code path in the entire project that
 writes to a project file on Vaelor's behalf. It is only ever triggered
 by the Architect explicitly typing 'approve: <id>' - never automatically.
 
-Before writing, it always backs up the current file content to
-S:\VeilorServer\Backups\ with a timestamped name, so any bad change
+Before writing, it always backs up the current file content under Vaelor's
+machine-local memory directory with a timestamped name, so any bad change
 can be manually restored even without git.
 """
 
@@ -22,7 +22,7 @@ PROJECT_ROOT = os.path.dirname(
     )
 )
 
-BACKUPS_DIR = r"S:\VeilorServer\Backups"
+BACKUPS_DIR = os.path.join(PROJECT_ROOT, "memory", "backups")
 
 
 def approve_change(proposal_id):

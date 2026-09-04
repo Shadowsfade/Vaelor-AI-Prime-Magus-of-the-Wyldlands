@@ -1,7 +1,7 @@
 # Vaelor Coder Briefing — 1.1.4-alpha
 
 **Product:** Vaelor (“Vay-lore”) — free, local AI companion  
-**Tree:** `S:\VeilorServer\Workspace\Core`  
+**Tree:** repository root (portable; no machine-specific path)
 **Audience:** teammates catching up since last sync  
 **Date:** 2026-09-03
 
@@ -31,7 +31,7 @@ Vaelor is a **local-first** agent (not a paid cloud SaaS clone) with:
 ## 2. How to run (dev)
 
 ```powershell
-cd S:\VeilorServer\Workspace\Core
+cd <path-to-your-Vaelor-checkout>
 .\Start-Vaelor.bat
 # or
 .\.venv\Scripts\python.exe -m uvicorn api.server:app --host localhost --port 8000
@@ -207,6 +207,9 @@ change.
 - Browser CORS and Host validation are loopback-only by default. Non-loopback API clients
   require a strong local token. The remote Tome loads only its static bootstrap before an
   ephemeral bearer exchange establishes a strict HttpOnly same-origin session cookie.
+- Portable releases must pass `python installer/verify_clean_package.py`; this builds and
+  extracts an isolated archive, enforces privacy exclusions, generates fresh local state,
+  and smoke-tests the packaged API and Tome.
 
 ### 4.8 Alpha installer (new in 1.1.0-alpha)
 | Artifact | Purpose |

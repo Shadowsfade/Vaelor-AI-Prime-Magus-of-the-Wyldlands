@@ -72,6 +72,8 @@ if (Test-Path $portableModels) { Copy-Item $portableModels (Join-Path $cfg "mode
 # network is per-machine; do not ship a bound port from the builder PC
 if (Test-Path (Join-Path $cfg "network.json")) { Remove-Item (Join-Path $cfg "network.json") -Force }
 if (Test-Path (Join-Path $cfg "setup_complete.json")) { Remove-Item (Join-Path $cfg "setup_complete.json") -Force }
+# Remote API credentials are machine-local secrets and must never enter a release archive.
+if (Test-Path (Join-Path $cfg "api_access.json")) { Remove-Item (Join-Path $cfg "api_access.json") -Force }
 # docs that mention a specific Windows username
 $sandboxDoc = Join-Path $cfg "SANDBOX_GOD_MODE.md"
 if (Test-Path $sandboxDoc) {

@@ -2,6 +2,24 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Clean-package acceptance milestone 48
+- Added a deterministic release acceptance command that builds the portable ZIP in an
+  isolated temporary directory, verifies its SHA-256 sidecar and required runtime files,
+  and rejects build caches, virtual environments, private machine state, remote API
+  credentials, builder home paths, and legacy server paths.
+- The acceptance gate extracts the package, generates fresh per-machine configuration,
+  confirms loopback-only networking and absence of remote credentials, imports the API
+  from the extracted tree, and smoke-tests health, authentication status, and the Tome.
+- Fixed the portable builder to explicitly remove ignored `config/api_access.json` so a
+  developer's remote-access secret cannot be copied into a release.
+- Removed legacy machine-specific runtime paths from the launcher, Aider integration,
+  proposal backups, Unreal discovery, and config migration logic. The shell safety guard
+  now generically blocks recursive forced deletion under every Windows user profile.
+- Repaired invalid drive-root literals that previously prevented the optional Unreal tool
+  module from importing, with a dedicated import regression.
+- Added focused regression tests for credential exclusion, privacy checks, and removal
+  of legacy builder identity from runtime sources.
+
 ### Authenticated remote Tome milestone 47
 - Added a remote browser bootstrap that exposes only the static Tome shell and auth-status
   check before authentication; protected API, task, memory, tool, and schedule routes remain denied.

@@ -172,13 +172,8 @@ def init_local_config(root: Path | None = None, force: bool = False) -> dict:
 def _is_foreign_autonomy(path: Path, home: Path, root: Path) -> bool:
     data = _read_json(path)
     profile = str(data.get("allowed_user_profile") or "")
-    cwd = str(data.get("default_cwd") or "")
-    # foreign if points at another username or another machine path tree
+    # A profile owned by another account is definitive foreign-machine state.
     if profile and Path(profile).resolve() != home:
-        return True
-    if cwd and "VeilorServer" in cwd and str(root) not in cwd:
-        return True
-    if "Shovel" in profile and "Shovel" not in str(home):
         return True
     return False
 
@@ -188,11 +183,9 @@ def _is_foreign_vaelor(path: Path, root: Path) -> bool:
     ws = str(((data.get("workspace") or {}).get("path")) or "")
     if not ws:
         return True
-    if "VeilorServer" in ws and str(root) not in ws:
-        return True
-    if "Shovel" in ws:
-        return True
-    return False
+    # Preserve an intentional existing workspace, but repair stale paths copied
+    # from another machine.
+    return not Path(ws).expanduser().exists()
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ so instead of pasting into the terminal, edits are made in Notepad
 against a staging copy of the file.
 
 Step 1: 'stage: <path>' - creates a staging copy of the file (or a
-blank one if it doesn't exist yet) inside .staging\, and tells the
+blank one if it doesn't exist yet) inside .staging/, and tells the
 Architect where to edit it.
 
 Step 2: 'propose: <path>' - reads the edited staging copy, generates a

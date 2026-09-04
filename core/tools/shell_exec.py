@@ -29,7 +29,7 @@ OS_WRECK_BLOCKS = [
     r"Remove-Item\s+-Recurse\s+-Force\s+['\"]?C:\\Windows",
     r"Remove-Item\s+-Recurse\s+-Force\s+['\"]?C:\\Program Files",
     r"Remove-Item\s+-Recurse\s+-Force\s+['\"]?C:\\ProgramData",
-    r"Remove-Item\s+-Recurse\s+-Force\s+['\"]?C:\\Users\\b(?!\\Shovel)",
+    r"Remove-Item\s+-Recurse\s+-Force\s+['\"]?C:\\Users(?:\\|$)",
     r"\bshutdown\b.*/[sr]",
     r"\bStop-Computer\b",
     r"\bRestart-Computer\b.*/Force",

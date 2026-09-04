@@ -157,6 +157,16 @@ cd <Vaelor-Core>
 - Package zip: `installer\Build-AlphaPackage.ps1` → `dist\Vaelor-Alpha-*.zip`
 - Desktop exe: `installer\Build-Vaelor-Exe.ps1` → `dist\Vaelor\Vaelor.exe`
 
+Before publishing a portable ZIP, run the isolated acceptance gate:
+
+```powershell
+python .\installer\verify_clean_package.py
+```
+
+It builds into a temporary directory, verifies the checksum and privacy exclusions,
+initializes clean machine-local state, and smoke-tests the extracted API and Tome. A
+release should not be published unless it prints `CLEAN PACKAGE ACCEPTANCE PASSED`.
+
 Local machine files (not for git): `config/network.json`, `config/setup_complete.json`, live `memory/` (including tasks, preferences, and schedules), `.venv/`, `dist/`, `build/`.
 
 ## Optional authenticated remote API

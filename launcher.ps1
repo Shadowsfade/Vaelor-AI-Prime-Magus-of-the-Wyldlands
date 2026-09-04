@@ -1,4 +1,4 @@
-$VaelorPath = "S:\VeilorServer\Workspace\Core"
+$VaelorPath = $PSScriptRoot
 $VenvActivate = "$VaelorPath\.venv\Scripts\Activate.ps1"
 
 function Show-Menu {
@@ -43,11 +43,10 @@ function Start-WebDashboard {
         Write-Host "Starting Web Dashboard..." -ForegroundColor Cyan
         Write-Host "Once it says 'Application startup complete', open your browser to:"
         Write-Host "  http://localhost:8000" -ForegroundColor Yellow
-        Write-Host "  http://100.119.249.96:8000  (from Legion Go via Tailscale)" -ForegroundColor Yellow
         Write-Host ""
         Write-Host "Press CTRL+C in this window to stop the server."
         Write-Host ""
-        python -m uvicorn api.server:app --host 0.0.0.0 --port 8000
+        python -m uvicorn api.server:app --host localhost --port 8000
     }
     Read-Host "`nPress Enter to return to the menu"
 }

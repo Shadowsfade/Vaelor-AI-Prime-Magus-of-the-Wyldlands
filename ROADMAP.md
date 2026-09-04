@@ -133,6 +133,7 @@ Required systems:
 [x] Tome schedule observability, pause/resume, and last-run console access
 [x] DNS-rebinding defense and opt-in authenticated non-loopback API boundary
 [x] Authenticated remote Tome bootstrap and explicit trusted-interface launcher
+[x] Isolated clean-package privacy, configuration, and runtime acceptance gate
 
 ---
 
@@ -190,7 +191,7 @@ The world evolves.
 1. Add ConPTY full-screen terminal input and resize support
 2. Extend bounded lexical code discovery with persistent semantic indexing
 3. Add MCP tool extensibility
-4. Validate installer/runtime behavior on a clean machine
+4. Validate the full interactive installer on additional physical clean machines
 5. Strengthen user/session identity and profile separation
 6. Add multi-agent orchestration
 7. Create Unity/Unreal bridges

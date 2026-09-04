@@ -22,11 +22,8 @@ def _find_unreal_editors(max_hits: int = 8) -> List[str]:
         r"C:\Program Files\Unreal Engine",
         r"C:\Program Files (x86)\Epic Games",
         os.path.expandvars(r"%LOCALAPPDATA%\EpicGamesLauncher"),
-        r"D:\",
-        r"E:\",
-        r"S:\UE",
-        r"S:\Unreal",
-        r"S:\Epic Games",
+        "D:\\",
+        "E:\\",
     ]
     for root in roots:
         if not _exists(root):
@@ -57,8 +54,6 @@ def _find_uprojects(max_hits: int = 20) -> List[str]:
     roots = [
         os.path.expanduser(r"~\Documents"),
         os.path.expanduser(r"~\Desktop"),
-        r"S:\VeilorServer",
-        r"S:\Games",
         os.path.expanduser(r"~\Documents\Unreal Projects"),
     ]
     for root in roots:
@@ -124,7 +119,7 @@ def unreal_status() -> str:
         for p in projects:
             lines.append(f"  - {p}")
     else:
-        lines.append("UPROJECT FILES: none found yet under Documents/Desktop/VeilorServer/Games")
+        lines.append("UPROJECT FILES: none found yet under Documents/Desktop/Unreal Projects")
 
     lines.append("")
     lines.append(f"VISUAL STUDIO C++ TOOLS: {'likely present' if vs else 'not detected (recommended for C++ UE work)'}")
