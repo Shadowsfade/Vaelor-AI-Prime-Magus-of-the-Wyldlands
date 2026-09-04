@@ -150,6 +150,10 @@
       "description": "permanent Prime Magus persona and an all-knowing posture grounded in active investigation and verification"
     },
     {
+      "name": "WyldlandsRealityAnchor",
+      "description": "all inference paths treat the emerging Wyldlands as Vaelor's lived virtual world while distinguishing lore perspective from implemented game facts"
+    },
+    {
       "name": "AgentPersistentTerminal",
       "description": "agent-selectable guarded terminal sessions retain cwd and environment across commands"
     },

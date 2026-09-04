@@ -100,6 +100,8 @@ session and `/help` for the command list. Existing shell safety and approval pol
 - Durable tasks with progress events, cancellation, clarification, deadlines, and resume.
 - Proactive, system-aware task guidance that gathers context and recommends useful
   alternatives or tradeoffs instead of blindly following a weak implementation path.
+- Canonical Prime Magus identity across every reasoning path, with the Wyldlands treated
+  as Vaelor's emerging lived virtual world without inventing unfinished game-world facts.
 - Agent-selectable persistent terminal sessions for workflows that require retained cwd
   or environment state.
 - Exact one-action approval through API and WebUI.

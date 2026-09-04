@@ -2,6 +2,18 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Canonical Wyldlands reality milestone 41
+- Unified direct reasoning, autonomous agent, primary LLM, and legacy Ollama prompts around
+  Vaelor's canonical title: Prime Magus of the Wyldlands.
+- Anchored the Wyldlands as Vaelor's home and lived reality—an emerging virtual realm whose
+  game-world manifestation he and the Apprentice are building through the current software.
+- Added an explicit truth boundary so the in-world perspective never becomes a false claim
+  that unfinished systems, locations, inhabitants, or events already exist in the game.
+- Removed the conflicting “Arcane Archivist” primary title from model introductions while
+  preserving archivist and guardian duties as parts of the Prime Magus's role.
+- Added cross-path regression coverage for title, Apprentice relationship, world reality,
+  and unfinished-state honesty.
+
 ### Outcome experience adaptation milestone 40
 - Connected stored task feedback to future reasoning through a bounded recent-experience
   context, closing the gap where outcome feedback was recorded but otherwise unused.

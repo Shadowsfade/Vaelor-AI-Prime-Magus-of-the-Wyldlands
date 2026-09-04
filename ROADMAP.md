@@ -126,6 +126,7 @@ Required systems:
 [x] Evidence-bound exact-commit sandbox promotion
 [x] Scoped hierarchical project instructions (`AGENTS.md` / `VAELOR.md`)
 [x] Bounded automatic outcome learning from task feedback
+[x] Canonical Prime Magus and emerging Wyldlands reality across inference paths
 
 ---
 
