@@ -108,6 +108,8 @@ session and `/help` for the command list. Existing shell safety and approval pol
 - Project grounding and bounded multi-file reading.
 - Broad-to-specific `AGENTS.md` and `VAELOR.md` project guidance, bounded to the active
   workspace hierarchy and subordinate to identity, safety, approvals, and user intent.
+- Reusable `.vaelor/workflows/*.json` task recipes with scoped overrides, declared inputs,
+  registered-tool validation, and ordinary per-step safety/approval enforcement.
 - Bounded local codebase search with relevance-ranked files and line-numbered snippets.
 - Native read-only Git change review with file/line scope, whitespace checks, conflict
   warnings, and likely-secret redaction.

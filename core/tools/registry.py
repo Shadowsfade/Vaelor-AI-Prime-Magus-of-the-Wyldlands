@@ -237,6 +237,13 @@ def register_all_tools():
         print("validation register fail", e)
 
     try:
+        from core.workflows import list_project_workflows, read_project_workflow
+        registry.register("list_project_workflows", "List bounded declarative workflows effective for workspace=.", True, list_project_workflows)
+        registry.register("read_project_workflow", "Read and validate one project workflow without executing it. workspace= name=", True, read_project_workflow)
+    except Exception as e:
+        print("workflow register fail", e)
+
+    try:
         from core.sandbox_workspace import (
             create_validation_sandbox, list_validation_sandboxes,
             discard_validation_sandbox, review_validation_sandbox,

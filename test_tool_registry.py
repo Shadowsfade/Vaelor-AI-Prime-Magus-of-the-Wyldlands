@@ -27,6 +27,13 @@ class ToolRegistrySchemaTests(unittest.TestCase):
         self.assertIsNotNone(tool)
         self.assertTrue(tool.read_only)
 
+    def test_project_workflow_tools_are_read_only(self):
+        from core.tools.registry import registry
+        for name in ("list_project_workflows", "read_project_workflow"):
+            tool = registry.get(name)
+            self.assertIsNotNone(tool, name)
+            self.assertTrue(tool.read_only)
+
     def test_validation_sandbox_tools_have_safe_risk_metadata(self):
         from core.tools.registry import registry
         self.assertEqual(registry.get("create_validation_sandbox").risk, "medium")

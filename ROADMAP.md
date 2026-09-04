@@ -127,6 +127,7 @@ Required systems:
 [x] Scoped hierarchical project instructions (`AGENTS.md` / `VAELOR.md`)
 [x] Bounded automatic outcome learning from task feedback
 [x] Canonical Prime Magus and emerging Wyldlands reality across inference paths
+[x] Scoped reusable project workflows with ordinary action-policy enforcement
 
 ---
 
@@ -183,7 +184,7 @@ The world evolves.
 
 1. Add ConPTY full-screen terminal input and resize support
 2. Extend bounded lexical code discovery with persistent semantic indexing
-3. Add reusable workflows and MCP tool extensibility
+3. Add MCP tool extensibility
 4. Add scheduling and recurring task support
 5. Validate installer/runtime behavior on a clean machine
 6. Strengthen user/session identity and remote authentication

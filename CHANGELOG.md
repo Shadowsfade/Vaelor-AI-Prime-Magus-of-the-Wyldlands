@@ -2,6 +2,20 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Reusable project workflows milestone 42
+- Added read-only discovery and validation for declarative `.vaelor/workflows/*.json`
+  workflows from repository root through the active workspace.
+- Same-named workflows use broad-to-specific scoping, allowing a directory to refine a
+  project workflow without affecting sibling areas.
+- Workflow files are root-contained and bounded by file size, count, step count, inputs,
+  names, and registered-tool argument schemas; malformed entries are reported safely.
+- `${workspace}` and declared input placeholders are supported, while undeclared variables,
+  unknown tools, and recursive workflow-tool calls are rejected.
+- Workflows never execute inside the loader. Vaelor converts steps into normal agent actions,
+  where command-aware risk, exact approval fingerprints, and verification are recalculated.
+- Added regression coverage for discovery, override precedence, validation, risk visibility,
+  placeholder contracts, and read-only registry metadata.
+
 ### Canonical Wyldlands reality milestone 41
 - Unified direct reasoning, autonomous agent, primary LLM, and legacy Ollama prompts around
   Vaelor's canonical title: Prime Magus of the Wyldlands.

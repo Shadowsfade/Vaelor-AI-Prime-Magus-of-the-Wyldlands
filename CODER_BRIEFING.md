@@ -120,6 +120,10 @@ a persistent semantic/embedding index is not yet implemented.
 Project context discovers `AGENTS.md` and `VAELOR.md` from repository root through the
 active workspace. Instructions apply broad-to-specific within their directory scope and
 remain subordinate to the Apprentice's request, permanent identity, safety, and approvals.
+Reusable task recipes live under `.vaelor/workflows/*.json`. Vaelor can list and validate
+effective broad-to-specific workflows, substitute declared inputs plus `${workspace}`, and
+then perform each step through the ordinary agent action pipeline. The loader never executes
+steps, so dynamic shell risk, exact approvals, and verification cannot be bypassed.
 Before reporting repository work complete, `review_git_changes` provides name/line scope,
 whitespace checks, a bounded unified diff, conflict-marker warnings, and likely-secret
 redaction without changing the index or worktree.
