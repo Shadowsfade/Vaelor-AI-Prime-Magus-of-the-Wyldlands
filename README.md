@@ -102,6 +102,8 @@ session and `/help` for the command list. Existing shell safety and approval pol
 - Durable tasks with progress events, cancellation, clarification, deadlines, and resume.
 - Durable recurring interval tasks with atomic scheduling, no overlapping runs, pause/resume
   controls, and the same approval and verification pipeline as interactive work.
+- Tome Scheduled Rituals view with next-run/error visibility, pause/resume, and direct access
+  to each schedule's latest task in the live console.
 - Proactive, system-aware task guidance that gathers context and recommends useful
   alternatives or tradeoffs instead of blindly following a weak implementation path.
 - Canonical Prime Magus identity across every reasoning path, with the Wyldlands treated

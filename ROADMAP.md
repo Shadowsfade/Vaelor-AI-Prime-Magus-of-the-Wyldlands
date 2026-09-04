@@ -130,6 +130,7 @@ Required systems:
 [x] Scoped reusable project workflows with ordinary action-policy enforcement
 [x] Hardware-aware installed-model routing and provider-specific fallback
 [x] Durable non-overlapping recurring task scheduler and controls
+[x] Tome schedule observability, pause/resume, and last-run console access
 
 ---
 

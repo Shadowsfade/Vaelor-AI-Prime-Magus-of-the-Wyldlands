@@ -2,6 +2,19 @@
 
 ## [Unreleased] — 2026-09-02
 
+### Tome schedule controls milestone 45
+- Added a Scheduled Rituals panel to the Tome showing each schedule's active/paused state,
+  interval, next run, run count, last error, and latest durable task.
+- Added exact-ID pause/resume controls and a View Last action that opens scheduled work in
+  the existing resumable live Task Center console.
+- Schedule state refreshes alongside tasks and approvals while the Tome is open; empty and
+  unavailable states remain explicit instead of appearing to hang.
+- Schedule names, timestamps, errors, IDs, and counters are escaped before HTML rendering.
+- Corrected the final user-visible “Arcane Archivist” title on the closed-book cover to the
+  canonical Prime Magus of the Wyldlands identity.
+- Added regression coverage for visibility, status details, exact API controls, live-console
+  linkage, output escaping, refresh behavior, and canonical cover identity.
+
 ### Durable recurring automation milestone 44
 - Added an atomic local schedule store and background interval runner that creates ordinary
   durable Vaelor tasks with the existing context, approvals, runtime ceiling, events,

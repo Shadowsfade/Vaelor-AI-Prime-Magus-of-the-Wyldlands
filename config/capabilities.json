@@ -186,6 +186,10 @@
       "description": "atomic interval schedules launch non-overlapping ordinary durable tasks with pause/resume controls, provenance, approvals, runtime limits, and verification"
     },
     {
+      "name": "TomeScheduleControls",
+      "description": "Scheduled Rituals exposes next-run, count, errors, pause/resume, and each schedule's latest task through the resumable live console"
+    },
+    {
       "name": "LoopbackBrowserOriginGuard",
       "description": "browser CORS is restricted to localhost and loopback origins so arbitrary websites cannot invoke Vaelor's local control API"
     },

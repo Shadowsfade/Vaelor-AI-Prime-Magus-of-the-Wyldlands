@@ -201,6 +201,8 @@ change.
 - Leather cover / parchment tome aesthetic
 - Open-tome click fix, call UI, setup entry
 - Status/tools surfaces
+- Scheduled Rituals shows timing, run state, errors, pause/resume, and the last run through
+  the same streamed Task Center console used for interactive work.
 
 ### 4.8 Alpha installer (new in 1.1.0-alpha)
 | Artifact | Purpose |

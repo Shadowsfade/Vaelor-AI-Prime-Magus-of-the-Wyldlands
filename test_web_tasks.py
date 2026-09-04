@@ -21,7 +21,7 @@ class WebTaskCenterRegressionTests(unittest.TestCase):
 
     def test_task_center_polls_with_approvals(self):
         self.assertIn("loadTasks();loadApprovals()", HTML)
-        self.assertIn("if(tomeOpened){loadTasks();loadApprovals()}", HTML)
+        self.assertIn("if(tomeOpened){loadTasks();loadSchedules();loadApprovals()}", HTML)
 
     def test_task_output_is_rendered_as_text_not_raw_html(self):
         self.assertIn("taskConsole.textContent=", HTML)

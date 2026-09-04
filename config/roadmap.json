@@ -42,7 +42,8 @@
         "Scoped reusable project workflows with declared inputs and ordinary action-policy enforcement",
         "Hardware-aware installed-model routing with provider-specific fallback selection",
         "Durable non-overlapping recurring task schedules with pause/resume controls",
-        "Loopback-only browser-origin access to the local control API"
+        "Loopback-only browser-origin access to the local control API",
+        "Tome Scheduled Rituals observability, pause/resume, and last-run live console access"
     ],
     "in_progress": ["ConPTY full-screen terminal input and resize support"],
     "next_goals": [
