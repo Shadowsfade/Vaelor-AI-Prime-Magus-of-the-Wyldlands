@@ -11,6 +11,7 @@ import hashlib
 import os
 import re
 import time
+import inspect
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from core.tools.registry import registry
@@ -569,20 +570,34 @@ def run_agent(
                 risk = _action_risk(name, kwargs)
                 fingerprint = action_fingerprint(name, kwargs)
                 state_binding = current_state_binding(name, kwargs)
+                provenance_ids = ("state:" + state_binding,)
                 emit("action_proposed", step=step, tool=name, risk=risk, fingerprint=fingerprint,
-                     state_binding=state_binding, provenance_ids=())
+                     state_binding=state_binding, provenance_ids=provenance_ids)
                 action_counts[fingerprint] = action_counts.get(fingerprint, 0) + 1
                 if action_counts[fingerprint] >= 3:
                     emit("stalled", step=step, tool=name, reason="repeated identical action")
                     return "FINAL_SUMMARY: FAILED Stopped after repeated identical actions without progress."
                 supports_confirm = registry.accepts_argument(name, "confirm")
                 allowed = _allows_automatic_action(autonomy_mode, risk)
+                approval_invocation = {
+                    "tool": name, "arguments": {k: v for k, v in kwargs.items() if k != "confirm"},
+                    "target": str(kwargs.get("path") or kwargs.get("target") or ""),
+                    "scope": str(kwargs.get("cwd") or ""), "effects": risk,
+                    "task_id": str(task_id), "step_id": str(step),
+                    "provenance_ids": provenance_ids,
+                }
                 if is_mutating and not allowed and consume_approval is not None:
                     try:
-                        try:
-                            allowed = bool(consume_approval(fingerprint, state_binding))
-                        except TypeError:
+                        parameters = inspect.signature(consume_approval).parameters
+                        positional = [p for p in parameters.values() if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)]
+                        if any(p.kind is p.VAR_POSITIONAL for p in parameters.values()) or len(positional) >= 3:
+                            allowed = bool(consume_approval(fingerprint, state_binding, approval_invocation))
+                        elif len(positional) == 1:
+                            # Explicit legacy adapter for isolated callers; production
+                            # Brain callbacks use the complete three-field contract.
                             allowed = bool(consume_approval(fingerprint))
+                        else:
+                            allowed = False
                     except Exception:
                         allowed = False
                 if is_mutating and supports_confirm:
@@ -605,6 +620,11 @@ def run_agent(
                     )
                     request = {
                         "fingerprint": fingerprint,
+                        "governed_fingerprint": bound_action_fingerprint(
+                            name, kwargs, target=str(kwargs.get("path") or kwargs.get("target") or ""),
+                            scope=str(kwargs.get("cwd") or ""), effects=risk, state=state_binding,
+                            task_id=str(task_id), step_id=str(step), provenance=provenance_ids,
+                        ),
                         "tool": name,
                         "arguments": {
                             key: value for key, value in kwargs.items() if key != "confirm"
@@ -612,6 +632,12 @@ def run_agent(
                         "risk": risk,
                         "mode": autonomy_mode,
                         "state_binding": state_binding,
+                        "target": str(kwargs.get("path") or kwargs.get("target") or ""),
+                        "scope": str(kwargs.get("cwd") or ""),
+                        "effects": risk,
+                        "task_id": str(task_id),
+                        "step_id": str(step),
+                        "provenance_ids": provenance_ids,
                     }
                     if approval_required is not None:
                         approval_required(request)
@@ -626,11 +652,11 @@ def run_agent(
                     invocation = None
                     if is_mutating:
                         invocation = GovernedInvocation(
-                            name, dict(kwargs),
+                            name, {k: v for k, v in kwargs.items() if k != "confirm"},
                             target=str(kwargs.get("path") or kwargs.get("target") or ""),
                             scope=str(kwargs.get("cwd") or ""), effects=risk,
                             state=state_binding, task_id=str(task_id), step_id=str(step),
-                            provenance=(),
+                            provenance=provenance_ids,
                         )
                         governed_fingerprint = bound_action_fingerprint(
                             invocation.tool, invocation.arguments, target=invocation.target,

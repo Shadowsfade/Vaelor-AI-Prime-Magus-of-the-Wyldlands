@@ -112,6 +112,7 @@ class ToolRegistry:
         if tool is None:
             return f"Refused: tool metadata is unavailable for '{name}'."
         actual_args = dict(invocation.arguments) if invocation is not None else dict(kwargs)
+        actual_args.pop("confirm", None)
         actual_name = invocation.tool if invocation is not None else name
         if actual_name != name:
             return "Refused: invocation tool mismatch."
@@ -142,7 +143,7 @@ class ToolRegistry:
             if not expected or expected != reconstructed or supplied != reconstructed:
                 return "Refused: valid action authorization is required."
             consume_runtime_authorization(authorization)
-        return self.execute(name, **actual_args)
+        return self.execute(name, **kwargs)
     def names(self):
         return sorted(self._tools.keys())
 

@@ -183,6 +183,7 @@ class TaskStore:
                 stamp = _now()
                 task["authorized_action"] = fingerprint
                 task["authorized_state_binding"] = pending.get("state_binding")
+                task["authorized_invocation"] = deepcopy(pending)
                 task["pending_approval"] = None
                 task["waiting_reason"] = None
                 task["status"] = "pending"
@@ -196,7 +197,8 @@ class TaskStore:
                 return deepcopy(task)
         raise KeyError(f"Unknown task: {task_id}")
 
-    def consume_action_approval(self, task_id: str, fingerprint: str, state_binding: Optional[str] = None) -> bool:
+    def consume_action_approval(self, task_id: str, fingerprint: str, state_binding: Optional[str] = None,
+                                invocation: Optional[dict] = None) -> bool:
         """Atomically consume a matching one-time authorization."""
         with self._lock:
             tasks = self._read()
@@ -208,8 +210,14 @@ class TaskStore:
                 expected_state = task.get("authorized_state_binding")
                 if expected_state and (state_binding is None or expected_state != state_binding):
                     return False
+                stored_invocation = task.get("authorized_invocation") or {}
+                if invocation is not None:
+                    for key in ("tool", "arguments", "target", "scope", "effects", "task_id", "step_id", "provenance_ids"):
+                        if stored_invocation.get(key) != invocation.get(key):
+                            return False
                 task["authorized_action"] = None
                 task["authorized_state_binding"] = None
+                task["authorized_invocation"] = None
                 task["updated_at"] = _now()
                 task.setdefault("events", []).append({
                     "timestamp": task["updated_at"], "type": "approval_consumed",

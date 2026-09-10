@@ -12,6 +12,7 @@ import json
 import os
 from typing import Any, Mapping
 import secrets
+import subprocess
 
 
 class EvidenceSource(str, Enum):
@@ -115,6 +116,17 @@ def current_state_binding(tool: str, arguments: Mapping[str, Any]) -> str:
             payload["unavailable"] = True
     elif "command" in arguments:
         payload["command"] = str(arguments["command"])
+        cwd = str(arguments.get("cwd") or os.getcwd())
+        if any(token in payload["command"] for token in ("git ", "git\t")):
+            try:
+                root = subprocess.check_output(["git", "-C", cwd, "rev-parse", "--show-toplevel"], text=True, stderr=subprocess.DEVNULL).strip()
+                head = subprocess.check_output(["git", "-C", root, "rev-parse", "HEAD"], text=True, stderr=subprocess.DEVNULL).strip()
+                branch = subprocess.check_output(["git", "-C", root, "symbolic-ref", "--short", "-q", "HEAD"], text=True, stderr=subprocess.DEVNULL).strip() or "DETACHED"
+                status = subprocess.check_output(["git", "-C", root, "status", "--porcelain=v1"], text=True, stderr=subprocess.DEVNULL)
+                payload.update(repository=os.path.realpath(root), head=head, branch=branch,
+                               status_sha256=hashlib.sha256(status.encode()).hexdigest())
+            except (OSError, subprocess.SubprocessError):
+                payload["state_adapter"] = "unavailable"
     return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
