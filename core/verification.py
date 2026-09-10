@@ -1,7 +1,7 @@
 """Independent, provider-neutral post-action verification for local mutations."""
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from enum import Enum
 import hashlib
 import json
@@ -9,6 +9,8 @@ import os
 import subprocess
 from pathlib import Path
 from typing import Any, Mapping
+
+from core.governance import contract_json_value, freeze_contract_value
 
 
 class VerificationStatus(str, Enum):
@@ -28,11 +30,7 @@ def _safe(value: Any, limit: int = 800) -> str:
 
 
 def _jsonable(value: Any) -> Any:
-    if isinstance(value, Mapping):
-        return {str(k): _jsonable(v) for k, v in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_jsonable(v) for v in value]
-    return value
+    return contract_json_value(value)
 
 
 @dataclass(frozen=True)
@@ -47,6 +45,11 @@ class VerificationRequirement:
     task_id: str = ""
     step_id: str = ""
     arguments: Mapping[str, Any] = None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "expected_postcondition", freeze_contract_value(self.expected_postcondition))
+        object.__setattr__(self, "pre_execution_state", freeze_contract_value(self.pre_execution_state))
+        object.__setattr__(self, "arguments", freeze_contract_value(self.arguments or {}))
 
     def to_dict(self) -> dict:
         return {"requirement_id": self.requirement_id, "action_fingerprint": self.action_fingerprint,
@@ -69,8 +72,8 @@ class VerificationRequirement:
         if not isinstance(raw["expected_postcondition"], Mapping) or not isinstance(raw["pre_execution_state"], Mapping) or not isinstance(raw["arguments"], Mapping):
             raise ValueError("malformed verification requirement state")
         return cls(raw["requirement_id"], raw["action_fingerprint"], raw["tool"], raw["operation_category"],
-                   dict(raw["expected_postcondition"]), dict(raw["pre_execution_state"]), raw["verifier_adapter"],
-                   raw["task_id"], raw["step_id"], dict(raw["arguments"]))
+                   raw["expected_postcondition"], raw["pre_execution_state"], raw["verifier_adapter"],
+                   raw["task_id"], raw["step_id"], raw["arguments"])
 
 
 @dataclass(frozen=True)
@@ -84,12 +87,21 @@ class VerificationRecord:
     fresh_observed_evidence: Mapping[str, Any]
     reason: str = ""
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "status", VerificationStatus(self.status))
+        object.__setattr__(self, "fresh_observed_evidence", freeze_contract_value(self.fresh_observed_evidence))
+
     def to_dict(self) -> dict:
-        data = asdict(self)
-        data["status"] = self.status.value
-        data["fresh_observed_evidence"] = _jsonable(self.fresh_observed_evidence)
-        data["reason"] = _safe(self.reason)
-        return data
+        return {
+            "task_id": self.task_id,
+            "step_id": self.step_id,
+            "governed_fingerprint": self.governed_fingerprint,
+            "evidence_id": self.evidence_id,
+            "verifier_identity": self.verifier_identity,
+            "status": self.status.value,
+            "fresh_observed_evidence": _jsonable(self.fresh_observed_evidence),
+            "reason": _safe(self.reason),
+        }
 
 
 def _target(arguments: Mapping[str, Any]) -> str:

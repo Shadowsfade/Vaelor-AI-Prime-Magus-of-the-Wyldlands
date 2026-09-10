@@ -15,6 +15,8 @@ from typing import Any, Mapping
 import secrets
 import subprocess
 import threading
+import math
+from types import MappingProxyType
 
 
 class EvidenceSource(str, Enum):
@@ -40,10 +42,40 @@ class EvidenceProvenance:
     may_influence_mutation: bool = False
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "source", EvidenceSource(self.source))
         if not self.evidence_id.strip() or not self.origin.strip():
             raise ValueError("evidence identity is required")
         if self.quarantined and self.may_influence_mutation:
             raise ValueError("quarantined evidence cannot influence mutation")
+
+
+def freeze_contract_value(value: Any) -> Any:
+    """Return a recursively immutable, strictly JSON-compatible contract value."""
+    if value is None or isinstance(value, (str, bool, int)):
+        return value
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise TypeError("non-finite numbers are not supported in governed contracts")
+        return value
+    if isinstance(value, Mapping):
+        if any(not isinstance(key, str) for key in value):
+            raise TypeError("governed contract mapping keys must be strings")
+        return MappingProxyType({key: freeze_contract_value(item) for key, item in value.items()})
+    if isinstance(value, (list, tuple)):
+        return tuple(freeze_contract_value(item) for item in value)
+    raise TypeError(f"unsupported governed contract value: {type(value).__name__}")
+
+
+def contract_json_value(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {key: contract_json_value(item) for key, item in value.items()}
+    if isinstance(value, tuple):
+        return [contract_json_value(item) for item in value]
+    return value
+
+
+def _canonical_contract_json(value: Any) -> str:
+    return json.dumps(contract_json_value(value), sort_keys=True, separators=(",", ":"), allow_nan=False)
 
 
 @dataclass(frozen=True)
@@ -159,17 +191,20 @@ class GovernedInvocation:
     step_id: str = ""
     provenance: tuple[str, ...] = ()
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "arguments", freeze_contract_value(self.arguments))
+        object.__setattr__(self, "provenance", tuple(self.provenance))
+
 
 def bound_action_fingerprint(tool: str, arguments: Mapping[str, Any], *, target: str = "",
                              scope: str = "", effects: str = "", state: str = "",
                              task_id: str = "", step_id: str = "",
                              provenance: tuple[str, ...] = ()) -> str:
-    payload = {"tool": tool, "arguments": dict(arguments), "target": target,
+    payload = {"tool": tool, "arguments": freeze_contract_value(arguments), "target": target,
                "scope": scope, "effects": effects, "state": state,
                "task_id": task_id, "step_id": step_id,
                "provenance": tuple(provenance)}
-    return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":"),
-                                     default=str).encode()).hexdigest()
+    return hashlib.sha256(_canonical_contract_json(payload).encode()).hexdigest()
 
 
 def current_state_binding(tool: str, arguments: Mapping[str, Any]) -> str:

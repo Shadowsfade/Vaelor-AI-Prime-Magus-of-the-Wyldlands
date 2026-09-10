@@ -1,15 +1,43 @@
 import unittest
 import tempfile
+import json
 from pathlib import Path
 from unittest.mock import patch
 
 from core.governance import (ActionAuthorization, EvidenceProvenance,
                               EvidenceSource, bound_action_fingerprint,
-                              mutation_supported, issue_authorization, GovernedInvocation)
+                              contract_json_value, mutation_supported, issue_authorization, GovernedInvocation)
 from core.tools.registry import ToolRegistry
 
 
 class GovernanceTests(unittest.TestCase):
+    def test_governed_invocation_freezes_nested_caller_input(self):
+        arguments = {"path": "x", "nested": {"values": [1, "two"]}}
+        invocation = GovernedInvocation("write", arguments)
+        fingerprint = bound_action_fingerprint("write", arguments)
+        arguments["nested"]["values"].append("changed")
+        arguments["path"] = "other"
+        self.assertEqual(invocation.arguments["path"], "x")
+        self.assertEqual(invocation.arguments["nested"]["values"], (1, "two"))
+        self.assertEqual(fingerprint, bound_action_fingerprint("write", {"nested": {"values": [1, "two"]}, "path": "x"}))
+
+    def test_contract_fingerprints_survive_json_round_trip_and_ignore_argument_order(self):
+        arguments = {"path": "x", "options": {"b": 2, "a": [True, None]}}
+        encoded = json.dumps(contract_json_value(arguments), sort_keys=True)
+        reloaded = json.loads(encoded)
+        self.assertEqual(
+            bound_action_fingerprint("write", arguments),
+            bound_action_fingerprint("write", {"options": {"a": [True, None], "b": 2}, "path": "x"}),
+        )
+        self.assertEqual(bound_action_fingerprint("write", arguments), bound_action_fingerprint("write", reloaded))
+
+    def test_unsupported_or_ambiguous_contract_values_fail_closed(self):
+        with self.assertRaises(TypeError):
+            bound_action_fingerprint("write", {"value": object()})
+        with self.assertRaises(TypeError):
+            bound_action_fingerprint("write", {1: "numeric-key"})
+        with self.assertRaises(TypeError):
+            bound_action_fingerprint("write", {"value": float("nan")})
     def test_evidence_sources_are_typed_and_quarantine_is_fail_closed(self):
         current = EvidenceProvenance("e1", EvidenceSource.CURRENT_TOOL, "read", "now",
                                      trust="validated", may_influence_mutation=True)
