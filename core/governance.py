@@ -54,7 +54,7 @@ class ActionAuthorization:
     _nonce: str = ""
 
 
-_ISSUED: set[str] = set()
+_ISSUED: dict[str, ActionAuthorization] = {}
 _ISSUED_LOCK = threading.Lock()
 
 
@@ -63,9 +63,10 @@ def issue_authorization(fingerprint: str, actor: str, issued_at: str,
     nonce = secrets.token_urlsafe(24)
     with _ISSUED_LOCK:
         if len(_ISSUED) >= 4096:
-            _ISSUED.clear()
-        _ISSUED.add(nonce)
-    return ActionAuthorization(fingerprint, actor, issued_at, expires_at, nonce)
+            raise RuntimeError("runtime authorization capacity exhausted")
+        value = ActionAuthorization(fingerprint, actor, issued_at, expires_at, nonce)
+        _ISSUED[nonce] = value
+        return value
 
 
 def is_runtime_authorization(value: ActionAuthorization | None) -> bool:
@@ -75,7 +76,17 @@ def is_runtime_authorization(value: ActionAuthorization | None) -> bool:
 
 def consume_runtime_authorization(value: ActionAuthorization) -> None:
     with _ISSUED_LOCK:
-        _ISSUED.discard(value._nonce)
+        _ISSUED.pop(value._nonce, None)
+
+
+def claim_runtime_authorization(value: ActionAuthorization, fingerprint: str) -> bool:
+    """Atomically validate and consume a capability before dispatch."""
+    with _ISSUED_LOCK:
+        stored = _ISSUED.get(getattr(value, "_nonce", ""))
+        if stored is None or stored.fingerprint != fingerprint or value.fingerprint != fingerprint:
+            return False
+        _ISSUED.pop(value._nonce, None)
+        return True
 
 
 @dataclass(frozen=True)

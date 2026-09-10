@@ -573,6 +573,12 @@ def run_agent(
                 provenance_ids = ("state:" + state_binding,)
                 emit("action_proposed", step=step, tool=name, risk=risk, fingerprint=fingerprint,
                      state_binding=state_binding, provenance_ids=provenance_ids)
+                if is_verification:
+                    emit("verification_started", step=step, tool=name, fingerprint=fingerprint)
+                emit("evidence_observed", step=step, source="current_state",
+                     evidence_id=provenance_ids[0], origin=name,
+                     acquisition="trusted_state_adapter", validation="validated",
+                     quarantined=False, may_influence_mutation=is_mutating)
                 action_counts[fingerprint] = action_counts.get(fingerprint, 0) + 1
                 if action_counts[fingerprint] >= 3:
                     emit("stalled", step=step, tool=name, reason="repeated identical action")

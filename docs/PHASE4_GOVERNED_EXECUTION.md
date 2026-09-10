@@ -35,6 +35,12 @@ the loop.
 
 Product version remains `1.1.4-alpha`; this is an unreleased development checkpoint.
 
+Runtime capabilities are ephemeral process-local single-use tokens layered on durable
+TaskStore approval. Claim and consumption are atomic immediately before callable dispatch;
+capacity exhaustion fails closed rather than clearing live capabilities. Durable approvals
+survive restart, while ephemeral capabilities do not. Provenance events identify bounded
+current-state evidence; historical or unavailable evidence cannot authorize mutation.
+
 ## Entry-point audit
 
 | Entry point | Untrusted/model reachable | Mutation boundary |

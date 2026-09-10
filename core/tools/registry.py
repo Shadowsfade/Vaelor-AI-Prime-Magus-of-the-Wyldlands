@@ -125,24 +125,20 @@ class ToolRegistry:
                 authoritative_mutation = True
         requires = authoritative_mutation or bool(requires_authorization)
         if requires:
-            from core.governance import (bound_action_fingerprint,
-                                         consume_runtime_authorization,
-                                         is_runtime_authorization)
+            from core.governance import bound_action_fingerprint, claim_runtime_authorization
             expected = fingerprint
-            if not is_runtime_authorization(authorization):
-                return "Refused: runtime-owned action authorization is required."
             if invocation is None:
-                return "Refused: trusted governed invocation is required."
+                return "Refused: trusted governed invocation and authorization are required."
             reconstructed = bound_action_fingerprint(
                 actual_name, actual_args, target=invocation.target, scope=invocation.scope,
                 effects=invocation.effects, state=invocation.state,
                 task_id=invocation.task_id, step_id=invocation.step_id,
                 provenance=tuple(invocation.provenance),
             )
-            supplied = getattr(authorization, "fingerprint", None)
-            if not expected or expected != reconstructed or supplied != reconstructed:
+            if not expected or expected != reconstructed:
                 return "Refused: valid action authorization is required."
-            consume_runtime_authorization(authorization)
+            if not claim_runtime_authorization(authorization, reconstructed):
+                return "Refused: runtime authorization is invalid, expired, or already used."
         return self.execute(name, **kwargs)
     def names(self):
         return sorted(self._tools.keys())
