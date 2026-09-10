@@ -1,4 +1,6 @@
 import unittest
+import tempfile
+from pathlib import Path
 from unittest.mock import patch
 
 from core.governance import (ActionAuthorization, EvidenceProvenance,
@@ -46,3 +48,14 @@ class GovernanceTests(unittest.TestCase):
             result = run_agent("inspect", lambda _: next(replies), event_callback=lambda e, d: events.append(e))
         self.assertIn("repeated identical", result)
         self.assertIn("stalled", events)
+
+    def test_durable_approval_binds_fresh_state(self):
+        from core.task_store import TaskStore
+        with tempfile.TemporaryDirectory() as tmp:
+            store = TaskStore(Path(tmp) / "tasks.json")
+            task = store.create("edit", {})
+            pending = store.request_approval(task["id"], {"fingerprint": "a" * 64,
+                                                              "state_binding": "before"})
+            store.approve_action(task["id"], "a" * 64)
+            self.assertFalse(store.consume_action_approval(task["id"], "a" * 64, "changed"))
+            self.assertTrue(store.consume_action_approval(task["id"], "a" * 64, "before"))

@@ -182,6 +182,7 @@ class TaskStore:
                     raise ValueError("Approval fingerprint is stale or does not match the pending action.")
                 stamp = _now()
                 task["authorized_action"] = fingerprint
+                task["authorized_state_binding"] = pending.get("state_binding")
                 task["pending_approval"] = None
                 task["waiting_reason"] = None
                 task["status"] = "pending"
@@ -195,7 +196,7 @@ class TaskStore:
                 return deepcopy(task)
         raise KeyError(f"Unknown task: {task_id}")
 
-    def consume_action_approval(self, task_id: str, fingerprint: str) -> bool:
+    def consume_action_approval(self, task_id: str, fingerprint: str, state_binding: Optional[str] = None) -> bool:
         """Atomically consume a matching one-time authorization."""
         with self._lock:
             tasks = self._read()
@@ -204,7 +205,11 @@ class TaskStore:
                     continue
                 if task.get("authorized_action") != fingerprint:
                     return False
+                expected_state = task.get("authorized_state_binding")
+                if state_binding is not None and expected_state and expected_state != state_binding:
+                    return False
                 task["authorized_action"] = None
+                task["authorized_state_binding"] = None
                 task["updated_at"] = _now()
                 task.setdefault("events", []).append({
                     "timestamp": task["updated_at"], "type": "approval_consumed",

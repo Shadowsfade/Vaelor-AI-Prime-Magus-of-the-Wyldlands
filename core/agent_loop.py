@@ -15,6 +15,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from core.tools.registry import registry
 from core.action_protocol import parse_structured_response
+from core.governance import ActionAuthorization, bound_action_fingerprint, current_state_binding
 
 TOOL_RE = re.compile(
     r"^\s*(?:TOOL|ACTION)\s*:?\s*([a-zA-Z0-9_]+)\s*(.*)$",
@@ -395,7 +396,7 @@ def run_agent(
     max_runtime_seconds: int = 900,
     clock: Callable[[], float] = time.monotonic,
     approval_required: Optional[Callable[[Dict[str, Any]], None]] = None,
-    consume_approval: Optional[Callable[[str], bool]] = None,
+    consume_approval: Optional[Callable[..., bool]] = None,
 ) -> str:
     """Autonomous ReAct loop. ask_llm(prompt) -> model text."""
     registry  # loaded
@@ -552,6 +553,9 @@ def run_agent(
                 is_mutating = _is_mutating_action(name, kwargs)
                 risk = _action_risk(name, kwargs)
                 fingerprint = action_fingerprint(name, kwargs)
+                state_binding = current_state_binding(name, kwargs)
+                emit("action_proposed", step=step, tool=name, risk=risk, fingerprint=fingerprint,
+                     state_binding=state_binding, provenance_ids=())
                 action_counts[fingerprint] = action_counts.get(fingerprint, 0) + 1
                 if action_counts[fingerprint] >= 3:
                     emit("stalled", step=step, tool=name, reason="repeated identical action")
@@ -560,7 +564,10 @@ def run_agent(
                 allowed = _allows_automatic_action(autonomy_mode, risk)
                 if is_mutating and not allowed and consume_approval is not None:
                     try:
-                        allowed = bool(consume_approval(fingerprint))
+                        try:
+                            allowed = bool(consume_approval(fingerprint, state_binding))
+                        except TypeError:
+                            allowed = bool(consume_approval(fingerprint))
                     except Exception:
                         allowed = False
                 if is_mutating and supports_confirm:
@@ -589,6 +596,7 @@ def run_agent(
                         },
                         "risk": risk,
                         "mode": autonomy_mode,
+                        "state_binding": state_binding,
                     }
                     if approval_required is not None:
                         approval_required(request)
@@ -599,6 +607,15 @@ def run_agent(
                     )
                 emit("tool_started", step=step, tool=name, arguments=kwargs)
                 try:
+                    authorization = None
+                    if is_mutating:
+                        governed_fingerprint = bound_action_fingerprint(
+                            name, kwargs, target=str(kwargs.get("path") or kwargs.get("target") or ""),
+                            scope=str(kwargs.get("cwd") or ""), effects=risk, state=state_binding,
+                        )
+                        authorization = ActionAuthorization(governed_fingerprint, "task-policy", str(time.time()))
+                        emit("action_authorized", step=step, tool=name, fingerprint=fingerprint,
+                             authorization_fingerprint=governed_fingerprint)
                     if name == "terminal_run" and event_callback is not None:
                         from core.terminal_session import terminal_output_events
                         with terminal_output_events(lambda chunk: emit(
@@ -608,9 +625,17 @@ def run_agent(
                             session_id=kwargs.get("session_id"),
                             chunk=chunk,
                         )):
-                            result = registry.execute(name, **kwargs)
+                            result = registry.execute_guarded(
+                                name, authorization=authorization,
+                                fingerprint=getattr(authorization, "fingerprint", None),
+                                requires_authorization=is_mutating, **kwargs
+                            )
                     else:
-                        result = registry.execute(name, **kwargs)
+                        result = registry.execute_guarded(
+                            name, authorization=authorization,
+                            fingerprint=getattr(authorization, "fingerprint", None),
+                            requires_authorization=is_mutating, **kwargs
+                        )
                 except Exception as e:
                     result = f"Tool '{name}' failed: {e}"
                 meta = _classify_observation(name, kwargs, _bounded_text(result))
@@ -636,6 +661,7 @@ def run_agent(
                 if is_verification and not meta["failed"]:
                     verified_hint = True
                     unverified_mutation = False
+                    emit("verification_passed", step=step, tool=name, evidence_id=fingerprint)
                 elif is_mutating and not meta["failed"]:
                     # Any successful mutation after a check invalidates that check.
                     unverified_mutation = True

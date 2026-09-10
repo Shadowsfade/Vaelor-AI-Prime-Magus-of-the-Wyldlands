@@ -341,8 +341,8 @@ class VaelorBrain:
                     should_cancel=lambda: self.tasks.is_cancelled(task_id),
                     max_runtime_seconds=max_runtime_seconds,
                     approval_required=lambda action: self.tasks.request_approval(task_id, action),
-                    consume_approval=lambda fingerprint: self.tasks.consume_action_approval(
-                        task_id, fingerprint
+                    consume_approval=lambda fingerprint, state_binding=None: self.tasks.consume_action_approval(
+                        task_id, fingerprint, state_binding
                     ),
                 )
         except Exception as exc:
@@ -578,6 +578,5 @@ class VaelorBrain:
         for item in candidates:
             lines.append(f"- {item['file']}: {item['reason']}")
         return "\n".join(lines)
-
 
 

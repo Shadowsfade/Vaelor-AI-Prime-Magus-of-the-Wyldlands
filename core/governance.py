@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from enum import Enum
 import hashlib
 import json
+import os
 from typing import Any, Mapping
 
 
@@ -57,6 +58,29 @@ def bound_action_fingerprint(tool: str, arguments: Mapping[str, Any], *, target:
                "provenance": tuple(provenance)}
     return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":"),
                                      default=str).encode()).hexdigest()
+
+
+def current_state_binding(tool: str, arguments: Mapping[str, Any]) -> str:
+    """Derive a trusted, bounded binding for common local mutation targets."""
+    path = arguments.get("path") or arguments.get("target")
+    payload: dict[str, Any] = {"tool": str(tool), "cwd": os.getcwd()}
+    if path:
+        try:
+            full = os.path.abspath(os.path.expanduser(str(path)))
+            payload["path"] = full
+            if os.path.exists(full):
+                stat = os.stat(full)
+                payload.update(size=stat.st_size, mtime_ns=stat.st_mtime_ns)
+                if os.path.isfile(full) and stat.st_size <= 2_000_000:
+                    with open(full, "rb") as handle:
+                        payload["sha256"] = hashlib.sha256(handle.read()).hexdigest()
+            else:
+                payload["exists"] = False
+        except (OSError, ValueError):
+            payload["unavailable"] = True
+    elif "command" in arguments:
+        payload["command"] = str(arguments["command"])
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
 def mutation_supported(evidence: tuple[EvidenceProvenance, ...]) -> bool:

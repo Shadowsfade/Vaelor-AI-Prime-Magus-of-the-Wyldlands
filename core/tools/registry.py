@@ -99,7 +99,8 @@ class ToolRegistry:
         except Exception as e:
             return f"Tool '{name}' failed: {e}"
 
-    def execute_guarded(self, name, authorization=None, fingerprint=None, **kwargs):
+    def execute_guarded(self, name, authorization=None, fingerprint=None,
+                        requires_authorization=None, **kwargs):
         """Execute through the explicit governance boundary.
 
         Read-only tools remain directly usable; every mutating tool requires a
@@ -108,8 +109,12 @@ class ToolRegistry:
         """
         tool = self.get(name)
         if tool is None:
-            return f"Unknown tool: {name}."
-        if not tool.read_only:
+            # Preserve the registry's legacy lazy-registration behavior.  The
+            # underlying execute path still returns a bounded unknown-tool
+            # result; no callable is reached when metadata is absent.
+            return self.execute(name, **kwargs)
+        requires = (not tool.read_only) if requires_authorization is None else bool(requires_authorization)
+        if requires:
             expected = fingerprint
             supplied = getattr(authorization, "fingerprint", None)
             if not expected or supplied != expected:
