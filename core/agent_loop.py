@@ -573,6 +573,14 @@ def run_agent(
                 fingerprint = action_fingerprint(name, kwargs)
                 state_binding = current_state_binding(name, kwargs)
                 provenance_ids = ("state:" + state_binding,)
+                governed_fingerprint = fingerprint
+                if is_mutating:
+                    governed_fingerprint = bound_action_fingerprint(
+                        name, {k: v for k, v in kwargs.items() if k != "confirm"},
+                        target=str(kwargs.get("path") or kwargs.get("target") or ""),
+                        scope=str(kwargs.get("cwd") or ""), effects=risk, state=state_binding,
+                        task_id=str(task_id), step_id=str(step), provenance=provenance_ids,
+                    )
                 emit("action_proposed", step=step, tool=name, risk=risk, fingerprint=fingerprint,
                      state_binding=state_binding, provenance_ids=provenance_ids)
                 emit("evidence_observed", step=step, source="current_state",
@@ -587,12 +595,13 @@ def run_agent(
                 allowed = _allows_automatic_action(autonomy_mode, risk)
                 approval_invocation = {
                     "tool": name, "arguments": {k: v for k, v in kwargs.items() if k != "confirm"},
+                    "governed_fingerprint": governed_fingerprint,
                     "target": str(kwargs.get("path") or kwargs.get("target") or ""),
                     "scope": str(kwargs.get("cwd") or ""), "effects": risk,
                     "task_id": str(task_id), "step_id": str(step),
                     "provenance_ids": provenance_ids,
                 }
-                verification_requirement = build_requirement(name, kwargs, fingerprint, str(task_id), str(step)) if is_mutating else None
+                verification_requirement = build_requirement(name, kwargs, governed_fingerprint, str(task_id), str(step)) if is_mutating else None
                 if verification_requirement is not None:
                     approval_invocation["verification_requirement"] = verification_requirement.to_dict()
                 if is_mutating and not allowed and consume_approval is not None:
@@ -629,11 +638,7 @@ def run_agent(
                     )
                     request = {
                         "fingerprint": fingerprint,
-                        "governed_fingerprint": bound_action_fingerprint(
-                            name, kwargs, target=str(kwargs.get("path") or kwargs.get("target") or ""),
-                            scope=str(kwargs.get("cwd") or ""), effects=risk, state=state_binding,
-                            task_id=str(task_id), step_id=str(step), provenance=provenance_ids,
-                        ),
+                        "governed_fingerprint": governed_fingerprint,
                         "tool": name,
                         "arguments": {
                             key: value for key, value in kwargs.items() if key != "confirm"
@@ -660,7 +665,6 @@ def run_agent(
                 try:
                     authorization = None
                     invocation = None
-                    governed_fingerprint = fingerprint
                     if is_mutating:
                         invocation = GovernedInvocation(
                             name, {k: v for k, v in kwargs.items() if k != "confirm"},
@@ -668,12 +672,6 @@ def run_agent(
                             scope=str(kwargs.get("cwd") or ""), effects=risk,
                             state=state_binding, task_id=str(task_id), step_id=str(step),
                             provenance=provenance_ids,
-                        )
-                        governed_fingerprint = bound_action_fingerprint(
-                            invocation.tool, invocation.arguments, target=invocation.target,
-                            scope=invocation.scope, effects=invocation.effects,
-                            state=invocation.state, task_id=invocation.task_id,
-                            step_id=invocation.step_id, provenance=invocation.provenance,
                         )
                         issued_at = datetime.now(timezone.utc)
                         authorization = issue_authorization(
@@ -741,6 +739,7 @@ def run_agent(
                     else:
                         emit("verification_started", step=step, tool=name, fingerprint=governed_fingerprint)
                         record = verify_requirement(verification_requirement, str(task_id), str(step), governed_fingerprint)
+                        emit("verification_recorded", step=step, tool=name, record=record.to_dict())
                         emit("verification_" + record.status.value, step=step, tool=name,
                              fingerprint=governed_fingerprint, evidence_id=record.evidence_id,
                              verifier=record.verifier_identity, reason=record.reason,

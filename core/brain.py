@@ -331,13 +331,21 @@ class VaelorBrain:
         try:
             from core.task_heartbeat import TaskHeartbeat
             with TaskHeartbeat(self.tasks, task_id):
+                def record_agent_event(event, data):
+                    if event == "verification_recorded" and isinstance(data, dict):
+                        record = data.get("record")
+                        if isinstance(record, dict):
+                            self.tasks.record_verification(task_id, record)
+                    else:
+                        self.tasks.add_event(task_id, event, data)
+
                 result = run_agent(
                     goal=agent_goal,
                     ask_llm=ask_llm,
                     max_steps=max_steps or 12,
                     session_context=ctx,
                     require_verification=True,
-                    event_callback=lambda event, data: self.tasks.add_event(task_id, event, data),
+                    event_callback=record_agent_event,
                     should_cancel=lambda: self.tasks.is_cancelled(task_id),
                     max_runtime_seconds=max_runtime_seconds,
                     approval_required=lambda action: self.tasks.request_approval(task_id, action),

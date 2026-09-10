@@ -125,7 +125,9 @@ class TaskStore:
                 "verifier_identity", "status", "reason", "fresh_observed_evidence",
             ) if key in record
         }
-        return self.add_event(task_id, "verification_recorded", allowed)
+        bounded = self._bounded(allowed)
+        # A persisted record is an audit event, never a mutable task field.
+        return self.add_event(task_id, "verification_recorded", bounded)
 
     def cancel(self, task_id: str, reason: str = "Cancelled by user.") -> dict:
         """Request cancellation and persist it atomically with its audit event."""
@@ -158,6 +160,10 @@ class TaskStore:
 
     def request_approval(self, task_id: str, action: Dict[str, Any]) -> dict:
         """Pause for one exact action without widening the task's autonomy policy."""
+        raw_requirement = action.get("verification_requirement") if isinstance(action, dict) else None
+        if raw_requirement is not None:
+            from core.verification import VerificationRequirement
+            VerificationRequirement.from_dict(raw_requirement)
         with self._lock:
             tasks = self._read()
             for task in tasks:
@@ -225,6 +231,14 @@ class TaskStore:
                     for key in ("tool", "arguments", "target", "scope", "effects", "task_id", "step_id", "provenance_ids", "verification_requirement"):
                         if stored_invocation.get(key) != invocation.get(key):
                             return False
+                    from core.verification import VerificationRequirement
+                    raw_requirement = stored_invocation.get("verification_requirement")
+                    try:
+                        requirement = VerificationRequirement.from_dict(raw_requirement)
+                    except (TypeError, ValueError):
+                        return False
+                    if requirement.task_id != str(task_id) or requirement.action_fingerprint != stored_invocation.get("governed_fingerprint"):
+                        return False
                 task["authorized_action"] = None
                 task["authorized_state_binding"] = None
                 task["authorized_invocation"] = None
