@@ -344,6 +344,7 @@ class VaelorBrain:
                     consume_approval=lambda fingerprint, state_binding=None: self.tasks.consume_action_approval(
                         task_id, fingerprint, state_binding
                     ),
+                    task_id=task_id,
                 )
         except Exception as exc:
             self.tasks.add_event(task_id, "crashed", {"error": str(exc)})
@@ -578,5 +579,4 @@ class VaelorBrain:
         for item in candidates:
             lines.append(f"- {item['file']}: {item['reason']}")
         return "\n".join(lines)
-
 
