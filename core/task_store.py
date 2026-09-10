@@ -117,6 +117,16 @@ class TaskStore:
                 return deepcopy(event)
         raise KeyError(f"Unknown task: {task_id}")
 
+    def record_verification(self, task_id: str, record: Dict[str, Any]) -> dict:
+        """Persist one bounded, serialization-safe independent verification record."""
+        allowed = {
+            key: record.get(key) for key in (
+                "task_id", "step_id", "governed_fingerprint", "evidence_id",
+                "verifier_identity", "status", "reason", "fresh_observed_evidence",
+            ) if key in record
+        }
+        return self.add_event(task_id, "verification_recorded", allowed)
+
     def cancel(self, task_id: str, reason: str = "Cancelled by user.") -> dict:
         """Request cancellation and persist it atomically with its audit event."""
         with self._lock:
@@ -212,7 +222,7 @@ class TaskStore:
                     return False
                 stored_invocation = task.get("authorized_invocation") or {}
                 if invocation is not None:
-                    for key in ("tool", "arguments", "target", "scope", "effects", "task_id", "step_id", "provenance_ids"):
+                    for key in ("tool", "arguments", "target", "scope", "effects", "task_id", "step_id", "provenance_ids", "verification_requirement"):
                         if stored_invocation.get(key) != invocation.get(key):
                             return False
                 task["authorized_action"] = None

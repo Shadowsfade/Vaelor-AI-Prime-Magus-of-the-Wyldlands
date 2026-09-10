@@ -1,5 +1,47 @@
 # Phase 4 governed execution integration
 
+## Milestone 3C: execution is not verification
+
+An executor completing without raising an exception is only an execution outcome. It
+does not prove that the requested state transition occurred. A governed mutation now
+has two distinct outcomes: `action_completed` describes callable completion, while
+`verification_passed` is emitted only after trusted code independently rereads fresh
+state and a supported verifier returns `passed`. Contradictory state emits
+`verification_failed`; an unsupported state adapter emits `verification_unavailable`.
+The model's request to run a test or inspect a file is an ordinary model action, not
+an independent verification result.
+
+The bounded `VerificationRequirement` contract contains a requirement ID, exact
+governed fingerprint, tool/category, trusted expected postcondition, pre-execution
+state reference, and verifier adapter identity. The resulting bounded record contains
+the task ID, step ID, governed fingerprint, fresh evidence ID, verifier identity,
+status, evidence summary, and a bounded failure/unavailability reason. It excludes
+prompts, hidden reasoning, file contents beyond bounded hashes, credentials, and
+tokens. Requirements are stored inside pending/authorized invocations, so approval
+pause, TaskStore reload, restart, and resume preserve the exact contract; trusted
+code reconstructs and revalidates it rather than accepting model-authored fields.
+
+Supported independent adapters are local file write/patch, deletion, directory
+creation, and selected local Git mutations. File adapters preserve path identity,
+reject symlink/type substitution, and compare exact content hashes when the intended
+content is available. Git adapters bind repository identity, HEAD, branch/detached
+state, and worktree/index status before execution, then inspect fresh Git state after
+execution. Unsupported mutations remain separately executable where policy permits,
+but are `verification_unavailable` and cannot satisfy a task requiring verified
+mutation.
+
+Runtime capabilities are UTC-expiry validated, pruned individually under the same
+lock used for issuance/claim, bounded, and atomically claimed-and-consumed. Expired
+entries do not clear live entries; exhausted capacity fails closed. A claimed token
+cannot be replayed after callable success or exception. The private test reset is
+not serialized or registered as a tool.
+
+Known limitations: Git transition validation currently proves a fresh, repository-
+bound state transition rather than interpreting every operation's semantic diff;
+large file content is represented by a bounded cryptographic hash; remote services,
+package managers, permissions, and other environmental mutations remain unavailable
+until trustworthy adapters exist.
+
 The canonical branch retains its durable task store, ReAct loop, exact action approval,
 heartbeat, verification, and event transport. Governance is additive: typed evidence
 provenance and bound action fingerprints describe why an action is proposed, while the

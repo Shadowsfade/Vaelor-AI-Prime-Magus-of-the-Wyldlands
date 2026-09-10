@@ -12,12 +12,14 @@ import os
 import re
 import time
 import inspect
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from core.tools.registry import registry
 from core.action_protocol import parse_structured_response
 from core.governance import (GovernedInvocation, bound_action_fingerprint,
                               current_state_binding, issue_authorization)
+from core.verification import build_requirement, verify_requirement
 
 TOOL_RE = re.compile(
     r"^\s*(?:TOOL|ACTION)\s*:?\s*([a-zA-Z0-9_]+)\s*(.*)$",
@@ -51,7 +53,8 @@ MAX_TOOL_RESULT_CHARS = 12000
 MAX_OBSERVATION_CONTEXT_CHARS = 30000
 RESERVED_GOVERNANCE_FIELDS = frozenset({
     "authorization", "authorization_id", "expected_fingerprint", "approval",
-    "approval_id", "current_state_binding", "provenance",
+    "approval_id", "current_state_binding", "provenance", "verification_requirement",
+    "verifier", "verifier_adapter", "verification_status",
 })
 
 
@@ -565,7 +568,6 @@ def run_agent(
                 if cancelled():
                     emit("cancellation_observed", phase="before_tool", step=step, tool=name)
                     return "FINAL_SUMMARY: CANCELLED Task cancellation was requested."
-                is_verification = _is_verification_action(name, kwargs)
                 is_mutating = _is_mutating_action(name, kwargs)
                 risk = _action_risk(name, kwargs)
                 fingerprint = action_fingerprint(name, kwargs)
@@ -573,8 +575,6 @@ def run_agent(
                 provenance_ids = ("state:" + state_binding,)
                 emit("action_proposed", step=step, tool=name, risk=risk, fingerprint=fingerprint,
                      state_binding=state_binding, provenance_ids=provenance_ids)
-                if is_verification:
-                    emit("verification_started", step=step, tool=name, fingerprint=fingerprint)
                 emit("evidence_observed", step=step, source="current_state",
                      evidence_id=provenance_ids[0], origin=name,
                      acquisition="trusted_state_adapter", validation="validated",
@@ -592,6 +592,9 @@ def run_agent(
                     "task_id": str(task_id), "step_id": str(step),
                     "provenance_ids": provenance_ids,
                 }
+                verification_requirement = build_requirement(name, kwargs, fingerprint, str(task_id), str(step)) if is_mutating else None
+                if verification_requirement is not None:
+                    approval_invocation["verification_requirement"] = verification_requirement.to_dict()
                 if is_mutating and not allowed and consume_approval is not None:
                     try:
                         parameters = inspect.signature(consume_approval).parameters
@@ -644,6 +647,7 @@ def run_agent(
                         "task_id": str(task_id),
                         "step_id": str(step),
                         "provenance_ids": provenance_ids,
+                        "verification_requirement": verification_requirement.to_dict() if verification_requirement else None,
                     }
                     if approval_required is not None:
                         approval_required(request)
@@ -656,6 +660,7 @@ def run_agent(
                 try:
                     authorization = None
                     invocation = None
+                    governed_fingerprint = fingerprint
                     if is_mutating:
                         invocation = GovernedInvocation(
                             name, {k: v for k, v in kwargs.items() if k != "confirm"},
@@ -670,7 +675,11 @@ def run_agent(
                             state=invocation.state, task_id=invocation.task_id,
                             step_id=invocation.step_id, provenance=invocation.provenance,
                         )
-                        authorization = issue_authorization(governed_fingerprint, "task-policy", str(time.time()))
+                        issued_at = datetime.now(timezone.utc)
+                        authorization = issue_authorization(
+                            governed_fingerprint, "task-policy", issued_at.isoformat(),
+                            (issued_at + timedelta(minutes=5)).isoformat(),
+                        )
                         emit("action_authorized", step=step, tool=name, fingerprint=fingerprint,
                              authorization_fingerprint=governed_fingerprint)
                     if name == "terminal_run" and event_callback is not None:
@@ -706,6 +715,13 @@ def run_agent(
                     returncode=meta["returncode"],
                     result=meta["raw"],
                 )
+                emit(
+                    "action_completed",
+                    step=step,
+                    tool=name,
+                    fingerprint=governed_fingerprint if is_mutating else fingerprint,
+                    failed=meta["failed"],
+                )
                 obs = (
                     f"OBSERVATION:\n"
                     f"tool={meta['tool']} returncode={meta['returncode']} failed={meta['failed']}\n"
@@ -717,14 +733,24 @@ def run_agent(
                 transcript.append(obs)
                 if meta["failed"]:
                     step_failed = True
-                if is_verification and not meta["failed"]:
-                    verified_hint = True
-                    unverified_mutation = False
-                    emit("verification_passed", step=step, tool=name, evidence_id=fingerprint)
-                elif is_mutating and not meta["failed"]:
-                    # Any successful mutation after a check invalidates that check.
-                    unverified_mutation = True
-                    verified_hint = False
+                if is_mutating and not meta["failed"]:
+                    if verification_requirement is None:
+                        emit("verification_unavailable", step=step, tool=name, fingerprint=governed_fingerprint if 'governed_fingerprint' in locals() else fingerprint, reason="no supported independent state adapter")
+                        unverified_mutation = True
+                        verified_hint = False
+                    else:
+                        emit("verification_started", step=step, tool=name, fingerprint=governed_fingerprint)
+                        record = verify_requirement(verification_requirement, str(task_id), str(step), governed_fingerprint)
+                        emit("verification_" + record.status.value, step=step, tool=name,
+                             fingerprint=governed_fingerprint, evidence_id=record.evidence_id,
+                             verifier=record.verifier_identity, reason=record.reason,
+                             status=record.status.value)
+                        if record.status.value == "passed":
+                            verified_hint = True
+                            unverified_mutation = False
+                        else:
+                            unverified_mutation = True
+                            verified_hint = False
             last_failed = step_failed
             if final_summary:
                 # only allow SUCCESS if not immediately after failure without fix — still return
