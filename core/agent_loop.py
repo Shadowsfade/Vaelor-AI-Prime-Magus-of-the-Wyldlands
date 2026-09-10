@@ -403,6 +403,7 @@ def run_agent(
     system = build_react_system_prompt(tool_specs)
     observations: List[str] = []
     transcript: List[str] = []
+    action_counts: Dict[str, int] = {}
     last_failed = False
     verified_hint = False
     unverified_mutation = False
@@ -457,7 +458,7 @@ def run_agent(
                     step=step_number,
                     attempt=attempt + 1,
                     retries_remaining=model_retries - attempt,
-                    error=str(exc),
+                    error="model provider failure",
                 )
         raise RuntimeError(
             f"Model call failed after {model_retries + 1} attempt(s): {last_error}"
@@ -551,6 +552,10 @@ def run_agent(
                 is_mutating = _is_mutating_action(name, kwargs)
                 risk = _action_risk(name, kwargs)
                 fingerprint = action_fingerprint(name, kwargs)
+                action_counts[fingerprint] = action_counts.get(fingerprint, 0) + 1
+                if action_counts[fingerprint] >= 3:
+                    emit("stalled", step=step, tool=name, reason="repeated identical action")
+                    return "FINAL_SUMMARY: FAILED Stopped after repeated identical actions without progress."
                 supports_confirm = registry.accepts_argument(name, "confirm")
                 allowed = _allows_automatic_action(autonomy_mode, risk)
                 if is_mutating and not allowed and consume_approval is not None:

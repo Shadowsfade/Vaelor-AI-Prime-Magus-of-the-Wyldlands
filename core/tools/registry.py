@@ -98,6 +98,23 @@ class ToolRegistry:
             return tool.run(**kwargs)
         except Exception as e:
             return f"Tool '{name}' failed: {e}"
+
+    def execute_guarded(self, name, authorization=None, fingerprint=None, **kwargs):
+        """Execute through the explicit governance boundary.
+
+        Read-only tools remain directly usable; every mutating tool requires a
+        matching action authorization.  This is an additive boundary used by
+        future supervisors and cannot be satisfied by model-authored arguments.
+        """
+        tool = self.get(name)
+        if tool is None:
+            return f"Unknown tool: {name}."
+        if not tool.read_only:
+            expected = fingerprint
+            supplied = getattr(authorization, "fingerprint", None)
+            if not expected or supplied != expected:
+                return "Refused: valid action authorization is required."
+        return self.execute(name, **kwargs)
     def names(self):
         return sorted(self._tools.keys())
 
