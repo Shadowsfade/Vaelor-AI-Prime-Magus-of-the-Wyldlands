@@ -115,7 +115,10 @@ class TerminalSessionManager:
                     f"Write-Output ('{marker}:' + $vaelorExitCode)\n"
                 )
             else:
-                payload = f"{command}\nprintf '{marker}:%s\\n' $?\n"
+                # Force a record boundary even when the user command does not
+                # emit a trailing newline; otherwise the marker can be
+                # concatenated to output and the reader waits forever.
+                payload = f"{command}\nprintf '\\n{marker}:%s\\n' $?\n"
             session.process.stdin.write(payload)
             session.process.stdin.flush()
             chunks = []

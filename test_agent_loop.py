@@ -149,12 +149,13 @@ class AgentLoopTests(unittest.TestCase):
             result = run_agent("inspect status", model)
         self.assertEqual(result, "FINAL_SUMMARY: SUCCESS inspected safely")
 
-    def test_success_after_mutation_requires_verification(self):
+    def test_model_selected_py_compile_is_not_trusted_verification(self):
         model = ScriptedModel([
             'ACTION: apply_patch path=x.py old="a" new="b"',
             "FINAL_SUMMARY: SUCCESS changed x.py",
             'ACTION: shell_exec command="python -m py_compile x.py"',
             "FINAL_SUMMARY: SUCCESS changed and checked x.py",
+            "FINAL_SUMMARY: FAILED independent verification required",
         ])
         with (
             patch("core.agent_loop.registry.specs_for_prompt", return_value="tools"),
@@ -162,7 +163,7 @@ class AgentLoopTests(unittest.TestCase):
             patch("core.agent_loop.registry.execute", return_value="[OK]"),
         ):
             result = run_agent("change x.py", model, max_steps=6)
-        self.assertEqual(result, "FINAL_SUMMARY: SUCCESS changed and checked x.py")
+        self.assertNotIn("FINAL_SUMMARY: SUCCESS", result)
         self.assertIn("not been verified", model.prompts[2].lower())
 
     def test_unknown_tool_is_a_failure(self):
