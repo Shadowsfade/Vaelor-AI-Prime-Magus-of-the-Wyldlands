@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 from typing import Any, Mapping
+import secrets
 
 
 class EvidenceSource(str, Enum):
@@ -48,6 +49,25 @@ class ActionAuthorization:
     actor: str
     issued_at: str
     expires_at: str | None = None
+    _nonce: str = ""
+
+
+_ISSUED: set[str] = set()
+
+
+def issue_authorization(fingerprint: str, actor: str, issued_at: str,
+                        expires_at: str | None = None) -> ActionAuthorization:
+    nonce = secrets.token_urlsafe(24)
+    _ISSUED.add(nonce)
+    return ActionAuthorization(fingerprint, actor, issued_at, expires_at, nonce)
+
+
+def is_runtime_authorization(value: ActionAuthorization | None) -> bool:
+    return isinstance(value, ActionAuthorization) and bool(value._nonce) and value._nonce in _ISSUED
+
+
+def consume_runtime_authorization(value: ActionAuthorization) -> None:
+    _ISSUED.discard(value._nonce)
 
 
 def bound_action_fingerprint(tool: str, arguments: Mapping[str, Any], *, target: str = "",

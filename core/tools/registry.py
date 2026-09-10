@@ -100,7 +100,8 @@ class ToolRegistry:
             return f"Tool '{name}' failed: {e}"
 
     def execute_guarded(self, name, authorization=None, fingerprint=None,
-                        requires_authorization=None, **kwargs):
+                        requires_authorization=None, target="", scope="", effects="",
+                        state="", task_id="", step_id="", provenance=(), **kwargs):
         """Execute through the explicit governance boundary.
 
         Read-only tools remain directly usable; every mutating tool requires a
@@ -115,10 +116,20 @@ class ToolRegistry:
             return self.execute(name, **kwargs)
         requires = (not tool.read_only) if requires_authorization is None else bool(requires_authorization)
         if requires:
+            from core.governance import (bound_action_fingerprint,
+                                         consume_runtime_authorization,
+                                         is_runtime_authorization)
             expected = fingerprint
+            if not is_runtime_authorization(authorization):
+                return "Refused: runtime-owned action authorization is required."
+            reconstructed = bound_action_fingerprint(
+                name, kwargs, target=target, scope=scope, effects=effects,
+                state=state, provenance=tuple(provenance),
+            )
             supplied = getattr(authorization, "fingerprint", None)
-            if not expected or supplied != expected:
+            if not expected or expected != reconstructed or supplied != reconstructed:
                 return "Refused: valid action authorization is required."
+            consume_runtime_authorization(authorization)
         return self.execute(name, **kwargs)
     def names(self):
         return sorted(self._tools.keys())

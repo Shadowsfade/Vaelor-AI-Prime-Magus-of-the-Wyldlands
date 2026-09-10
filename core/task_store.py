@@ -206,7 +206,7 @@ class TaskStore:
                 if task.get("authorized_action") != fingerprint:
                     return False
                 expected_state = task.get("authorized_state_binding")
-                if state_binding is not None and expected_state and expected_state != state_binding:
+                if expected_state and (state_binding is None or expected_state != state_binding):
                     return False
                 task["authorized_action"] = None
                 task["authorized_state_binding"] = None

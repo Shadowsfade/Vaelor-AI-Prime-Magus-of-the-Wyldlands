@@ -15,7 +15,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from core.tools.registry import registry
 from core.action_protocol import parse_structured_response
-from core.governance import ActionAuthorization, bound_action_fingerprint, current_state_binding
+from core.governance import bound_action_fingerprint, current_state_binding, issue_authorization
 
 TOOL_RE = re.compile(
     r"^\s*(?:TOOL|ACTION)\s*:?\s*([a-zA-Z0-9_]+)\s*(.*)$",
@@ -613,7 +613,7 @@ def run_agent(
                             name, kwargs, target=str(kwargs.get("path") or kwargs.get("target") or ""),
                             scope=str(kwargs.get("cwd") or ""), effects=risk, state=state_binding,
                         )
-                        authorization = ActionAuthorization(governed_fingerprint, "task-policy", str(time.time()))
+                        authorization = issue_authorization(governed_fingerprint, "task-policy", str(time.time()))
                         emit("action_authorized", step=step, tool=name, fingerprint=fingerprint,
                              authorization_fingerprint=governed_fingerprint)
                     if name == "terminal_run" and event_callback is not None:
@@ -628,13 +628,17 @@ def run_agent(
                             result = registry.execute_guarded(
                                 name, authorization=authorization,
                                 fingerprint=getattr(authorization, "fingerprint", None),
-                                requires_authorization=is_mutating, **kwargs
+                                requires_authorization=is_mutating, target=str(kwargs.get("path") or kwargs.get("target") or ""),
+                                scope=str(kwargs.get("cwd") or ""), effects=risk, state=state_binding,
+                                provenance=(), **kwargs
                             )
                     else:
                         result = registry.execute_guarded(
                             name, authorization=authorization,
                             fingerprint=getattr(authorization, "fingerprint", None),
-                            requires_authorization=is_mutating, **kwargs
+                            requires_authorization=is_mutating, target=str(kwargs.get("path") or kwargs.get("target") or ""),
+                            scope=str(kwargs.get("cwd") or ""), effects=risk, state=state_binding,
+                            provenance=(), **kwargs
                         )
                 except Exception as e:
                     result = f"Tool '{name}' failed: {e}"

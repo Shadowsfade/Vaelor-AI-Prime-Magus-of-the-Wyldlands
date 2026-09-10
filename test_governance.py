@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from core.governance import (ActionAuthorization, EvidenceProvenance,
                               EvidenceSource, bound_action_fingerprint,
-                              mutation_supported)
+                              mutation_supported, issue_authorization)
 from core.tools.registry import ToolRegistry
 
 
@@ -30,8 +30,8 @@ class GovernanceTests(unittest.TestCase):
         calls = []
         reg.register("mutate", "mutation", False, lambda value="": calls.append(value) or "ok")
         self.assertIn("authorization", reg.execute_guarded("mutate", value="x"))
-        fp = "f" * 64
-        auth = ActionAuthorization(fp, "user", "now")
+        fp = bound_action_fingerprint("mutate", {"value": "x"})
+        auth = issue_authorization(fp, "user", "now")
         self.assertEqual(reg.execute_guarded("mutate", authorization=auth, fingerprint=fp, value="x"), "ok")
         self.assertEqual(calls, ["x"])
 
