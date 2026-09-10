@@ -34,3 +34,19 @@ durable/API transport and receive proposal, authorization, and verification even
 the loop.
 
 Product version remains `1.1.4-alpha`; this is an unreleased development checkpoint.
+
+## Entry-point audit
+
+| Entry point | Untrusted/model reachable | Mutation boundary |
+|---|---:|---|
+| `run_agent` ReAct loop | yes | `execute_guarded`, durable approval/state binding |
+| `VaelorBrain.use_tool` | API/internal helper | `execute_guarded`; mutations denied without runtime capability |
+| `ToolRegistry.execute` | internal primitive | not a model-facing dispatch API; callers must use guarded dispatch |
+| shell/file/Git callables | indirect | reached only through registry dispatch |
+| task approvals/resume | user/admin boundary | TaskStore exact fingerprint and state checks |
+
+Runtime capabilities are ephemeral and process-local; durable approval is the restart-safe
+record. File state adapters include type, existence, size, mtime, and bounded content hash.
+Git command bindings include repository identity, HEAD, branch, and status digest when the
+repository can be observed. Other environmental state remains unsupported and must not be
+described as verified.

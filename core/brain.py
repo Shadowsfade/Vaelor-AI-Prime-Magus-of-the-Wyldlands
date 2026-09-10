@@ -538,7 +538,10 @@ class VaelorBrain:
             import core.tools.memory_checker  # noqa
         except Exception:
             pass
-        result = registry.execute(tool_name, **kwargs)
+        # All externally supplied tool names cross the same guarded boundary;
+        # privileged actions require a task-scoped authorization issued by the
+        # autonomous supervisor and cannot be smuggled through this helper.
+        result = registry.execute_guarded(tool_name, **kwargs)
         self.conversations.remember_turn(f"tool: {tool_name} {kwargs}", str(result))
         return str(result)
 

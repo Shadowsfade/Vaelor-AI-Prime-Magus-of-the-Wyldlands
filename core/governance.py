@@ -13,6 +13,7 @@ import os
 from typing import Any, Mapping
 import secrets
 import subprocess
+import threading
 
 
 class EvidenceSource(str, Enum):
@@ -54,21 +55,27 @@ class ActionAuthorization:
 
 
 _ISSUED: set[str] = set()
+_ISSUED_LOCK = threading.Lock()
 
 
 def issue_authorization(fingerprint: str, actor: str, issued_at: str,
                         expires_at: str | None = None) -> ActionAuthorization:
     nonce = secrets.token_urlsafe(24)
-    _ISSUED.add(nonce)
+    with _ISSUED_LOCK:
+        if len(_ISSUED) >= 4096:
+            _ISSUED.clear()
+        _ISSUED.add(nonce)
     return ActionAuthorization(fingerprint, actor, issued_at, expires_at, nonce)
 
 
 def is_runtime_authorization(value: ActionAuthorization | None) -> bool:
-    return isinstance(value, ActionAuthorization) and bool(value._nonce) and value._nonce in _ISSUED
+    with _ISSUED_LOCK:
+        return isinstance(value, ActionAuthorization) and bool(value._nonce) and value._nonce in _ISSUED
 
 
 def consume_runtime_authorization(value: ActionAuthorization) -> None:
-    _ISSUED.discard(value._nonce)
+    with _ISSUED_LOCK:
+        _ISSUED.discard(value._nonce)
 
 
 @dataclass(frozen=True)
@@ -106,7 +113,8 @@ def current_state_binding(tool: str, arguments: Mapping[str, Any]) -> str:
             payload["path"] = full
             if os.path.exists(full):
                 stat = os.stat(full)
-                payload.update(size=stat.st_size, mtime_ns=stat.st_mtime_ns)
+                payload.update(size=stat.st_size, mtime_ns=stat.st_mtime_ns,
+                               type="file" if os.path.isfile(full) else "directory" if os.path.isdir(full) else "other")
                 if os.path.isfile(full) and stat.st_size <= 2_000_000:
                     with open(full, "rb") as handle:
                         payload["sha256"] = hashlib.sha256(handle.read()).hexdigest()
