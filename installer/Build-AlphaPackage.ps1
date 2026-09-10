@@ -30,6 +30,7 @@ $excludeDirNames = @(
   ".venv", "__pycache__", ".pytest_cache", ".git", "node_modules",
   ".staging", "dist", "memory"
 )
+$excludeFileNames = @("conftest.py", "requirements-test.txt")
 # Include a clean memory placeholder; exclude live personal memory dumps from package
 function Should-SkipDir([string]$name) {
   return $excludeDirNames -contains $name
@@ -44,6 +45,7 @@ function Copy-Filtered {
       Copy-Filtered -From $_.FullName -To (Join-Path $To $_.Name)
     } else {
       if ($_.Extension -in @(".pyc", ".pyo")) { return }
+      if ($excludeFileNames -contains $_.Name -or $_.Name -like "test_*.py") { return }
       if ($_.Name -match '^(audit_log|conversations)\.json') { return }
       Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $To $_.Name) -Force
     }
@@ -141,4 +143,3 @@ Write-Host "SHA256: $hash"
 Write-Host "Size: $([math]::Round((Get-Item $zip).Length / 1MB, 2)) MB"
 Write-Host ""
 Write-Host "Give testers the zip + tell them to run INSTALL.bat (needs Python)."
-

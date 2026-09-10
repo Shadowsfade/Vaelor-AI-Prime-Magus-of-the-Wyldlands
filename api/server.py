@@ -4,6 +4,7 @@ import re
 import io
 import json
 import asyncio
+from contextlib import asynccontextmanager
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -23,8 +24,22 @@ from core.tools.registry import registry as tool_registry
 from spellbook.command_parser import parse_command, parse_tool_command
 from spellbook.voice import synthesize_speech, list_wizard_voices, get_voice_settings
 
-app = FastAPI(title="Vaelor API", version=VAELOR_VERSION)
+runtime = VaelorRuntime()
+brain = runtime.brain
+from core.scheduler import SchedulerService, schedule_store
+scheduler_service = SchedulerService(schedule_store, brain)
 
+
+@asynccontextmanager
+async def lifespan(_app):
+    scheduler_service.start()
+    try:
+        yield
+    finally:
+        scheduler_service.stop()
+
+
+app = FastAPI(title="Vaelor API", version=VAELOR_VERSION, lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origin_regex=r"https?://(?:localhost|127\.0\.0\.1)(?::\d+)?",
@@ -33,21 +48,6 @@ app.add_middleware(
 )
 api_access_policy = ApiAccessPolicy()
 app.add_middleware(ApiAccessMiddleware, policy=api_access_policy)
-
-runtime = VaelorRuntime()
-brain = runtime.brain
-from core.scheduler import SchedulerService, schedule_store
-scheduler_service = SchedulerService(schedule_store, brain)
-
-
-@app.on_event("startup")
-def start_scheduler_service():
-    scheduler_service.start()
-
-
-@app.on_event("shutdown")
-def stop_scheduler_service():
-    scheduler_service.stop()
 
 
 class ChatRequest(BaseModel):
@@ -900,6 +900,3 @@ def diagnostics():
 
 
 app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")
-
-
-

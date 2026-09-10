@@ -21,6 +21,14 @@ class CleanPackageTests(unittest.TestCase):
         self.assertIn('Join-Path $cfg "api_access.json"', builder)
         self.assertIn("Remove-Item", builder)
 
+    def test_builder_excludes_test_only_helpers_and_caches(self):
+        builder = (ROOT / "installer" / "Build-AlphaPackage.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+        self.assertIn('"conftest.py", "requirements-test.txt"', builder)
+        self.assertIn('like "test_*.py"', builder)
+        self.assertIn('".pytest_cache"', builder)
+
     def test_inspector_rejects_packaged_remote_api_credentials(self):
         with tempfile.TemporaryDirectory() as temp:
             folder = Path(temp)

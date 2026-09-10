@@ -104,19 +104,24 @@ def smoke_test_extracted(package_root: Path) -> None:
         raise RuntimeError("fresh package did not default to loopback networking")
 
     smoke = """
+import asyncio
 from pathlib import Path
-from fastapi.testclient import TestClient
+import httpx
 import api.server as server
 root = Path.cwd().resolve()
 assert root in Path(server.__file__).resolve().parents
-client = TestClient(server.app)
-health = client.get('/health')
-assert health.status_code == 200 and health.json().get('version')
-assert client.get('/auth/status').json() == {
-    'authentication_required': False, 'authenticated': True
-}
-page = client.get('/')
-assert page.status_code == 200 and 'Vaelor' in page.text
+
+async def smoke():
+    transport = httpx.ASGITransport(app=server.app)
+    async with httpx.AsyncClient(transport=transport, base_url='http://testserver') as client:
+        health = await client.get('/health')
+        assert health.status_code == 200 and health.json().get('version')
+        status = await client.get('/auth/status')
+        assert status.json() == {'authentication_required': False, 'authenticated': True}
+        page = await client.get('/')
+        assert page.status_code == 200 and 'Vaelor' in page.text
+
+asyncio.run(smoke())
 """
     environment = dict(__import__("os").environ)
     environment.pop("PYTHONPATH", None)

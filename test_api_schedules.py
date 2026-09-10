@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from fastapi.testclient import TestClient
+from conftest import SynchronousASGIClient as TestClient
 
 import api.server as server
 from core.scheduler import ScheduleStore

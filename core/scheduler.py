@@ -240,13 +240,21 @@ class SchedulerService:
         if self._worker and self._worker.is_alive():
             return
         self._stop.clear()
-        self._worker = self.thread_factory(target=self._loop, daemon=True)
-        self._worker.start()
+        worker = self.thread_factory(target=self._loop, daemon=True)
+        try:
+            worker.start()
+        except Exception:
+            self._stop.set()
+            self._worker = None
+            raise
+        self._worker = worker
 
     def stop(self):
         self._stop.set()
         if self._worker and self._worker.is_alive():
             self._worker.join(timeout=min(2, self.poll_seconds + 0.1))
+        if self._worker and not self._worker.is_alive():
+            self._worker = None
 
 
 schedule_store = ScheduleStore()

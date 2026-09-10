@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
-from fastapi.testclient import TestClient
+from conftest import SynchronousASGIClient as TestClient
 
 import api.server as server
 
