@@ -101,7 +101,7 @@ class ToolRegistry:
 
     def execute_guarded(self, name, authorization=None, fingerprint=None,
                         requires_authorization=None, target="", scope="", effects="",
-                        state="", task_id="", step_id="", provenance=(), **kwargs):
+                        state="", task_id="", step_id="", provenance=(), invocation=None, **kwargs):
         """Execute through the explicit governance boundary.
 
         Read-only tools remain directly usable; every mutating tool requires a
@@ -110,11 +110,19 @@ class ToolRegistry:
         """
         tool = self.get(name)
         if tool is None:
-            # Preserve the registry's legacy lazy-registration behavior.  The
-            # underlying execute path still returns a bounded unknown-tool
-            # result; no callable is reached when metadata is absent.
-            return self.execute(name, **kwargs)
-        requires = (not tool.read_only) if requires_authorization is None else bool(requires_authorization)
+            return f"Refused: tool metadata is unavailable for '{name}'."
+        actual_args = dict(invocation.arguments) if invocation is not None else dict(kwargs)
+        actual_name = invocation.tool if invocation is not None else name
+        if actual_name != name:
+            return "Refused: invocation tool mismatch."
+        authoritative_mutation = not bool(tool.read_only)
+        if name in ("shell_exec", "terminal_run"):
+            try:
+                from .shell_exec import _is_mutating
+                authoritative_mutation = _is_mutating(str(actual_args.get("command", "")))
+            except Exception:
+                authoritative_mutation = True
+        requires = authoritative_mutation or bool(requires_authorization)
         if requires:
             from core.governance import (bound_action_fingerprint,
                                          consume_runtime_authorization,
@@ -122,15 +130,19 @@ class ToolRegistry:
             expected = fingerprint
             if not is_runtime_authorization(authorization):
                 return "Refused: runtime-owned action authorization is required."
+            if invocation is None:
+                return "Refused: trusted governed invocation is required."
             reconstructed = bound_action_fingerprint(
-                name, kwargs, target=target, scope=scope, effects=effects,
-                state=state, provenance=tuple(provenance),
+                actual_name, actual_args, target=invocation.target, scope=invocation.scope,
+                effects=invocation.effects, state=invocation.state,
+                task_id=invocation.task_id, step_id=invocation.step_id,
+                provenance=tuple(invocation.provenance),
             )
             supplied = getattr(authorization, "fingerprint", None)
             if not expected or expected != reconstructed or supplied != reconstructed:
                 return "Refused: valid action authorization is required."
             consume_runtime_authorization(authorization)
-        return self.execute(name, **kwargs)
+        return self.execute(name, **actual_args)
     def names(self):
         return sorted(self._tools.keys())
 

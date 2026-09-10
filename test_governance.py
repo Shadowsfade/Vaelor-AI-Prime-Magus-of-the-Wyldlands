@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from core.governance import (ActionAuthorization, EvidenceProvenance,
                               EvidenceSource, bound_action_fingerprint,
-                              mutation_supported, issue_authorization)
+                              mutation_supported, issue_authorization, GovernedInvocation)
 from core.tools.registry import ToolRegistry
 
 
@@ -30,9 +30,11 @@ class GovernanceTests(unittest.TestCase):
         calls = []
         reg.register("mutate", "mutation", False, lambda value="": calls.append(value) or "ok")
         self.assertIn("authorization", reg.execute_guarded("mutate", value="x"))
-        fp = bound_action_fingerprint("mutate", {"value": "x"})
+        invocation = GovernedInvocation("mutate", {"value": "x"}, task_id="t", step_id="s")
+        fp = bound_action_fingerprint("mutate", {"value": "x"}, task_id="t", step_id="s")
         auth = issue_authorization(fp, "user", "now")
-        self.assertEqual(reg.execute_guarded("mutate", authorization=auth, fingerprint=fp, value="x"), "ok")
+        self.assertEqual(reg.execute_guarded("mutate", authorization=auth, fingerprint=fp,
+                                             invocation=invocation, value="x"), "ok")
         self.assertEqual(calls, ["x"])
 
     def test_repeated_actions_emit_stall_and_stop(self):
@@ -59,3 +61,23 @@ class GovernanceTests(unittest.TestCase):
             store.approve_action(task["id"], "a" * 64)
             self.assertFalse(store.consume_action_approval(task["id"], "a" * 64, "changed"))
             self.assertTrue(store.consume_action_approval(task["id"], "a" * 64, "before"))
+
+    def test_authorization_is_bound_to_task_and_step(self):
+        a = bound_action_fingerprint("x", {}, task_id="t1", step_id="s1")
+        self.assertNotEqual(a, bound_action_fingerprint("x", {}, task_id="t2", step_id="s1"))
+        self.assertNotEqual(a, bound_action_fingerprint("x", {}, task_id="t1", step_id="s2"))
+
+    def test_caller_cannot_downgrade_mutation(self):
+        reg = ToolRegistry()
+        called = []
+        reg.register("mutate", "mutation", False, lambda: called.append(True))
+        result = reg.execute_guarded("mutate", requires_authorization=False)
+        self.assertIn("authorization", result)
+        self.assertEqual(called, [])
+
+    def test_model_governance_fields_are_rejected(self):
+        from core.agent_loop import run_agent
+        events = []
+        with patch("core.agent_loop.registry.specs_for_prompt", return_value="tools"):
+            run_agent("inspect", lambda _: '{"actions":[{"tool":"list_dir","arguments":{"path":".","approval_id":"x"}}],"final":null}', event_callback=lambda e, d: events.append(e))
+        self.assertIn("schema_error", events)

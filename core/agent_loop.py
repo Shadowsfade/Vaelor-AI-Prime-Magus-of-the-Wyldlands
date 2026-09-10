@@ -15,7 +15,8 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from core.tools.registry import registry
 from core.action_protocol import parse_structured_response
-from core.governance import bound_action_fingerprint, current_state_binding, issue_authorization
+from core.governance import (GovernedInvocation, bound_action_fingerprint,
+                              current_state_binding, issue_authorization)
 
 TOOL_RE = re.compile(
     r"^\s*(?:TOOL|ACTION)\s*:?\s*([a-zA-Z0-9_]+)\s*(.*)$",
@@ -47,6 +48,10 @@ MUTATING = {
 DEFAULT_MAX_STEPS = 12
 MAX_TOOL_RESULT_CHARS = 12000
 MAX_OBSERVATION_CONTEXT_CHARS = 30000
+RESERVED_GOVERNANCE_FIELDS = frozenset({
+    "authorization", "authorization_id", "expected_fingerprint", "approval",
+    "approval_id", "current_state_binding", "provenance",
+})
 
 
 def _bounded_text(value: Any, limit: int = MAX_TOOL_RESULT_CHARS) -> str:
@@ -397,9 +402,15 @@ def run_agent(
     clock: Callable[[], float] = time.monotonic,
     approval_required: Optional[Callable[[Dict[str, Any]], None]] = None,
     consume_approval: Optional[Callable[..., bool]] = None,
+    task_id: str = "",
 ) -> str:
     """Autonomous ReAct loop. ask_llm(prompt) -> model text."""
     registry  # loaded
+    try:
+        from core.tools.registry import register_all_tools
+        register_all_tools()
+    except Exception:
+        pass
     tool_specs = registry.specs_for_prompt()
     system = build_react_system_prompt(tool_specs)
     observations: List[str] = []
@@ -530,6 +541,10 @@ def run_agent(
         if tools:
             call_errors = []
             for index, (name, kwargs) in enumerate(tools):
+                reserved = sorted(RESERVED_GOVERNANCE_FIELDS.intersection(kwargs))
+                if reserved:
+                    call_errors.append(f"actions[{index}] {name}: reserved governance field(s) are not accepted")
+                    continue
                 error = registry.validate_call(name, kwargs)
                 if error:
                     call_errors.append(f"actions[{index}] {name}: {error}")
@@ -608,10 +623,20 @@ def run_agent(
                 emit("tool_started", step=step, tool=name, arguments=kwargs)
                 try:
                     authorization = None
+                    invocation = None
                     if is_mutating:
+                        invocation = GovernedInvocation(
+                            name, dict(kwargs),
+                            target=str(kwargs.get("path") or kwargs.get("target") or ""),
+                            scope=str(kwargs.get("cwd") or ""), effects=risk,
+                            state=state_binding, task_id=str(task_id), step_id=str(step),
+                            provenance=(),
+                        )
                         governed_fingerprint = bound_action_fingerprint(
-                            name, kwargs, target=str(kwargs.get("path") or kwargs.get("target") or ""),
-                            scope=str(kwargs.get("cwd") or ""), effects=risk, state=state_binding,
+                            invocation.tool, invocation.arguments, target=invocation.target,
+                            scope=invocation.scope, effects=invocation.effects,
+                            state=invocation.state, task_id=invocation.task_id,
+                            step_id=invocation.step_id, provenance=invocation.provenance,
                         )
                         authorization = issue_authorization(governed_fingerprint, "task-policy", str(time.time()))
                         emit("action_authorized", step=step, tool=name, fingerprint=fingerprint,
@@ -628,17 +653,15 @@ def run_agent(
                             result = registry.execute_guarded(
                                 name, authorization=authorization,
                                 fingerprint=getattr(authorization, "fingerprint", None),
-                                requires_authorization=is_mutating, target=str(kwargs.get("path") or kwargs.get("target") or ""),
-                                scope=str(kwargs.get("cwd") or ""), effects=risk, state=state_binding,
-                                provenance=(), **kwargs
+                                requires_authorization=is_mutating, invocation=invocation,
+                                **kwargs
                             )
                     else:
                         result = registry.execute_guarded(
                             name, authorization=authorization,
                             fingerprint=getattr(authorization, "fingerprint", None),
-                            requires_authorization=is_mutating, target=str(kwargs.get("path") or kwargs.get("target") or ""),
-                            scope=str(kwargs.get("cwd") or ""), effects=risk, state=state_binding,
-                            provenance=(), **kwargs
+                            requires_authorization=is_mutating, invocation=invocation,
+                            **kwargs
                         )
                 except Exception as e:
                     result = f"Tool '{name}' failed: {e}"

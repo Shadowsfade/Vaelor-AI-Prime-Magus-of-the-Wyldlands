@@ -70,11 +70,26 @@ def consume_runtime_authorization(value: ActionAuthorization) -> None:
     _ISSUED.discard(value._nonce)
 
 
+@dataclass(frozen=True)
+class GovernedInvocation:
+    tool: str
+    arguments: Mapping[str, Any]
+    target: str = ""
+    scope: str = ""
+    effects: str = ""
+    state: str = ""
+    task_id: str = ""
+    step_id: str = ""
+    provenance: tuple[str, ...] = ()
+
+
 def bound_action_fingerprint(tool: str, arguments: Mapping[str, Any], *, target: str = "",
                              scope: str = "", effects: str = "", state: str = "",
+                             task_id: str = "", step_id: str = "",
                              provenance: tuple[str, ...] = ()) -> str:
     payload = {"tool": tool, "arguments": dict(arguments), "target": target,
                "scope": scope, "effects": effects, "state": state,
+               "task_id": task_id, "step_id": step_id,
                "provenance": tuple(provenance)}
     return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":"),
                                      default=str).encode()).hexdigest()
