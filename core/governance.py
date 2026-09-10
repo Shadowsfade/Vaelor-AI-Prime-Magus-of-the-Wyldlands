@@ -10,6 +10,7 @@ from enum import Enum
 import hashlib
 import json
 import os
+from datetime import datetime, timezone
 from typing import Any, Mapping
 import secrets
 import subprocess
@@ -56,13 +57,51 @@ class ActionAuthorization:
 
 _ISSUED: dict[str, ActionAuthorization] = {}
 _ISSUED_LOCK = threading.Lock()
+_MAX_ISSUED = 4096
+
+
+def _parse_utc_timestamp(value: str | None) -> datetime | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("malformed authorization expiry")
+    try:
+        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("malformed authorization expiry") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError("authorization timestamps must include an explicit UTC offset")
+    return parsed.astimezone(timezone.utc)
+
+
+def _authorization_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _prune_expired_locked(now: datetime) -> int:
+    removed = 0
+    for nonce, authorization in list(_ISSUED.items()):
+        expires = _parse_utc_timestamp(authorization.expires_at)
+        if expires is not None and expires <= now:
+            _ISSUED.pop(nonce, None)
+            removed += 1
+    return removed
 
 
 def issue_authorization(fingerprint: str, actor: str, issued_at: str,
                         expires_at: str | None = None) -> ActionAuthorization:
+    try:
+        issued = _parse_utc_timestamp(issued_at)
+    except ValueError:
+        # Legacy callers supplied opaque issuance labels; expiry remains strict.
+        issued = None
+    expires = _parse_utc_timestamp(expires_at)
+    if expires is not None and issued is not None and expires <= issued:
+        raise ValueError("authorization expiry must be after issuance")
     nonce = secrets.token_urlsafe(24)
     with _ISSUED_LOCK:
-        if len(_ISSUED) >= 4096:
+        _prune_expired_locked(_authorization_now())
+        if len(_ISSUED) >= _MAX_ISSUED:
             raise RuntimeError("runtime authorization capacity exhausted")
         value = ActionAuthorization(fingerprint, actor, issued_at, expires_at, nonce)
         _ISSUED[nonce] = value
@@ -71,7 +110,16 @@ def issue_authorization(fingerprint: str, actor: str, issued_at: str,
 
 def is_runtime_authorization(value: ActionAuthorization | None) -> bool:
     with _ISSUED_LOCK:
-        return isinstance(value, ActionAuthorization) and bool(value._nonce) and value._nonce in _ISSUED
+        if not isinstance(value, ActionAuthorization) or not value._nonce:
+            return False
+        stored = _ISSUED.get(value._nonce)
+        if stored is None:
+            return False
+        expires = _parse_utc_timestamp(stored.expires_at)
+        if expires is not None and expires <= _authorization_now():
+            _ISSUED.pop(value._nonce, None)
+            return False
+        return True
 
 
 def consume_runtime_authorization(value: ActionAuthorization) -> None:
@@ -85,8 +133,18 @@ def claim_runtime_authorization(value: ActionAuthorization, fingerprint: str) ->
         stored = _ISSUED.get(getattr(value, "_nonce", ""))
         if stored is None or stored.fingerprint != fingerprint or value.fingerprint != fingerprint:
             return False
+        expires = _parse_utc_timestamp(stored.expires_at)
+        if expires is not None and expires <= _authorization_now():
+            _ISSUED.pop(value._nonce, None)
+            return False
         _ISSUED.pop(value._nonce, None)
         return True
+
+
+def _reset_runtime_authorizations_for_tests() -> None:
+    """Private test reset; never reachable from model/tool input."""
+    with _ISSUED_LOCK:
+        _ISSUED.clear()
 
 
 @dataclass(frozen=True)
