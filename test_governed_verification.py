@@ -26,6 +26,14 @@ class GovernedVerificationTests(unittest.TestCase):
         now = datetime.now(timezone.utc)
         return issue_authorization("fp", "test", now.isoformat(), expires or (now + timedelta(minutes=2)).isoformat())
 
+    def _init_git(self, tmp):
+        subprocess.run(["git", "init", "-q", tmp], check=True)
+        subprocess.run(["git", "-C", tmp, "config", "user.email", "test@example.invalid"], check=True)
+        subprocess.run(["git", "-C", tmp, "config", "user.name", "Test"], check=True)
+        Path(tmp, "a").write_text("a")
+        subprocess.run(["git", "-C", tmp, "add", "a"], check=True)
+        subprocess.run(["git", "-C", tmp, "commit", "-qm", "initial"], check=True)
+
     def test_capability_expires_and_cannot_dispatch(self):
         now = datetime.now(timezone.utc)
         auth = issue_authorization("fp", "test", (now - timedelta(minutes=2)).isoformat(), (now - timedelta(seconds=1)).isoformat())
@@ -102,7 +110,7 @@ class GovernedVerificationTests(unittest.TestCase):
             req = build_requirement("make_dir", {"path": str(link)}, "fp3", "t", "3")
             self.assertEqual(verify_requirement(req, "t", "3", "fp3").status, VerificationStatus.FAILED)
 
-    def test_git_verification_uses_state_not_command_output(self):
+    def test_git_add_requires_intended_staged_path(self):
         with tempfile.TemporaryDirectory() as tmp:
             subprocess.run(["git", "init", "-q", tmp], check=True)
             subprocess.run(["git", "-C", tmp, "config", "user.email", "test@example.invalid"], check=True)
@@ -113,9 +121,12 @@ class GovernedVerificationTests(unittest.TestCase):
             req = build_requirement("git_add", {"repo": tmp, "path": "a.txt"}, "fp", "t", "1")
             Path(tmp, "b.txt").write_text("b")
             record = verify_requirement(req, "t", "1", "fp")
-            self.assertEqual(record.status, VerificationStatus.PASSED)
-            subprocess.run(["git", "-C", tmp, "checkout", "-qb", "other"], check=True)
+            self.assertEqual(record.status, VerificationStatus.FAILED)
+            Path(tmp, "a.txt").write_text("changed")
+            subprocess.run(["git", "-C", tmp, "add", "a.txt"], check=True)
             self.assertEqual(verify_requirement(req, "t", "1", "fp").status, VerificationStatus.PASSED)
+            subprocess.run(["git", "-C", tmp, "checkout", "-qb", "other"], check=True)
+            self.assertEqual(verify_requirement(req, "t", "1", "fp").status, VerificationStatus.FAILED)
 
     def test_unsupported_mutation_is_unavailable(self):
         self.assertIsNone(build_requirement("set_autonomy_mode", {"mode": "admin"}, "fp", "t", "1"))
@@ -134,11 +145,26 @@ class GovernedVerificationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             store = TaskStore(Path(tmp) / "tasks.json")
             task = store.create("write")
+            requirement = build_requirement("write_text_file", {"path": str(Path(tmp) / "x"), "content": "x"}, "f", task["id"], "1")
             action = {"fingerprint": "f", "tool": "write_text_file", "arguments": {},
-                      "verification_requirement": {"requirement_id": "r", "verifier_adapter": "local.file"}}
+                      "verification_requirement": requirement.to_dict()}
             store.request_approval(task["id"], action)
             reopened = TaskStore(Path(tmp) / "tasks.json").get(task["id"])
-            self.assertEqual(reopened["pending_approval"]["verification_requirement"]["requirement_id"], "r")
+            self.assertEqual(reopened["pending_approval"]["verification_requirement"]["requirement_id"], requirement.requirement_id)
+
+    def test_verification_record_survives_task_store_reload(self):
+        from core.task_store import TaskStore
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "tasks.json"
+            store = TaskStore(path)
+            task = store.create("verified mutation")
+            record = {"task_id": task["id"], "step_id": "1", "governed_fingerprint": "f",
+                      "evidence_id": "e", "verifier_identity": "local.file", "status": "passed",
+                      "reason": "bounded", "fresh_observed_evidence": {"path": "/tmp/x"}}
+            store.record_verification(task["id"], record)
+            reopened = TaskStore(path).get(task["id"])
+            events = [event for event in reopened["events"] if event["type"] == "verification_recorded"]
+            self.assertEqual(events[-1]["data"]["governed_fingerprint"], "f")
 
     def test_protected_fields_cannot_be_model_authored(self):
         from core.agent_loop import RESERVED_GOVERNANCE_FIELDS
@@ -174,7 +200,7 @@ class GovernedVerificationTests(unittest.TestCase):
         encoded = json.dumps(req.to_dict())
         self.assertLess(len(encoded), 4000)
 
-    def test_changed_head_invalidates_expected_git_transition(self):
+    def test_git_commit_verifies_expected_parent_and_tree(self):
         with tempfile.TemporaryDirectory() as tmp:
             subprocess.run(["git", "init", "-q", tmp], check=True)
             subprocess.run(["git", "-C", tmp, "config", "user.email", "test@example.invalid"], check=True)
@@ -182,20 +208,63 @@ class GovernedVerificationTests(unittest.TestCase):
             Path(tmp, "a").write_text("a")
             subprocess.run(["git", "-C", tmp, "add", "a"], check=True)
             subprocess.run(["git", "-C", tmp, "commit", "-qm", "one"], check=True)
-            req = build_requirement("git_commit", {"repo": tmp}, "fp", "t", "s")
             Path(tmp, "a").write_text("b")
             subprocess.run(["git", "-C", tmp, "add", "a"], check=True)
+            req = build_requirement("git_commit", {"repo": tmp}, "fp", "t", "s")
             subprocess.run(["git", "-C", tmp, "commit", "-qm", "two"], check=True)
             record = verify_requirement(req, "t", "s", "fp")
             self.assertEqual(record.status, VerificationStatus.PASSED)
+
+    def test_binding_mismatches_fail_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = str(Path(tmp) / "x")
+            req = build_requirement("write_text_file", {"path": path, "content": "x"}, "bound", "task", "step")
+            Path(path).write_text("x")
+            for task, step, fingerprint in (("other", "step", "bound"), ("task", "other", "bound"), ("task", "step", "wrong")):
+                record = verify_requirement(req, task, step, fingerprint)
+                self.assertEqual(record.status, VerificationStatus.FAILED)
+
+    def test_malformed_persisted_requirement_fails_closed(self):
+        from core.verification import VerificationRequirement
+        with self.assertRaises(ValueError):
+            VerificationRequirement.from_dict({"requirement_id": "r", "verifier_adapter": "local.file"})
+
+    def test_git_commit_worktree_only_change_does_not_verify(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self._init_git(tmp)
+            Path(tmp, "a").write_text("b")
+            req = build_requirement("git_commit", {"repo": tmp}, "fp", "t", "s")
+            self.assertEqual(verify_requirement(req, "t", "s", "fp").status, VerificationStatus.FAILED)
+
+    def test_checkout_requires_exact_requested_target(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self._init_git(tmp)
+            subprocess.run(["git", "-C", tmp, "checkout", "-qb", "other"], check=True)
+            req = build_requirement("git_checkout", {"repo": tmp, "branch": "other"}, "fp", "t", "s")
+            subprocess.run(["git", "-C", tmp, "checkout", "-q", "master"], check=True)
+            self.assertEqual(verify_requirement(req, "t", "s", "fp").status, VerificationStatus.FAILED)
+            subprocess.run(["git", "-C", tmp, "checkout", "-q", "other"], check=True)
+            self.assertEqual(verify_requirement(req, "t", "s", "fp").status, VerificationStatus.PASSED)
+
+    def test_push_without_observable_remote_is_unavailable_and_secret_free(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self._init_git(tmp)
+            req = build_requirement("git_push", {"repo": tmp, "remote": "missing", "branch": "master"}, "fp", "t", "s")
+            record = verify_requirement(req, "t", "s", "fp")
+            self.assertIn(record.status, (VerificationStatus.UNAVAILABLE, VerificationStatus.FAILED))
+            self.assertNotIn("password", json.dumps(record.to_dict()).lower())
 
     def test_approval_requirement_is_exactly_bound(self):
         from core.task_store import TaskStore
         with tempfile.TemporaryDirectory() as tmp:
             store = TaskStore(Path(tmp) / "tasks.json")
             task = store.create("edit")
-            action = {"fingerprint": "a", "tool": "write_text_file", "arguments": {"path": "x"}, "verification_requirement": {"requirement_id": "r"}}
+            requirement = build_requirement("write_text_file", {"path": "x", "content": "x"}, "a", task["id"], "1")
+            action = {"fingerprint": "a", "governed_fingerprint": "a", "tool": "write_text_file", "arguments": {"path": "x", "content": "x"},
+                      "task_id": task["id"], "step_id": "1", "target": "x", "scope": "", "effects": "low", "provenance_ids": [],
+                      "verification_requirement": requirement.to_dict()}
             store.request_approval(task["id"], action)
+            store.approve_action(task["id"], "a")
             self.assertFalse(store.consume_action_approval(task["id"], "a", invocation={"tool": "write_text_file", "arguments": {"path": "y"}}))
 
     def test_protected_memory_fixture_is_not_touched_by_verifier(self):
@@ -211,7 +280,7 @@ class GovernedVerificationTests(unittest.TestCase):
 
     def test_unavailable_record_is_explicit_not_passed(self):
         from core.verification import VerificationRequirement
-        req = VerificationRequirement("r", "fp", "unknown", "unknown", {}, {}, "missing.adapter")
+        req = VerificationRequirement("r", "fp", "unknown", "unknown", {"x": "y"}, {}, "missing.adapter", "t", "s", {})
         record = verify_requirement(req, "t", "s", "fp")
         self.assertEqual(record.status, VerificationStatus.UNAVAILABLE)
 
