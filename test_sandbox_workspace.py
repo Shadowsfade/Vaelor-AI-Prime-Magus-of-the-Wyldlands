@@ -26,14 +26,18 @@ class SandboxWorkspaceTests(unittest.TestCase):
         ], cwd=self.repo, check=True)
         self.root_patch = patch("core.sandbox_workspace.SANDBOX_ROOT", self.root / "managed")
         self.resolve_patch = patch("core.sandbox_workspace._resolve_path", side_effect=lambda value, must_exist=False: str(Path(value).resolve()))
+        self.allowed_root_patch = patch(
+            "core.tools.fs_ops._load_autonomy",
+            return_value={"allowed_roots": [str(self.root)], "default_cwd": str(self.repo)},
+        )
         self.mode_patch = patch("core.sandbox_workspace._auto_ok", return_value=True)
-        self.root_patch.start(); self.resolve_patch.start(); self.mode_patch.start()
+        self.root_patch.start(); self.resolve_patch.start(); self.allowed_root_patch.start(); self.mode_patch.start()
 
     def tearDown(self):
         for item in list_validation_sandboxes():
             if item.get("exists"):
                 discard_validation_sandbox(item["id"], confirm="yes")
-        self.mode_patch.stop(); self.resolve_patch.stop(); self.root_patch.stop()
+        self.mode_patch.stop(); self.allowed_root_patch.stop(); self.resolve_patch.stop(); self.root_patch.stop()
         self.temp.cleanup()
 
     def test_creates_isolated_committed_worktree(self):
