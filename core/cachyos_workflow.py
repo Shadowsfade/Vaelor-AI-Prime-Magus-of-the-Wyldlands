@@ -1,168 +1,94 @@
-"""Small deterministic CachyOS application setup workflow."""
+"""Deterministic, governed CachyOS/Arch software setup workflow."""
 from __future__ import annotations
 from pathlib import Path
-import os
-import platform
-import re
-import shutil
-import subprocess
-import urllib.request
-
+import os, platform, re, shutil, subprocess, urllib.request
 from core.approval_policy import ActionContext, ApprovalDecision
 
-SOURCES = {
-    "jq": {
-        "url": "https://github.com/jqlang/jq/releases/download/jq-1.8.1/jq-linux-amd64",
-        "method": "official_binary",
-        "version": "1.8.1",
-    },
-}
+UPSTREAM_SOURCES = {"jq": {"url": "https://github.com/jqlang/jq/releases/download/jq-1.8.1/jq-linux-amd64", "method": "official_binary", "version": "1.8.1"}}
+ALIASES = {"ripgrep": "rg", "fd-find": "fd"}
 
-def is_cachyos_request(request: str) -> bool:
+def is_cachyos_request(request):
     text = str(request or "").lower()
-    return ("cachyos" in text or "arch linux" in text or "linux" in text) and any(
-        word in text for word in ("download", "install", "set up", "setup")
-    )
+    return ("cachyos" in text or "arch linux" in text or "linux" in text) and any(w in text for w in ("download", "install", "set up", "setup"))
 
-def detect_environment() -> dict:
+def detect_environment():
     release = {}
     try:
         for line in Path("/etc/os-release").read_text(encoding="utf-8").splitlines():
             if "=" in line:
-                key, value = line.split("=", 1)
-                release[key] = value.strip().strip('"')
-    except OSError:
-        pass
-    managers = [name for name in ("pacman", "paru", "yay") if shutil.which(name)]
-    return {
-        "os": release.get("PRETTY_NAME") or platform.system(),
-        "distribution": release.get("ID", ""),
-        "architecture": platform.machine(),
-        "shell": os.environ.get("SHELL") or shutil.which("bash") or "",
-        "package_managers": managers,
-        "user": os.environ.get("USER") or os.environ.get("USERNAME") or "",
-        "home": str(Path.home()),
-    }
+                key, value = line.split("=", 1); release[key] = value.strip().strip('"')
+    except OSError: pass
+    managers = [n for n in ("pacman", "paru", "yay") if shutil.which(n)]
+    return {"os": release.get("PRETTY_NAME") or platform.system(), "distribution": release.get("ID", ""), "architecture": platform.machine(), "shell": os.environ.get("SHELL") or shutil.which("bash") or "", "package_managers": managers, "user": os.environ.get("USER") or os.environ.get("USERNAME") or "", "home": str(Path.home())}
 
-def _program(request: str) -> str:
-    match = re.search(r"\b(jq)\b", str(request or "").lower())
-    if not match:
-        raise ValueError("This bring-up currently supports the harmless jq application.")
-    return match.group(1)
+def extract_program(request):
+    match = re.search(r"\b(?:download|install|get|setup|set up)\s+([a-z0-9][a-z0-9+._-]*)\b", str(request or "").lower())
+    if not match: raise ValueError("Could not identify a program name safely.")
+    return ALIASES.get(match.group(1), match.group(1))
+_program = extract_program
 
-def _run(command: list[str]) -> tuple[int, str]:
-    completed = subprocess.run(command, capture_output=True, text=True, timeout=20)
+def _run(command, timeout=20):
+    completed = subprocess.run(command, capture_output=True, text=True, timeout=timeout)
     return completed.returncode, (completed.stdout + completed.stderr).strip()[:4000]
+def _package_query(manager, program): return _run([manager, "-Si", program], 15)
 
-def resolve_source(program: str) -> dict:
-    cached = sorted(path for path in Path("/var/cache/pacman/pkg").glob(f"{program}-*.pkg.tar.*")
-                    if not path.name.endswith(".sig"))
-    if cached:
-        return {"method": "official_pacman_cache", "source": str(cached[-1]), "cache_path": str(cached[-1])}
-    return dict(SOURCES[program])
+def resolve_source(program):
+    executable = shutil.which(program)
+    if executable:
+        rc, info = _run(["pacman", "-Q", program], 10)
+        if rc == 0: return {"method": "already_installed", "source": "local package database", "package": program, "executable": executable, "version": info}
+    if shutil.which("pacman"):
+        rc, info = _package_query("pacman", program)
+        if rc == 0: return {"method": "pacman", "source": "official repository", "package": program, "version": info}
+    for helper in ("paru", "yay"):
+        if shutil.which(helper):
+            rc, info = _package_query(helper, program)
+            if rc == 0: return {"method": "aur", "source": f"AUR via {helper}", "package": program, "helper": helper, "version": info}
+    if program in UPSTREAM_SOURCES: return dict(UPSTREAM_SOURCES[program])
+    raise ValueError(f"No trusted CachyOS source matched {program!r}.")
 
 def _authorize(policy, task, tool, arguments, workspace):
-    if policy is None:
-        return True, ""
-    assessment = policy.evaluate(ActionContext(
-        tool=tool, arguments=dict(arguments), task_id=task["id"],
-        session_id=task.get("session_id") or "", workspace=str(workspace),
-    ))
-    if assessment.decision == ApprovalDecision.AUTO_APPROVE:
-        return True, ""
+    if policy is None: return True, ""
+    assessment = policy.evaluate(ActionContext(tool=tool, arguments=dict(arguments), task_id=task["id"], session_id=task.get("session_id") or "", workspace=str(workspace)))
+    if assessment.decision == ApprovalDecision.AUTO_APPROVE: return True, ""
     return False, f"{assessment.decision.value}: {assessment.reason}"
+def _waiting(store, task_id, recovery, reason, summary):
+    store.set_recovery(task_id, recovery, reason, status="waiting"); return f"FINAL_SUMMARY: {summary} {reason}"
+def _verify(executable):
+    commands = []
+    for flag in ("--version", "-V", "version", "--help", "-h"):
+        rc, output = _run([str(executable), flag]); commands.append({"command": f"{executable} {flag}", "returncode": rc, "output": output})
+        if rc == 0: return {"status": "passed", "executable": str(executable), "command": commands[-1]["command"], "output": output}, commands
+    return {"status": "failed", "executable": str(executable), "commands": commands}, commands
+def _finish_verified(store, task, workflow, executable, owner):
+    verification, commands = _verify(executable); workflow["commands"].extend(commands); workflow["verification"].append(verification); workflow["current_step"] = "completed" if verification["status"] == "passed" else "verification_failed"; store.update_workflow(task["id"], workflow, "workflow_verified")
+    step = store.begin_step(task["id"], owner, "cachyos_workflow", "verification"); store.finish_step(task["id"], owner, step["id"], "succeeded" if verification["status"] == "passed" else "failed", verification["status"], verification_state=verification["status"])
+    if verification["status"] != "passed": store.set_recovery(task["id"], "TERMINAL_FAILURE", "Executable verification failed.", status="failed"); return "FINAL_SUMMARY: FAILED Executable verification failed."
+    work = Path(workflow["work_dir"]); summary = f"FINAL_SUMMARY: SUCCESS Set up and verified {workflow['program']} on CachyOS.\nMethod: {workflow['method']}. Launch: {executable} --help\nFiles: {', '.join(a['destination'] for a in workflow['artifacts']) or 'none'}\nUpdate: use the same package/source method. Remove: remove {work}."
+    store.update(task["id"], status="completed", result=summary); store.add_event(task["id"], "task_succeeded", {"workflow": workflow["name"], "verification": verification}); return summary
 
-def run_cachyos_workflow(task: dict, store, policy=None, owner: str = "") -> str:
-    task_id = task["id"]
-    environment = detect_environment()
-    workflow = {
-        "name": "cachyos_application_setup",
-        "program": None,
-        "method": None,
-        "source": None,
-        "current_step": "environment_detected",
-        "environment": environment,
-        "work_dir": str(Path.home() / ".local" / "share" / "vaelor" / "tasks" / task_id),
-        "artifacts": [],
-        "commands": [],
-        "verification": [],
-    }
-    store.update_workflow(task_id, workflow, "environment_detected")
-    if environment["distribution"].lower() not in {"cachyos", "arch", "manjaro"}:
-        store.set_recovery(task_id, "BLOCKED", "CachyOS/Arch environment was not detected.", status="waiting")
-        return "FINAL_SUMMARY: WAITING_USER CachyOS workflow requires a CachyOS or Arch Linux host."
-    program = _program(task["request"])
-    source = resolve_source(program)
-    work = Path(workflow["work_dir"]) / program
-    work.mkdir(parents=True, exist_ok=True)
-    target = work / program
-    workflow.update({"program": program, "method": source["method"],
-                     "source": source.get("url") or source.get("source"),
-                     "current_step": "downloading"})
-    if source.get("url"):
-        allowed, reason = _authorize(policy, task, "fetch_url", {"url": source["url"], "mutates": False}, work)
-        if not allowed:
-            store.set_recovery(task_id, "WAIT_FOR_APPROVAL", reason, status="waiting")
-            return f"FINAL_SUMMARY: WAITING_APPROVAL {reason}"
-    allowed, reason = _authorize(policy, task, "write_text_file", {"path": str(target)}, work)
-    if not allowed:
-        store.set_recovery(task_id, "WAIT_FOR_APPROVAL", reason, status="waiting")
-        return f"FINAL_SUMMARY: WAITING_APPROVAL {reason}"
-    store.update_workflow(task_id, workflow, "workflow_source_selected")
-    step = store.begin_step(task_id, owner, "cachyos_workflow", "download")
+def run_cachyos_workflow(task, store, policy=None, owner=""):
+    task_id = task["id"]; environment = detect_environment(); workflow = {"name": "cachyos_application_setup", "program": None, "method": None, "source": None, "current_step": "environment_detected", "environment": environment, "work_dir": str(Path.home()/".local"/"share"/"vaelor"/"tasks"/task_id), "artifacts": [], "commands": [], "verification": []}; store.update_workflow(task_id, workflow, "environment_detected")
+    if environment["distribution"].lower() not in {"cachyos", "arch", "manjaro"}: return _waiting(store, task_id, "BLOCKED", "CachyOS/Arch environment was not detected.", "WAITING_USER")
+    try: program, source = extract_program(task["request"]), resolve_source(extract_program(task["request"]))
+    except ValueError as exc: return _waiting(store, task_id, "BLOCKED", str(exc), "BLOCKED")
+    work = Path(workflow["work_dir"])/program; work.mkdir(parents=True, exist_ok=True); reason = {"already_installed":"Executable and package are already present; installation skipped.","pacman":"Selected pacman because the package exists in the official repository.","aur":"Selected the existing AUR helper because no official repository package matched.","official_binary":"Selected the allowlisted official upstream artifact because no package source matched."}.get(source["method"],"Trusted source selected."); workflow.update({"program": program, "package": source.get("package", program), "method": source["method"], "source": source.get("url") or source.get("source"), "source_reason": reason, "current_step": "source_selected", "plan": {"program": program, "method": source["method"], "source": source.get("url") or source.get("source"), "commands": [], "verify": ["executable_exists", "--version", "-V", "version", "--help", "-h"], "expected_changes": "install package" if source["method"] in {"pacman","aur"} else "none or managed artifact"}})
+    if source["method"] == "already_installed": workflow["current_step"] = "verifying"; store.update_workflow(task_id, workflow, "workflow_source_selected"); return _finish_verified(store, task, workflow, Path(source["executable"]), owner)
+    if source["method"] in {"pacman", "aur"}:
+        manager = source.get("helper", "pacman"); command = f"sudo -n {manager} -S --needed --noconfirm {program}"; workflow["plan"]["commands"] = [command]; store.update_workflow(task_id, workflow, "workflow_source_selected"); allowed, reason = _authorize(policy, task, "shell_exec", {"command": command, "mutates": True}, work)
+        if not allowed: return _waiting(store, task_id, "WAIT_FOR_APPROVAL", reason, "WAITING_APPROVAL")
+        rc, output = _run(["sudo", "-n", "-v"], 5)
+        if rc != 0: return _waiting(store, task_id, "WAIT_FOR_APPROVAL", "Installation requires sudo authentication. Authenticate, then tell Vaelor to continue.", "WAITING_USER")
+        store.update_workflow(task_id, workflow, "workflow_source_selected"); step = store.begin_step(task_id, owner, "cachyos_workflow", "install"); rc, output = _run(["sudo", "-n", manager, "-S", "--needed", "--noconfirm", program], 120); workflow["commands"].append({"command": command, "returncode": rc, "output": output}); store.update_workflow(task_id, workflow, "install_finished"); store.finish_step(task_id, owner, step["id"], "succeeded" if rc == 0 else "failed", output, "TRANSIENT" if rc else None, retry_eligible=rc != 0)
+        if rc != 0: store.set_recovery(task_id, "RETRY_SAFE", f"Install failed: {output}", status="retrying"); return "FINAL_SUMMARY: RETRY_SCHEDULED Install failed."
+        return _finish_verified(store, task, workflow, Path(shutil.which(program) or "/usr/bin/"+program), owner)
+    target = work/program; workflow["plan"]["commands"] = [f"download {source.get('url', '')} to {target}"]; store.update_workflow(task_id, workflow, "workflow_source_selected"); allowed, reason = _authorize(policy, task, "write_text_file", {"path": str(target), "mutates": True}, work)
+    if not allowed: return _waiting(store, task_id, "WAIT_FOR_APPROVAL", reason, "WAITING_APPROVAL")
+    store.update_workflow(task_id, workflow, "workflow_source_selected"); step = store.begin_step(task_id, owner, "cachyos_workflow", "download")
     try:
-        if source.get("cache_path"):
-            extracted = subprocess.run(["bsdtar", "-xOf", source["cache_path"], "usr/bin/jq"],
-                                       capture_output=True, timeout=20)
-            if extracted.returncode != 0 or not extracted.stdout:
-                raise RuntimeError("Cached official pacman package did not contain usr/bin/jq.")
-            target.write_bytes(extracted.stdout)
-        else:
-            urllib.request.urlretrieve(source["url"], target)
-        size = target.stat().st_size
+        urllib.request.urlretrieve(source["url"], target); size = target.stat().st_size
         if size <= 0: raise RuntimeError("Downloaded file is empty.")
-        artifact = {"source_url": source.get("url") or source.get("source"),
-                    "destination": str(target), "filename": target.name,
-                    "size": size, "temporary": False, "method": source["method"]}
-        workflow["artifacts"].append(artifact)
-        workflow["current_step"] = "verifying"
-        store.update_workflow(task_id, workflow, "artifact_downloaded")
-        store.finish_step(task_id, owner, step["id"], "succeeded", "Downloaded official jq binary.",
-                          verification_state="not_required")
+        target.chmod(target.stat().st_mode | 0o111); workflow["artifacts"].append({"source_url": source["url"], "destination": str(target), "filename": target.name, "size": size, "temporary": False, "method": source["method"]}); store.update_workflow(task_id, workflow, "artifact_downloaded"); store.finish_step(task_id, owner, step["id"], "succeeded", "Downloaded official artifact", verification_state="not_required")
     except Exception as exc:
-        store.finish_step(task_id, owner, step["id"], "failed", str(exc), "TRANSIENT", retry_eligible=True, error=str(exc))
-        store.record_runner_failure(task_id, owner, str(exc), 5, 60)
-        return f"FINAL_SUMMARY: FAILED Download failed: {exc}"
-    target.chmod(target.stat().st_mode | 0o111)
-    allowed, reason = _authorize(policy, task, "shell_exec", {"command": f"{target} --version", "cwd": str(work)}, work)
-    if not allowed:
-        store.set_recovery(task_id, "WAIT_FOR_APPROVAL", reason, status="waiting")
-        return f"FINAL_SUMMARY: WAITING_APPROVAL {reason}"
-    version_rc, version_out = _run([str(target), "--version"])
-    help_rc, help_out = _run([str(target), "--help"])
-    workflow["commands"] = [
-        {"command": f"{target} --version", "returncode": version_rc, "output": version_out},
-        {"command": f"{target} --help", "returncode": help_rc, "output": help_out},
-    ]
-    verification = {"status": "passed" if version_rc == 0 and help_rc == 0 else "failed",
-                    "program": program, "version_output": version_out, "help_output": help_out,
-                    "executable": str(target)}
-    workflow["verification"].append(verification)
-    workflow["current_step"] = "completed" if verification["status"] == "passed" else "verification_failed"
-    store.update_workflow(task_id, workflow, "workflow_verified")
-    step2 = store.begin_step(task_id, owner, "cachyos_workflow", "verification")
-    store.finish_step(task_id, owner, step2["id"], "succeeded" if verification["status"] == "passed" else "failed",
-                     verification["status"], verification_state=verification["status"])
-    if verification["status"] != "passed":
-        store.set_recovery(task_id, "TERMINAL_FAILURE", "Executable verification failed.", status="failed")
-        return "FINAL_SUMMARY: FAILED Executable verification failed."
-    summary = (
-        f"FINAL_SUMMARY: SUCCESS Installed and verified {program} on CachyOS.\n"
-        f"Files: {target}\n"
-        f"Launch: {target} --help\n"
-        "Usage: jq filters JSON, for example: echo '{\"name\":\"Vaelor\"}' | jq .name\n"
-        f"Update: rerun this task for the latest official binary. Remove: delete {work}."
-    )
-    store.update(task_id, status="completed", result=summary)
-    store.add_event(task_id, "task_succeeded", {"workflow": workflow["name"], "verification": verification})
-    return summary
+        store.finish_step(task_id, owner, step["id"], "failed", str(exc), "TRANSIENT", retry_eligible=True, error=str(exc)); store.record_runner_failure(task_id, owner, str(exc), 5, 60); return f"FINAL_SUMMARY: FAILED Download failed: {exc}"
+    return _finish_verified(store, task, workflow, target, owner)

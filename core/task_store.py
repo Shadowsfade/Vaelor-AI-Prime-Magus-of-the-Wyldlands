@@ -383,6 +383,28 @@ class TaskStore:
                 return deepcopy(task)
         raise KeyError(f"Unknown task: {task_id}")
 
+    def resume_waiting(self, task_id: str, reason: str = "User confirmed continuation.") -> dict:
+        """Return a waiting task to the durable queue without changing its identity or workflow."""
+        with self._lock:
+            tasks = self._read()
+            for task in tasks:
+                if task.get("id") != task_id:
+                    continue
+                if task.get("status") != "waiting":
+                    raise ValueError("Only waiting tasks can be resumed.")
+                _validate_transition("waiting", "pending")
+                stamp = _now()
+                task["status"] = "pending"
+                task["waiting_reason"] = None
+                task["result"] = None
+                task["recovery"] = {"decision": "RESUME_SAFE", "reason": str(reason)[:8000], "updated_at": stamp}
+                task["updated_at"] = stamp
+                task.setdefault("events", []).append({"timestamp": stamp, "type": "task_resumed", "data": {"reason": str(reason)[:8000]}})
+                task["events"] = task["events"][-250:]
+                self._write(tasks)
+                return deepcopy(task)
+        raise KeyError(f"Unknown task: {task_id}")
+
     def claim(self, task_id: str, owner: str, lease_seconds: int = LEASE_SECONDS,
               now: Optional[datetime] = None) -> Optional[dict]:
         """Atomically claim a task for one supervisor lease."""
