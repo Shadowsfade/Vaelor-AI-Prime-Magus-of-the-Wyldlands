@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 import os
 from pathlib import Path
@@ -12,6 +12,14 @@ from typing import Any, Dict, List, Optional
 
 
 TERMINAL_STATES = {"completed", "failed", "cancelled"}
+LEASE_SECONDS = 60
+MAX_STEPS = 100
+STEP_STATES = {"pending", "running", "succeeded", "failed", "interrupted", "verifying", "blocked"}
+FAILURE_CATEGORIES = {"TRANSIENT", "RECOVERABLE", "REQUIRES_ACTION", "TERMINAL"}
+RECOVERY_DECISIONS = {
+    "RESUME_SAFE", "RETRY_SAFE", "VERIFY_BEFORE_RETRY",
+    "WAIT_FOR_APPROVAL", "BLOCKED", "TERMINAL_FAILURE",
+}
 VALID_STATES = {"pending", "running", "waiting", "interrupted", "completed", "failed", "cancelled"}
 STATE_TRANSITIONS = {
     "pending": {"pending", "running", "waiting", "cancelled"},
@@ -77,6 +85,10 @@ class TaskStore:
                 "result": None,
                 "pending_approval": None,
                 "authorized_action": None,
+                "lease": None,
+                "steps": [],
+                "recovery": None,
+                "retry": None,
             }
             tasks.append(task)
             self._write(tasks[-500:])
@@ -346,24 +358,259 @@ class TaskStore:
                 return deepcopy(task)
         raise KeyError(f"Unknown task: {task_id}")
 
+    def claim(self, task_id: str, owner: str, lease_seconds: int = LEASE_SECONDS,
+              now: Optional[datetime] = None) -> Optional[dict]:
+        """Atomically claim a task for one supervisor lease."""
+        if not owner:
+            raise ValueError("A supervisor owner is required.")
+        current = now or datetime.now(timezone.utc)
+        with self._lock:
+            tasks = self._read()
+            for task in tasks:
+                if task.get("id") != task_id:
+                    continue
+                status = str(task.get("status", "pending"))
+                if status in TERMINAL_STATES or status == "waiting":
+                    return None
+                recovery = task.get("recovery") or {}
+                if recovery.get("decision") in {"VERIFY_BEFORE_RETRY", "WAIT_FOR_APPROVAL",
+                                                "BLOCKED", "TERMINAL_FAILURE"}:
+                    return None
+                lease = task.get("lease") or {}
+                expiry = self._parse_time(lease.get("lease_expires_at"))
+                if lease.get("owner") and expiry and expiry > current and lease.get("owner") != owner:
+                    return None
+                reclaimed = bool(lease.get("owner") and lease.get("owner") != owner)
+                stamp = current.isoformat()
+                expiry_stamp = (current + timedelta(seconds=max(1, int(lease_seconds)))).isoformat()
+                task["lease"] = {
+                    "task_id": task_id,
+                    "owner": str(owner)[:200],
+                    "claimed_at": lease.get("claimed_at") if lease.get("owner") == owner else stamp,
+                    "lease_expires_at": expiry_stamp,
+                    "last_heartbeat": stamp,
+                    "attempt": int(task.get("attempts", 0)) + 1,
+                }
+                if status != "running":
+                    _validate_transition(status, "running")
+                    task["status"] = "running"
+                    task["attempts"] = int(task.get("attempts", 0)) + 1
+                task["updated_at"] = stamp
+                event_type = "lease_reclaimed" if reclaimed else "lease_claimed"
+                task.setdefault("events", []).append({
+                    "timestamp": stamp, "type": event_type,
+                    "data": {"owner": str(owner)[:200], "lease_expires_at": expiry_stamp},
+                })
+                task["events"] = task["events"][-250:]
+                self._write(tasks)
+                return deepcopy(task)
+            raise KeyError(f"Unknown task: {task_id}")
+
+    def heartbeat(self, task_id: str, owner: str, lease_seconds: int = LEASE_SECONDS,
+                  now: Optional[datetime] = None) -> bool:
+        current = now or datetime.now(timezone.utc)
+        with self._lock:
+            tasks = self._read()
+            for task in tasks:
+                if task.get("id") != task_id:
+                    continue
+                lease = task.get("lease") or {}
+                expiry = self._parse_time(lease.get("lease_expires_at"))
+                if lease.get("owner") != owner or (expiry and expiry <= current):
+                    return False
+                stamp = current.isoformat()
+                lease["last_heartbeat"] = stamp
+                lease["lease_expires_at"] = (current + timedelta(seconds=max(1, int(lease_seconds)))).isoformat()
+                task["lease"] = lease
+                task["updated_at"] = stamp
+                self._write(tasks)
+                return True
+            raise KeyError(f"Unknown task: {task_id}")
+
+    def release(self, task_id: str, owner: str, reason: str = "Supervisor finished.") -> bool:
+        with self._lock:
+            tasks = self._read()
+            for task in tasks:
+                if task.get("id") != task_id:
+                    continue
+                lease = task.get("lease") or {}
+                if lease.get("owner") != owner:
+                    return False
+                task["lease"] = None
+                stamp = _now()
+                task["updated_at"] = stamp
+                self._write(tasks)
+                return True
+            raise KeyError(f"Unknown task: {task_id}")
+
+    def begin_step(self, task_id: str, owner: str, executor: str, action_category: str,
+                   step_id: Optional[str] = None, retry_limit: int = 2) -> dict:
+        """Persist a bounded operational step before its action begins."""
+        with self._lock:
+            tasks = self._read()
+            for task in tasks:
+                if task.get("id") != task_id:
+                    continue
+                lease = task.get("lease") or {}
+                expiry = self._parse_time(lease.get("lease_expires_at"))
+                if lease.get("owner") != owner or (expiry and expiry <= datetime.now(timezone.utc)):
+                    raise ValueError("Task is not owned by a valid supervisor lease.")
+                step_id = step_id or str(uuid.uuid4())[:12]
+                if any(step.get("id") == step_id for step in task.get("steps", [])):
+                    raise ValueError(f"Step already exists: {step_id}")
+                steps = task.setdefault("steps", [])
+                step = {
+                    "id": step_id, "task_id": task_id, "sequence": len(steps) + 1,
+                    "executor": str(executor)[:200], "action_category": str(action_category)[:200],
+                    "state": "running", "started_at": _now(), "completed_at": None,
+                    "attempt": len([x for x in steps if x.get("action_category") == action_category]) + 1,
+                    "retry_limit": max(0, int(retry_limit)), "result_summary": None,
+                    "error_category": None, "verification_state": "not_started",
+                    "retry_eligible": False, "error": None,
+                }
+                steps.append(step)
+                task["steps"] = steps[-MAX_STEPS:]
+                task["updated_at"] = step["started_at"]
+                self._write(tasks)
+                return deepcopy(step)
+            raise KeyError(f"Unknown task: {task_id}")
+
+    def finish_step(self, task_id: str, owner: str, step_id: str, state: str,
+                    result_summary: Optional[str] = None, error_category: Optional[str] = None,
+                    verification_state: str = "not_required", retry_eligible: bool = False,
+                    error: Optional[str] = None) -> dict:
+        if state not in STEP_STATES:
+            raise ValueError(f"Invalid step state: {state}")
+        if error_category is not None and error_category not in FAILURE_CATEGORIES:
+            raise ValueError(f"Invalid failure category: {error_category}")
+        with self._lock:
+            tasks = self._read()
+            for task in tasks:
+                if task.get("id") != task_id:
+                    continue
+                lease = task.get("lease") or {}
+                if lease.get("owner") != owner:
+                    raise ValueError("Step update requires the active supervisor lease.")
+                for step in task.get("steps", []):
+                    if step.get("id") != step_id:
+                        continue
+                    step.update({
+                        "state": state, "completed_at": _now() if state in {"succeeded", "failed", "blocked"} else None,
+                        "result_summary": str(result_summary)[:4000] if result_summary is not None else None,
+                        "error_category": error_category, "verification_state": str(verification_state)[:100],
+                        "retry_eligible": bool(retry_eligible), "error": str(error)[:8000] if error else None,
+                    })
+                    task["updated_at"] = _now()
+                    self._write(tasks)
+                    return deepcopy(step)
+                raise KeyError(f"Unknown step: {step_id}")
+            raise KeyError(f"Unknown task: {task_id}")
+
+    @staticmethod
+    def classify_failure(raw_error: Any, category: Optional[str] = None, attempt: int = 1,
+                         retry_limit: int = 2, mutation: bool = False,
+                         verification_state: str = "not_required") -> dict:
+        text = str(raw_error or "")
+        upper = text.upper()
+        if category is None:
+            if any(word in upper for word in ("APPROVAL", "CREDENTIAL", "AMBIGUOUS", "GOVERNANCE")):
+                category = "REQUIRES_ACTION"
+            elif any(word in upper for word in ("TIMEOUT", "CONNECTION", "NETWORK", "LOCKED", "UNAVAILABLE")):
+                category = "TRANSIENT"
+            elif any(word in upper for word in ("WORKER DIED", "SESSION DISAPPEARED", "STALE LEASE", "PROCESS DISAPPEARED")):
+                category = "RECOVERABLE"
+            else:
+                category = "TERMINAL"
+        if category not in FAILURE_CATEGORIES:
+            raise ValueError(f"Invalid failure category: {category}")
+        safe_retry = category in {"TRANSIENT", "RECOVERABLE"} and int(attempt) < max(0, int(retry_limit))
+        if mutation and verification_state not in {"passed", "verified"}:
+            safe_retry = False
+        return {
+            "category": category, "retryable": safe_retry, "attempt": int(attempt),
+            "retry_limit": max(0, int(retry_limit)),
+            "next_retry_at": (_now() if safe_retry else None),
+            "summary": text[:1000] or category.replace("_", " ").title(),
+            "raw_error": text[:8000],
+        }
+
+    def record_failure(self, task_id: str, owner: str, step_id: str, raw_error: Any,
+                       category: Optional[str] = None, mutation: bool = False,
+                       verification_state: str = "not_required") -> dict:
+        task = self.get(task_id)
+        if task is None:
+            raise KeyError(f"Unknown task: {task_id}")
+        step = next((x for x in task.get("steps", []) if x.get("id") == step_id), None)
+        if step is None:
+            raise KeyError(f"Unknown step: {step_id}")
+        failure = self.classify_failure(raw_error, category, step.get("attempt", 1),
+                                         step.get("retry_limit", 2), mutation, verification_state)
+        self.finish_step(task_id, owner, step_id, "failed", failure["summary"], failure["category"],
+                         verification_state, failure["retryable"], failure["raw_error"])
+        with self._lock:
+            tasks = self._read()
+            for item in tasks:
+                if item.get("id") != task_id:
+                    continue
+                item["retry"] = failure
+                if mutation and verification_state not in {"passed", "verified"}:
+                    decision, reason = "VERIFY_BEFORE_RETRY", "Mutation completion is uncertain."
+                    target = "interrupted"
+                elif failure["category"] == "REQUIRES_ACTION":
+                    decision, reason, target = "WAIT_FOR_APPROVAL", failure["summary"], "waiting"
+                    item["waiting_reason"] = "action_required"
+                elif failure["retryable"]:
+                    decision, reason, target = "RETRY_SAFE", failure["summary"], "interrupted"
+                else:
+                    decision, reason, target = "TERMINAL_FAILURE", failure["summary"], "failed"
+                _validate_transition(str(item.get("status", "pending")), target)
+                item["status"] = target
+                item["recovery"] = {"decision": decision, "reason": reason, "at": _now()}
+                item["updated_at"] = _now()
+                self._write(tasks)
+                return deepcopy(failure)
+        raise KeyError(f"Unknown task: {task_id}")
+
     def recover_interrupted(self) -> int:
         with self._lock:
             tasks = self._read()
             changed = 0
             for task in tasks:
-                if task.get("status") == "running":
-                    _validate_transition("running", "interrupted")
-                    task["status"] = "interrupted"
-                    task["updated_at"] = _now()
-                    task.setdefault("events", []).append({
-                        "timestamp": task["updated_at"],
-                        "type": "interrupted",
-                        "data": {"reason": "Vaelor restarted before task completion."},
-                    })
-                    changed += 1
+                if task.get("status") != "running":
+                    continue
+                _validate_transition("running", "interrupted")
+                task["status"] = "interrupted"
+                last_step = (task.get("steps") or [])[-1:]
+                uncertain = bool(last_step and last_step[0].get("state") in {"running", "verifying"}
+                                 and last_step[0].get("action_category") in {"mutation", "write", "delete"})
+                decision = "VERIFY_BEFORE_RETRY" if uncertain else "RESUME_SAFE"
+                stamp = _now()
+                task["lease"] = None
+                task["recovery"] = {
+                    "decision": decision,
+                    "reason": "Vaelor restarted before task completion.",
+                    "at": stamp,
+                }
+                task["updated_at"] = stamp
+                task.setdefault("events", []).append({
+                    "timestamp": stamp, "type": "interrupted",
+                    "data": {"reason": "Vaelor restarted before task completion.", "recovery": decision},
+                })
+                task["events"] = task["events"][-250:]
+                changed += 1
             if changed:
                 self._write(tasks)
             return changed
+
+    @staticmethod
+    def _parse_time(value: Any) -> Optional[datetime]:
+        if not value:
+            return None
+        try:
+            parsed = datetime.fromisoformat(str(value))
+            return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+        except (TypeError, ValueError):
+            return None
 
     @staticmethod
     def _bounded(data: Dict[str, Any]) -> Dict[str, Any]:

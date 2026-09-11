@@ -1,4 +1,6 @@
 from spellbook.spell_router import cast_spell, cast_spell_stream
+import os
+import threading
 
 from .memory_manager import VaelorMemoryManager
 from .conversation_memory import VaelorConversationMemory
@@ -307,8 +309,10 @@ class VaelorBrain:
         task_id = task["id"]
         workspace = task.get("workspace") or workspace
         max_runtime_seconds = task.get("max_runtime_seconds") or max_runtime_seconds
-        self.tasks.update(task_id, status="running")
-        self.tasks.add_event(task_id, "started", {"goal": task_contract.goal})
+        owner = f"brain-{os.getpid()}-{threading.get_ident()}"
+        if not self.tasks.claim(task_id, owner):
+            raise RuntimeError(f"Task {task_id} is already leased, awaiting approval, or requires recovery verification.")
+        self.tasks.add_event(task_id, "started", {"goal": task_contract.goal, "owner": owner})
 
         react = self.build_system_prompt()
         ctx = (
@@ -330,7 +334,7 @@ class VaelorBrain:
         agent_goal = task_contract.as_agent_goal(goal)
         try:
             from core.task_heartbeat import TaskHeartbeat
-            with TaskHeartbeat(self.tasks, task_id):
+            with TaskHeartbeat(self.tasks, task_id, owner=owner):
                 def record_agent_event(event, data):
                     if event == "verification_recorded" and isinstance(data, dict):
                         record = data.get("record")
@@ -358,6 +362,7 @@ class VaelorBrain:
             self.tasks.add_event(task_id, "crashed", {"error": str(exc)})
             if not self.tasks.is_cancelled(task_id):
                 self.tasks.update(task_id, status="failed", result=f"Agent error: {exc}")
+            self.tasks.release(task_id, owner, "Task crashed.")
             raise
         if result.upper().startswith("FINAL_SUMMARY: WAITING_APPROVAL"):
             status = "waiting"
@@ -366,6 +371,7 @@ class VaelorBrain:
         else:
             status = "completed" if result.upper().startswith("FINAL_SUMMARY: SUCCESS") else "failed"
         self.tasks.update(task_id, status=status, result=result)
+        self.tasks.release(task_id, owner, "Task reached terminal or waiting state.")
         self.conversations.remember_turn(f"[agent] {goal}", result, session_id=session_id)
         return result
 

@@ -17,7 +17,7 @@ Product version remains 1.1.4-alpha.
 
 ## Reliability gaps found
 
-The task store was durable, but status changes were not a single validated state machine. update() accepted any known status transition, while approval, clarification, cancellation, and restart recovery each changed status directly. That allowed impossible histories to be persisted and made safe resume policy implicit. The API also uses FastAPI background tasks, so a worker restart can leave an active task interrupted without a supervisor recovery decision.
+The task store previously had durable task records but no exclusive supervisor ownership, no durable step identity, and no explicit distinction between safe retry and uncertain mutation. Those gaps could allow duplicate workers or unsafe restart behavior. The current slice closes those gaps for the existing Brain path without creating a second orchestrator.
 
 ## Canonical lifecycle
 
@@ -33,19 +33,29 @@ The existing names are retained for compatibility:
 
 core.task_store.STATE_TRANSITIONS is now authoritative for all durable status changes. Invalid transitions fail closed with ValueError. Re-entry into the same state remains idempotent where existing callers need it. Approval, clarification, cancellation, and restart recovery use the same transition validation as ordinary task updates.
 
-## Recovery and completion semantics
+## Supervisor lease and step semantics
 
-On startup, running tasks become interrupted; the system does not blindly rerun the last action. Resume is an explicit operation and reuses the durable task contract. Existing agent completion still requires a structured final result and, for mutations, Phase 4 independent verification. Waiting approval remains an exact fingerprint/state-binding boundary.
+Each claimed task persists a lease containing task id, owner identity, claim time, last heartbeat, expiry, and execution attempt. A valid lease blocks another owner. Expired leases can be reclaimed; waiting-for-approval and terminal tasks cannot be claimed. Brain execution claims before starting and releases the lease on completion or crash. TaskHeartbeat renews the same lease when an owner is supplied.
+
+Each bounded step is persisted before execution with id, sequence, executor, action category, state, timestamps, attempt, retry limit, result summary, verification state, error category, and retry eligibility. Only operational facts are recorded; private model reasoning is excluded.
+
+## Retry and recovery semantics
+
+Failures are classified as TRANSIENT, RECOVERABLE, REQUIRES_ACTION, or TERMINAL. Retryability is derived from category, attempt budget, and mutation safety. Retry metadata records attempts, limit, summary, raw operational error, and next eligible time. Approval/governance failures wait for action and are never automatically retried. Deterministic or exhausted failures become terminal.
+
+On startup, running tasks become interrupted and persist one of RESUME_SAFE or VERIFY_BEFORE_RETRY based on the last step. An uncertain mutating or verifying step requires independent verification before another execution claim. Recovery decisions deny claims for VERIFY_BEFORE_RETRY, WAIT_FOR_APPROVAL, BLOCKED, and TERMINAL_FAILURE. Lease recovery never bypasses Phase 4 capability, approval, provenance, or verification checks.
+
+Existing agent completion still requires a structured final result and, for mutations, Phase 4 independent verification.
 
 ## Chosen first slice
 
-This slice formalizes the durable lifecycle before adding new workers or executors. It prevents invalid state histories and establishes a safe seam for the next slice: an explicit supervisor/runner that claims pending or recoverable tasks, performs preflight, invokes one bounded worker action, classifies the result, and records retry metadata before resuming work.
+This slice extends core/task_store.py and the existing core/task_heartbeat.py/core/brain.py path. It provides durable ownership, bounded step records, structured failure classification, bounded retry decisions, and startup recovery decisions while preserving the established governance and verification boundaries.
 
 ## Remaining migration work
 
-1. Add a durable supervisor claim/lease so API background tasks do not own orchestration implicitly.
-2. Add structured step records and retry classification with bounded backoff.
-3. Add startup recovery decisions that verify before retrying mutating steps.
-4. Route CLI, voice, and remote clients through the task API.
-5. Add executor health/preflight and structured error records.
+1. Add an explicit supervisor queue/runner that consumes the persisted lease and step records for API background work.
+2. Connect independent verification adapters to VERIFY_BEFORE_RETRY decisions.
+3. Route CLI, voice, and remote clients through the same durable task API.
+4. Add executor health/preflight and richer structured event streaming.
+5. Add cancellation/pause semantics at step boundaries and idempotency evidence for mutating executors.
 6. Expand the canonical event vocabulary while preserving the existing bounded event stream and Phase 4 provenance/verification records.

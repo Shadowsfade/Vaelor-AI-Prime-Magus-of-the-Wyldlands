@@ -6,10 +6,12 @@ import time
 
 
 class TaskHeartbeat:
-    def __init__(self, store, task_id: str, interval_seconds: float = 30.0):
+    def __init__(self, store, task_id: str, interval_seconds: float = 30.0, owner: str = None, lease_seconds: int = 60):
         self.store = store
         self.task_id = task_id
         self.interval = max(0.01, float(interval_seconds))
+        self.owner = owner
+        self.lease_seconds = max(1, int(lease_seconds))
         self._stop = threading.Event()
         self._thread = None
         self._started = None
@@ -32,11 +34,15 @@ class TaskHeartbeat:
                 return
             elapsed = max(0, int(time.monotonic() - self._started))
             try:
-                self.store.add_event(
-                    self.task_id,
-                    "heartbeat",
-                    {"elapsed_seconds": elapsed, "message": "Vaelor is still working."},
-                )
+                if self.owner:
+                    if not self.store.heartbeat(self.task_id, self.owner, self.lease_seconds):
+                        return
+                else:
+                    self.store.add_event(
+                        self.task_id,
+                        "heartbeat",
+                        {"elapsed_seconds": elapsed, "message": "Vaelor is still working."},
+                    )
             except Exception:
                 # Visibility must never become a new task failure mode.
                 pass
