@@ -12,13 +12,27 @@ from typing import Any, Dict, List, Optional
 
 
 TERMINAL_STATES = {"completed", "failed", "cancelled"}
-VALID_STATES = {
-    "pending", "running", "waiting", "interrupted", "completed", "failed", "cancelled"
+VALID_STATES = {"pending", "running", "waiting", "interrupted", "completed", "failed", "cancelled"}
+STATE_TRANSITIONS = {
+    "pending": {"pending", "running", "waiting", "cancelled"},
+    "running": {"running", "waiting", "interrupted", "completed", "failed", "cancelled"},
+    "waiting": {"waiting", "pending", "running", "failed", "cancelled"},
+    "interrupted": {"interrupted", "pending", "running", "failed", "cancelled"},
+    "completed": {"completed"},
+    "failed": {"failed", "pending", "running", "cancelled"},
+    "cancelled": {"cancelled"},
 }
 
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _validate_transition(current: str, target: str) -> None:
+    if current not in VALID_STATES or target not in VALID_STATES:
+        raise ValueError(f"Invalid task state: {current} -> {target}")
+    if target not in STATE_TRANSITIONS[current]:
+        raise ValueError(f"Invalid task transition: {current} -> {target}")
 
 
 class TaskStore:
@@ -89,6 +103,7 @@ class TaskStore:
                 if task.get("id") != task_id:
                     continue
                 if status is not None:
+                    _validate_transition(str(task.get("status", "pending")), status)
                     task["status"] = status
                     if status == "running":
                         task["attempts"] = int(task.get("attempts", 0)) + 1
@@ -140,6 +155,7 @@ class TaskStore:
                     raise ValueError("Completed tasks cannot be cancelled.")
                 if task.get("status") == "cancelled":
                     return deepcopy(task)
+                _validate_transition(str(task.get("status", "pending")), "cancelled")
                 stamp = _now()
                 task["status"] = "cancelled"
                 task["result"] = str(reason)[:20000]
@@ -169,6 +185,7 @@ class TaskStore:
             for task in tasks:
                 if task.get("id") != task_id:
                     continue
+                _validate_transition(str(task.get("status", "pending")), "waiting")
                 stamp = _now()
                 task["status"] = "waiting"
                 task["waiting_reason"] = "approval"
@@ -196,6 +213,7 @@ class TaskStore:
                     raise ValueError("Task is not waiting for action approval.")
                 if not fingerprint or fingerprint != pending.get("fingerprint"):
                     raise ValueError("Approval fingerprint is stale or does not match the pending action.")
+                _validate_transition(str(task.get("status", "pending")), "pending")
                 stamp = _now()
                 task["authorized_action"] = fingerprint
                 task["authorized_state_binding"] = pending.get("state_binding")
@@ -260,6 +278,7 @@ class TaskStore:
                 pending = task.get("pending_approval") or {}
                 if task.get("status") != "waiting" or pending.get("fingerprint") != fingerprint:
                     raise ValueError("Rejection fingerprint is stale or does not match the pending action.")
+                _validate_transition(str(task.get("status", "pending")), "cancelled")
                 stamp = _now()
                 task["status"] = "cancelled"
                 task["waiting_reason"] = None
@@ -284,6 +303,7 @@ class TaskStore:
                     continue
                 if task.get("status") != "waiting":
                     raise ValueError("Only tasks waiting for clarification can be revised.")
+                _validate_transition(str(task.get("status", "pending")), "pending")
                 stamp = _now()
                 task["request"] = str(request)
                 task["contract"] = deepcopy(contract)
@@ -310,6 +330,7 @@ class TaskStore:
                     continue
                 if task.get("status") != "waiting":
                     raise ValueError("Task is not waiting for clarification.")
+                _validate_transition(str(task.get("status", "pending")), "waiting")
                 stamp = _now()
                 task["request"] = str(request)
                 task["contract"] = deepcopy(contract)
@@ -331,6 +352,7 @@ class TaskStore:
             changed = 0
             for task in tasks:
                 if task.get("status") == "running":
+                    _validate_transition("running", "interrupted")
                     task["status"] = "interrupted"
                     task["updated_at"] = _now()
                     task.setdefault("events", []).append({

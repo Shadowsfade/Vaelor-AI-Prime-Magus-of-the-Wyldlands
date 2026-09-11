@@ -44,6 +44,19 @@ class TaskStoreTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.store.update(task["id"], status="imaginary")
 
+    def test_rejects_invalid_lifecycle_transition(self):
+        task = self.store.create("task")
+        self.store.update(task["id"], status="running")
+        with self.assertRaisesRegex(ValueError, "Invalid task transition"):
+            self.store.update(task["id"], status="pending")
+
+    def test_allows_interruption_and_bounded_resume_transition(self):
+        task = self.store.create("task")
+        self.store.update(task["id"], status="running")
+        self.store.update(task["id"], status="interrupted")
+        self.store.update(task["id"], status="running")
+        self.assertEqual(self.store.get(task["id"])["attempts"], 2)
+
     def test_exact_action_approval_is_durable_and_one_time(self):
         task = self.store.create("write file")
         action = {"fingerprint": "a" * 64, "tool": "write_text_file", "arguments": {"path": "x"}}

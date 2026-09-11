@@ -52,6 +52,7 @@ class TaskLifecycleTests(unittest.TestCase):
 
     def test_resume_reuses_task_and_increments_attempts(self):
         task = self.brain.tasks.create("inspect project", self.contract.to_dict(), "s1")
+        self.brain.tasks.update(task["id"], status="running")
         self.brain.tasks.update(task["id"], status="interrupted")
         with patch("core.agent_loop.run_agent", return_value="FINAL_SUMMARY: SUCCESS resumed"):
             result = self.brain.resume_task(task["id"])
@@ -59,7 +60,7 @@ class TaskLifecycleTests(unittest.TestCase):
         resumed = self.brain.get_task(task["id"])
         self.assertEqual(result, "FINAL_SUMMARY: SUCCESS resumed")
         self.assertEqual(resumed["status"], "completed")
-        self.assertEqual(resumed["attempts"], 1)
+        self.assertEqual(resumed["attempts"], 2)
         self.assertEqual(len(self.brain.list_tasks()), 1)
 
     def test_prepare_task_persists_contract_before_execution(self):

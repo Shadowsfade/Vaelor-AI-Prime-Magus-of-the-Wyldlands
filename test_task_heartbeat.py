@@ -29,6 +29,7 @@ class TaskHeartbeatTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             store = TaskStore(Path(temp) / "tasks.json")
             task = store.create("work")
+            store.update(task["id"], status="running")
             store.update(task["id"], status="completed")
             with TaskHeartbeat(store, task["id"], interval_seconds=0.01):
                 time.sleep(0.03)
