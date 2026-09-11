@@ -289,11 +289,13 @@ class VaelorBrain:
         )
 
     def act(self, goal, session_id=None, max_steps=12, task_contract=None, task_id=None,
-            workspace=None, max_runtime_seconds=900):
+            workspace=None, max_runtime_seconds=900, owner=None):
         """Autonomous ReAct coding worker loop (tools + self-correct + verify)."""
         from core.agent_loop import run_agent
         from spellbook.spell_router import cast_spell
 
+        if isinstance(task_contract, dict):
+            task_contract = TaskIntent.from_dict(task_contract)
         if not isinstance(task_contract, TaskIntent):
             task_contract = TaskIntent(
                 intent="act",
@@ -309,7 +311,7 @@ class VaelorBrain:
         task_id = task["id"]
         workspace = task.get("workspace") or workspace
         max_runtime_seconds = task.get("max_runtime_seconds") or max_runtime_seconds
-        owner = f"brain-{os.getpid()}-{threading.get_ident()}"
+        owner = owner or f"brain-{os.getpid()}-{threading.get_ident()}"
         if not self.tasks.claim(task_id, owner):
             raise RuntimeError(f"Task {task_id} is already leased, awaiting approval, or requires recovery verification.")
         self.tasks.add_event(task_id, "started", {"goal": task_contract.goal, "owner": owner})

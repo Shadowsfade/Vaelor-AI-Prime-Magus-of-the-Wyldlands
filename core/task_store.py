@@ -373,8 +373,7 @@ class TaskStore:
                 if status in TERMINAL_STATES or status == "waiting":
                     return None
                 recovery = task.get("recovery") or {}
-                if recovery.get("decision") in {"VERIFY_BEFORE_RETRY", "WAIT_FOR_APPROVAL",
-                                                "BLOCKED", "TERMINAL_FAILURE"}:
+                if recovery.get("decision") in {"WAIT_FOR_APPROVAL", "BLOCKED", "TERMINAL_FAILURE"}:
                     return None
                 lease = task.get("lease") or {}
                 expiry = self._parse_time(lease.get("lease_expires_at"))
@@ -570,6 +569,81 @@ class TaskStore:
                 self._write(tasks)
                 return deepcopy(failure)
         raise KeyError(f"Unknown task: {task_id}")
+
+    def set_recovery(self, task_id: str, decision: str, reason: str, status: Optional[str] = None) -> dict:
+        if decision not in RECOVERY_DECISIONS:
+            raise ValueError(f"Invalid recovery decision: {decision}")
+        with self._lock:
+            tasks = self._read()
+            for task in tasks:
+                if task.get("id") != task_id:
+                    continue
+                if status is not None:
+                    _validate_transition(str(task.get("status", "pending")), status)
+                    task["status"] = status
+                stamp = _now()
+                task["recovery"] = {"decision": decision, "reason": str(reason)[:8000], "at": stamp}
+                task["updated_at"] = stamp
+                self._write(tasks)
+                return deepcopy(task)
+        raise KeyError(f"Unknown task: {task_id}")
+
+    def record_recovery_verification(self, task_id: str, passed: bool) -> dict:
+        with self._lock:
+            tasks = self._read()
+            for task in tasks:
+                if task.get("id") != task_id:
+                    continue
+                stamp = _now()
+                task.setdefault("recovery", {})["verification_state"] = "passed" if passed else "failed"
+                task.setdefault("events", []).append({
+                    "timestamp": stamp, "type": "recovery_verified",
+                    "data": {"passed": bool(passed)},
+                })
+                task["events"] = task["events"][-250:]
+                task["updated_at"] = stamp
+                self._write(tasks)
+                return deepcopy(task)
+        raise KeyError(f"Unknown task: {task_id}")
+
+    def schedule_retry(self, task_id: str, owner: str, reason: str, category: str = "TRANSIENT",
+                       attempt: Optional[int] = None, retry_limit: int = 2,
+                       base_seconds: float = 5.0, cap_seconds: float = 300.0) -> dict:
+        if category not in FAILURE_CATEGORIES:
+            raise ValueError(f"Invalid failure category: {category}")
+        with self._lock:
+            tasks = self._read()
+            for task in tasks:
+                if task.get("id") != task_id:
+                    continue
+                if (task.get("lease") or {}).get("owner") != owner:
+                    raise ValueError("Retry scheduling requires the active supervisor lease.")
+                used = int(attempt if attempt is not None else task.get("attempts", 1))
+                limit = max(0, int(retry_limit))
+                if used >= limit:
+                    return self.set_recovery(task_id, "TERMINAL_FAILURE", str(reason), status="failed")
+                delay = min(max(0.0, float(cap_seconds)), max(0.0, float(base_seconds)) * (2 ** max(0, used - 1)))
+                due = datetime.now(timezone.utc) + timedelta(seconds=delay)
+                task["retry"] = {"retryable": True, "attempt": used, "retry_limit": limit,
+                    "category": category, "reason": str(reason)[:1000], "next_retry_at": due.isoformat()}
+                task["recovery"] = {"decision": "RETRY_SAFE", "reason": str(reason)[:8000], "at": _now()}
+                _validate_transition(str(task.get("status", "pending")), "interrupted")
+                task["status"] = "interrupted"
+                task["updated_at"] = _now()
+                task.setdefault("events", []).append({"timestamp": task["updated_at"], "type": "retry_scheduled",
+                    "data": {"next_retry_at": due.isoformat(), "attempt": used, "category": category}})
+                task["events"] = task["events"][-250:]
+                self._write(tasks)
+                return deepcopy(task)
+        raise KeyError(f"Unknown task: {task_id}")
+
+    def record_runner_failure(self, task_id: str, owner: str, reason: str,
+                              base_seconds: float = 5.0, cap_seconds: float = 300.0) -> dict:
+        task = self.get(task_id)
+        attempt = int(task.get("attempts", 1)) if task else 1
+        limit = int(((task or {}).get("retry") or {}).get("retry_limit", 2) or 2)
+        return self.schedule_retry(task_id, owner, reason, "RECOVERABLE", attempt, limit,
+                                   base_seconds, cap_seconds)
 
     def recover_interrupted(self) -> int:
         with self._lock:

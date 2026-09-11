@@ -59,3 +59,16 @@ This slice extends core/task_store.py and the existing core/task_heartbeat.py/co
 4. Add executor health/preflight and richer structured event streaming.
 5. Add cancellation/pause semantics at step boundaries and idempotency evidence for mutating executors.
 6. Expand the canonical event vocabulary while preserving the existing bounded event stream and Phase 4 provenance/verification records.
+
+
+## Phase 5 Slice 3: Durable Supervisor Queue / Runner
+
+The core.supervisor.SupervisorRunner is a lightweight durable coordinator over the existing TaskStore, Brain, heartbeat, governance, and verification boundaries. It does not create a second task model. Each cycle discovers deterministic eligible snapshots, performs preflight, claims an exclusive lease, checks cancellation, delegates one bounded Brain execution, records concise events, and releases the lease. A task-level exception is persisted as recoverable retry work and isolated from other tasks.
+
+Queue eligibility is limited to pending or interrupted tasks whose lease is absent/expired, whose recovery decision is not approval/blocked/terminal, and whose retry.next_retry_at is due. Valid leases exclude other runners. Retry scheduling persists attempt, limit, category, reason, and an exponential bounded next_retry_at; exhaustion becomes terminal failure. The idle loop waits rather than busy-polling.
+
+Startup recovery remains owned by TaskStore. RESUME_SAFE and due RETRY_SAFE work may continue. VERIFY_BEFORE_RETRY invokes the injected independent verifier before any rerun; failed or unavailable verification blocks the task. WAIT_FOR_APPROVAL, BLOCKED, and TERMINAL_FAILURE never execute.
+
+Preflight emits preflight_started, validates an injected prerequisite check and an explicitly persisted workspace, and persists a structured block instead of crashing. Durable cancellation is checked immediately before execution, so disconnected clients do not affect server-side task lifetime and cancellation prevents new work. Existing Brain execution remains authoritative for governance, action approval, bounded steps, heartbeat renewal, and final verification.
+
+Remaining gaps: the runner is currently a local process and must be started by the server lifecycle in a later slice; richer executor-specific preflight adapters and a persisted wake-up/index are intentionally deferred.
