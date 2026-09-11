@@ -113,7 +113,7 @@ assert root in Path(server.__file__).resolve().parents
 
 async def smoke():
     transport = httpx.ASGITransport(app=server.app)
-    async with httpx.AsyncClient(transport=transport, base_url='http://testserver') as client:
+    async with httpx.AsyncClient(transport=transport, base_url='http://127.0.0.1') as client:
         health = await client.get('/health')
         assert health.status_code == 200 and health.json().get('version')
         status = await client.get('/auth/status')
