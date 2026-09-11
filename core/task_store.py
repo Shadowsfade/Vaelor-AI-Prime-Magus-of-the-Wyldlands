@@ -89,6 +89,10 @@ class TaskStore:
                 "steps": [],
                 "recovery": None,
                 "retry": None,
+                "workflow": None,
+                "artifacts": [],
+                "commands": [],
+                "verification": [],
             }
             tasks.append(task)
             self._write(tasks[-500:])
@@ -122,6 +126,27 @@ class TaskStore:
                 if result is not None:
                     task["result"] = str(result)[:20000]
                 task["updated_at"] = _now()
+                self._write(tasks)
+                return deepcopy(task)
+        raise KeyError(f"Unknown task: {task_id}")
+
+    def update_workflow(self, task_id: str, workflow: Dict[str, Any], event_type: str = "workflow_updated") -> dict:
+        with self._lock:
+            tasks = self._read()
+            for task in tasks:
+                if task.get("id") != task_id:
+                    continue
+                task["workflow"] = deepcopy(workflow)
+                task["artifacts"] = deepcopy(workflow.get("artifacts") or [])
+                task["commands"] = deepcopy(workflow.get("commands") or [])
+                task["verification"] = deepcopy(workflow.get("verification") or [])
+                task["updated_at"] = _now()
+                if event_type:
+                    task.setdefault("events", []).append({
+                        "timestamp": task["updated_at"], "type": event_type,
+                        "data": self._bounded({"workflow": workflow}),
+                    })
+                    task["events"] = task["events"][-250:]
                 self._write(tasks)
                 return deepcopy(task)
         raise KeyError(f"Unknown task: {task_id}")

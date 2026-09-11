@@ -293,7 +293,6 @@ class VaelorBrain:
     def act(self, goal, session_id=None, max_steps=12, task_contract=None, task_id=None,
             workspace=None, max_runtime_seconds=900, owner=None):
         """Autonomous ReAct coding worker loop (tools + self-correct + verify)."""
-        from core.agent_loop import run_agent
         from spellbook.spell_router import cast_spell
 
         if isinstance(task_contract, dict):
@@ -319,6 +318,24 @@ class VaelorBrain:
         if not self.tasks.claim(task_id, owner):
             raise RuntimeError(f"Task {task_id} is already leased, awaiting approval, or requires recovery verification.")
         self.tasks.add_event(task_id, "started", {"goal": task_contract.goal, "owner": owner})
+
+        from .cachyos_workflow import is_cachyos_request, run_cachyos_workflow
+        if is_cachyos_request(goal):
+            try:
+                from core.task_heartbeat import TaskHeartbeat
+                with TaskHeartbeat(self.tasks, task_id, owner=owner):
+                    result = run_cachyos_workflow(task, self.tasks, self.approval_policy, owner)
+            except Exception as exc:
+                self.tasks.add_event(task_id, "workflow_failed", {"error": str(exc)[:1000]})
+                if not self.tasks.is_cancelled(task_id):
+                    self.tasks.update(task_id, status="failed", result=f"Workflow error: {exc}")
+                self.tasks.release(task_id, owner, "Workflow failed.")
+                raise
+            self.tasks.release(task_id, owner, "Workflow reached terminal or waiting state.")
+            self.conversations.remember_turn(f"[workflow] {goal}", result, session_id=session_id)
+            return result
+
+        from core.agent_loop import run_agent
 
         react = self.build_system_prompt()
         ctx = (
@@ -470,7 +487,16 @@ class VaelorBrain:
 
     def prepare_task(self, request, session_id=None, workspace=None, max_runtime_seconds=900):
         """Create a durable task before background execution begins."""
-        contract = self.understand_task(request)
+        from .cachyos_workflow import is_cachyos_request
+        if is_cachyos_request(request):
+            contract = TaskIntent(
+                intent="act", goal=str(request),
+                success_criteria=["CachyOS application is downloaded, verified, and explained."],
+                constraints=["Use an official source and a Vaelor-managed task directory."],
+                source="deterministic_cachyos_workflow",
+            )
+        else:
+            contract = self.understand_task(request)
         if contract.intent != "act":
             contract = TaskIntent(
                 intent="act",
