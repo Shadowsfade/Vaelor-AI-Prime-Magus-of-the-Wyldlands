@@ -13,7 +13,7 @@ class SupervisorRunner:
                  preflight: Optional[Callable[[dict], object]] = None,
                  verifier: Optional[Callable[[dict], object]] = None,
                  max_tasks_per_cycle: int = 10, backoff_base_seconds: float = 5.0,
-                 backoff_cap_seconds: float = 300.0):
+                 backoff_cap_seconds: float = 300.0, thread_factory: Callable = threading.Thread):
         self.store = store
         self.brain = brain
         self.owner = owner or f"supervisor-{os.getpid()}-{id(self)}"
@@ -25,6 +25,8 @@ class SupervisorRunner:
         self.backoff_base_seconds = max(0.0, float(backoff_base_seconds))
         self.backoff_cap_seconds = max(self.backoff_base_seconds, float(backoff_cap_seconds))
         self._stop = threading.Event()
+        self.thread_factory = thread_factory
+        self._worker = None
 
     def _now(self):
         value = self.clock()
@@ -157,6 +159,32 @@ class SupervisorRunner:
                 self._event(task["id"], "runner_task_isolated", {"error": str(exc)[:1000]})
         return processed
 
+    def start(self, poll_interval_seconds: float = 5.0):
+        if self._worker is not None and self._worker.is_alive():
+            return
+        self._stop.clear()
+        worker = self.thread_factory(
+            target=self.run_forever,
+            args=(poll_interval_seconds,),
+            daemon=True,
+            name="vaelor-supervisor",
+        )
+        try:
+            worker.start()
+        except Exception:
+            self._stop.set()
+            self._worker = None
+            raise
+        self._worker = worker
+
+    def stop(self, timeout_seconds: float = 2.0):
+        self._stop.set()
+        worker = self._worker
+        if worker is not None and worker.is_alive():
+            worker.join(timeout=max(0.1, float(timeout_seconds)))
+        if worker is None or not worker.is_alive():
+            self._worker = None
+
     def run_forever(self, poll_interval_seconds: float = 5.0):
         interval = max(0.1, float(poll_interval_seconds))
         while not self._stop.is_set():
@@ -164,5 +192,5 @@ class SupervisorRunner:
             if not processed:
                 self._stop.wait(interval)
 
-    def stop(self):
+    def request_stop(self):
         self._stop.set()

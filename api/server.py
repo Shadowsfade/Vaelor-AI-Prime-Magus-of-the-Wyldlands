@@ -27,15 +27,23 @@ from spellbook.voice import synthesize_speech, list_wizard_voices, get_voice_set
 runtime = VaelorRuntime()
 brain = runtime.brain
 from core.scheduler import SchedulerService, schedule_store
+from core.supervisor import SupervisorRunner
 scheduler_service = SchedulerService(schedule_store, brain)
+supervisor_runner = SupervisorRunner(brain.tasks, brain)
 
 
 @asynccontextmanager
 async def lifespan(_app):
     scheduler_service.start()
     try:
+        supervisor_runner.start()
+    except Exception:
+        scheduler_service.stop()
+        raise
+    try:
         yield
     finally:
+        supervisor_runner.stop()
         scheduler_service.stop()
 
 

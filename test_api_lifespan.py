@@ -35,6 +35,42 @@ class ApiLifespanTests(unittest.TestCase):
         finally:
             server.scheduler_service = original
 
+    def test_supervisor_starts_and_stops_exactly_once_per_client(self):
+        scheduler = _LifecycleProbe()
+        supervisor = _LifecycleProbe()
+        original_scheduler = server.scheduler_service
+        original_supervisor = server.supervisor_runner
+        server.scheduler_service = scheduler
+        server.supervisor_runner = supervisor
+        try:
+            with TestClient(server.app) as client:
+                self.assertEqual(client.get("/health").status_code, 200)
+                self.assertEqual(supervisor.started, 1)
+                self.assertEqual(supervisor.stopped, 0)
+            self.assertEqual((supervisor.started, supervisor.stopped), (1, 1))
+        finally:
+            server.scheduler_service = original_scheduler
+            server.supervisor_runner = original_supervisor
+
+    def test_supervisor_start_failure_stops_scheduler(self):
+        scheduler = _LifecycleProbe()
+        class FailingSupervisor(_LifecycleProbe):
+            def start(self):
+                self.started += 1
+                raise RuntimeError("supervisor start failed")
+        supervisor = FailingSupervisor()
+        original_scheduler = server.scheduler_service
+        original_supervisor = server.supervisor_runner
+        server.scheduler_service = scheduler
+        server.supervisor_runner = supervisor
+        try:
+            with self.assertRaisesRegex(RuntimeError, "supervisor start failed"):
+                TestClient(server.app)
+            self.assertEqual((scheduler.started, scheduler.stopped), (1, 1))
+        finally:
+            server.scheduler_service = original_scheduler
+            server.supervisor_runner = original_supervisor
+
     def test_client_identity_and_cookies_persist(self):
         app = FastAPI()
 
