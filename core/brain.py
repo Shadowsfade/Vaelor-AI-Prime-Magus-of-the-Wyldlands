@@ -466,6 +466,15 @@ class VaelorBrain:
     def reject_task_action(self, task_id, fingerprint):
         return self.tasks.reject_action(task_id, fingerprint)
 
+    def continue_software_task(self, task_id):
+        task = self.tasks.get(task_id)
+        if task is None:
+            raise KeyError(task_id)
+        if (task.get("status") != "waiting" or task.get("waiting_reason") != "privilege"
+                or (task.get("workflow") or {}).get("name") != "software_workflow"):
+            raise ValueError("Task is not waiting for host authentication.")
+        return self.tasks.resume_waiting(task_id, "User requested another host authentication check.")
+
     def clarify_task(self, task_id, answer):
         task = self.tasks.get(task_id)
         if task is None:

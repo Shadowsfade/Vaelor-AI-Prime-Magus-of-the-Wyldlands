@@ -110,14 +110,21 @@ class TaskStore:
             tasks = sorted(self._read(), key=lambda item: item.get("updated_at", ""), reverse=True)
             return deepcopy(tasks[:max(1, min(int(limit or 50), 200))])
 
-    def update(self, task_id: str, status: Optional[str] = None, result: Any = None) -> dict:
+    def update(self, task_id: str, status: Optional[str] = None, result: Any = None,
+               waiting_reason: Optional[str] = None) -> dict:
         if status is not None and status not in VALID_STATES:
             raise ValueError(f"Invalid task status: {status}")
+        if waiting_reason is not None and waiting_reason not in {"privilege", "blocked"}:
+            raise ValueError("Use the dedicated approval/clarification methods for this waiting reason.")
         with self._lock:
             tasks = self._read()
             for task in tasks:
                 if task.get("id") != task_id:
                     continue
+                if waiting_reason is not None:
+                    if (status or task.get("status")) != "waiting":
+                        raise ValueError("A waiting reason requires a waiting task.")
+                    task["waiting_reason"] = waiting_reason
                 if status is not None:
                     _validate_transition(str(task.get("status", "pending")), status)
                     task["status"] = status
@@ -255,6 +262,8 @@ class TaskStore:
                 task["authorized_action"] = fingerprint
                 task["authorized_state_binding"] = pending.get("state_binding")
                 task["authorized_invocation"] = deepcopy(pending)
+                task["recovery"] = {"decision": "RESUME_SAFE",
+                                    "reason": "User approved the exact pending action.", "at": stamp}
                 task["pending_approval"] = None
                 task["waiting_reason"] = None
                 task["status"] = "pending"

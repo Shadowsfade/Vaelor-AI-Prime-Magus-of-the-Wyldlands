@@ -5,6 +5,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 import shutil
 import subprocess
+import hashlib
+import json
 from typing import Any, Protocol
 
 
@@ -72,6 +74,18 @@ class SoftwareVerification:
 def serializable(value: Any) -> dict[str, Any]:
     """Serialize one of the compact workflow records for TaskStore JSON."""
     return asdict(value)
+
+
+def software_approval(task, workflow, assessment):
+    """Bind one approval to the complete persisted software operation."""
+    arguments = {key: workflow[key] for key in
+                 ("request", "environment", "source", "plan", "work_dir")}
+    binding = {"task_id": task["id"], "session_id": task.get("session_id"),
+               "tool": "software_install", "arguments": arguments}
+    fingerprint = hashlib.sha256(json.dumps(binding, sort_keys=True,
+                               separators=(",", ":")).encode()).hexdigest()
+    return {**binding, "fingerprint": fingerprint, "state_binding": fingerprint,
+            "risk": assessment.risk.value, "reason": assessment.reason}
 
 
 class SoftwarePlatformAdapter(Protocol):
@@ -173,6 +187,7 @@ def run_software_workflow(task: dict, store, adapter: SoftwarePlatformAdapter, p
         reason = preflight(plan) if preflight else ""
         if reason:
             store.set_recovery(task_id, "WAIT_FOR_APPROVAL", reason, status="waiting")
+            store.update(task_id, waiting_reason="privilege", result=reason)
             return f"FINAL_SUMMARY: WAITING_USER {reason}"
         from core.approval_policy import ActionContext, ApprovalDecision, ApprovalPolicy
         policy = policy or ApprovalPolicy()
@@ -182,8 +197,16 @@ def run_software_workflow(task: dict, store, adapter: SoftwarePlatformAdapter, p
             "risk_tier": assessment.risk.value, "reason": assessment.reason,
             "scope": assessment.scope, "capability_id": assessment.capability_id or None,
         })
-        if assessment.decision != ApprovalDecision.AUTO_APPROVE:
+        action = software_approval(task, workflow, assessment)
+        if assessment.decision in {ApprovalDecision.DENY, ApprovalDecision.AMBIGUOUS}:
+            store.set_recovery(task_id, "BLOCKED", assessment.reason, status="waiting")
+            store.update(task_id, waiting_reason="blocked", result=assessment.reason)
+            return f"FINAL_SUMMARY: BLOCKED {assessment.reason}"
+        approved_once = store.consume_action_approval(
+            task_id, action["fingerprint"], state_binding=action["state_binding"])
+        if not approved_once and assessment.decision != ApprovalDecision.AUTO_APPROVE:
             store.set_recovery(task_id, "WAIT_FOR_APPROVAL", f"{assessment.decision.value}: {assessment.reason}", status="waiting")
+            store.request_approval(task_id, action)
             return f"FINAL_SUMMARY: WAITING_APPROVAL {assessment.reason}"
         step_name = "install" if "install" in plan.actions else "download"
         step = store.begin_step(task_id, owner, "software_workflow", step_name)

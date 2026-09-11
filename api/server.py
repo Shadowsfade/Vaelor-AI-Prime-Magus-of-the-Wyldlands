@@ -353,6 +353,20 @@ def approve_task_action(task_id: str, request: TaskApprovalRequest,
         raise HTTPException(status_code=409, detail=str(exc))
 
 
+@app.post("/tasks/{task_id}/continue-software")
+def continue_software_task(task_id: str, request: TaskResumeRequest,
+                           background_tasks: BackgroundTasks):
+    """Recheck host sudo credentials; never receive passwords or grant approval."""
+    try:
+        task = brain.continue_software_task(task_id)
+        background_tasks.add_task(brain.run_prepared_task, task_id, request.max_steps)
+        return task
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Task not found")
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+
 @app.post("/tasks/{task_id}/reject-action")
 def reject_task_action(task_id: str, request: TaskApprovalRequest):
     try:

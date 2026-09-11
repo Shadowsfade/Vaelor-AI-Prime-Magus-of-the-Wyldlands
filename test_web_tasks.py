@@ -17,7 +17,8 @@ class WebTaskCenterRegressionTests(unittest.TestCase):
     def test_task_cards_expose_lifecycle_controls(self):
         for action in ('data-act="view"', 'data-act="cancel"', 'data-act="resume"', 'data-act="clarify"'):
             self.assertIn(action, HTML)
-        self.assertIn("task.waiting_reason!=='approval'", HTML)
+        self.assertIn("!['approval','privilege'].includes(task.waiting_reason)", HTML)
+        self.assertIn('data-act="continue-software"', HTML)
 
     def test_task_center_polls_with_approvals(self):
         self.assertIn("loadTasks();loadApprovals()", HTML)

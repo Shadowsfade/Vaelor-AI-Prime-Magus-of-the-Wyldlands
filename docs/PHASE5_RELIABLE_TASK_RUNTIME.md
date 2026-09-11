@@ -172,3 +172,26 @@ still requires Python. The WebUI remains the shared desktop presentation layer.
 Verified result: 349 tests passed, one Windows symlink privilege skip, seven
 subtests passed. Python compilation and inline JavaScript syntax passed.
 The clean-package gate built and verified a 120-file archive and passed runtime smoke.
+
+## Software approvals and host authentication
+
+The portable software workflow now submits its exact operation to TaskStore's
+existing pending-approval API. The card includes the full source and plan; its
+SHA-256 fingerprint covers the task/session and all execution inputs. Approve
+Once is consumed only after sudo preflight succeeds. Source/plan changes cause
+another approval request, and a current policy DENY/AMBIGUOUS decision cannot
+be overridden by an earlier approval.
+
+A privilege wait has a separate Task Center Recheck Host Authentication button,
+backed by POST /tasks/{id}/continue-software. It only requeues a software task
+waiting for privilege, preserving its identity and plan. It does not collect
+credentials, widen policy, or interpret a new natural-language task.
+Authentication must be available to Vaelor's process on the host; sudo timestamp
+sharing depends on host configuration. A successful click alone does not prove
+credentials are available: preflight checks again and remains waiting if needed.
+
+This completes the application approval/recheck wiring. Real privileged install
+acceptance on LEGO1, additional OS adapters, upstream checksum verification,
+and Python-bundled packaging remain release work.
+
+Validation: full suite 354 passed and one Windows symlink-privilege skip; final focused approval suite seven passed (including two additional cases). Python compilation, JavaScript syntax, mocked UI recheck routing, and isolated clean-package acceptance passed. No live privileged installation was performed.

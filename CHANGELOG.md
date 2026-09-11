@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-09-11 — Software approval and host-authentication continuation
+
+- Software setup now creates durable Approve Once cards using the existing
+  authenticated approval API. Fingerprints bind the task/session, request,
+  environment, source, plan, and managed destination; changed plans require
+  fresh approval, while explicit policy denials still block execution.
+- Approving a pending action clears the stale recovery wait so the supervisor
+  can reclaim the same task. Authorization is consumed once before mutation.
+- Sudo preflight waits expose a Recheck Host Authentication control without
+  accepting passwords. Rechecks preserve the plan and any unconsumed approval,
+  and cannot substitute for action approval or reroute through a language model.
+- Added persistence, approval consumption, changed-source, privilege-wait,
+  policy-denial, and API continuation regressions.
+
 ## 2026-09-11 — Portable software workflow and research continuation
 
 - Continued the LEGO1 Phase 5 worktree and completed its in-progress portable
