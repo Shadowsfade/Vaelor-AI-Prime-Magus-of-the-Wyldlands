@@ -407,6 +407,9 @@ def run_agent(
     approval_required: Optional[Callable[[Dict[str, Any]], None]] = None,
     consume_approval: Optional[Callable[..., bool]] = None,
     task_id: str = "",
+    approval_policy=None,
+    workspace: str = "",
+    session_id: str = "",
 ) -> str:
     """Autonomous ReAct loop. ask_llm(prompt) -> model text."""
     registry  # loaded
@@ -592,7 +595,23 @@ def run_agent(
                     emit("stalled", step=step, tool=name, reason="repeated identical action")
                     return "FINAL_SUMMARY: FAILED Stopped after repeated identical actions without progress."
                 supports_confirm = registry.accepts_argument(name, "confirm")
-                allowed = _allows_automatic_action(autonomy_mode, risk)
+                policy_assessment = None
+                if approval_policy is not None:
+                    from core.approval_policy import ActionContext, ApprovalDecision
+                    policy_assessment = approval_policy.evaluate(ActionContext(
+                        tool=name, arguments={k: v for k, v in kwargs.items() if k != "confirm"},
+                        task_id=str(task_id), session_id=str(session_id), workspace=str(workspace),
+                        fingerprint=fingerprint,
+                    ))
+                    allowed = policy_assessment.decision == ApprovalDecision.AUTO_APPROVE
+                    emit("approval_policy_decided", step=step, tool=name,
+                         decision=policy_assessment.decision.value,
+                         action_class=policy_assessment.action_class.value,
+                         risk=policy_assessment.risk.value,
+                         reason=policy_assessment.reason,
+                         capability_id=policy_assessment.capability_id)
+                else:
+                    allowed = _allows_automatic_action(autonomy_mode, risk)
                 approval_invocation = {
                     "tool": name, "arguments": {k: v for k, v in kwargs.items() if k != "confirm"},
                     "governed_fingerprint": governed_fingerprint,
@@ -645,6 +664,11 @@ def run_agent(
                         },
                         "risk": risk,
                         "mode": autonomy_mode,
+                    "policy_decision": policy_assessment.decision.value if policy_assessment else None,
+                    "policy_reason": policy_assessment.reason if policy_assessment else None,
+                    "policy_action_class": policy_assessment.action_class.value if policy_assessment else None,
+                    "policy_risk_tier": policy_assessment.risk.value if policy_assessment else None,
+                    "capability_id": policy_assessment.capability_id if policy_assessment else None,
                         "state_binding": state_binding,
                         "target": str(kwargs.get("path") or kwargs.get("target") or ""),
                         "scope": str(kwargs.get("cwd") or ""),

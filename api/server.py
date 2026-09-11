@@ -19,6 +19,7 @@ from core.runtime import VaelorRuntime
 from core.readiness import assess_readiness
 from core.api_security import ApiAccessMiddleware, ApiAccessPolicy
 from core.version import VAELOR_VERSION
+from core.approval_policy import AutoApproveMode
 from core.setup_wizard import wizard_state, mark_complete, try_install_ollama_winget, try_pull_ollama_model, detect_backends
 from core.tools.registry import registry as tool_registry
 from spellbook.command_parser import parse_command, parse_tool_command
@@ -115,6 +116,9 @@ class PreferenceStatusRequest(BaseModel):
     status: str
 
 
+class AutoApproveRequest(BaseModel):
+    mode: str = Field(min_length=3, max_length=32)
+
 class TaskFeedbackRequest(BaseModel):
     rating: str
     comment: str = ""
@@ -159,6 +163,19 @@ def auth_status(request: Request):
     )
     local = client_host in {"testclient", "localhost", "127.0.0.1", "::1"}
     return {"authentication_required": not local, "authenticated": bool(allowed)}
+
+
+@app.get("/governance/auto-approve")
+def auto_approve_status():
+    return brain.get_auto_approve_status()
+
+
+@app.post("/governance/auto-approve")
+def set_auto_approve(payload: AutoApproveRequest):
+    try:
+        return brain.set_auto_approve_mode(AutoApproveMode(payload.mode.upper()).value)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="mode must be OFF, SAFE, or TRUSTED_WORKSPACE")
 
 
 @app.post("/auth/token")

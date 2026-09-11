@@ -8,6 +8,7 @@ from .task_intent import TaskIntent, classify_task
 from .task_store import TaskStore
 from .preference_store import PreferenceStore
 from .project_context import build_project_context, resolve_workspace
+from .approval_policy import ApprovalPolicy, AutoApproveMode
 
 
 class VaelorBrain:
@@ -19,6 +20,7 @@ class VaelorBrain:
         self.conversations = VaelorConversationMemory()
         self.tasks = TaskStore()
         self.preferences = PreferenceStore()
+        self.approval_policy = ApprovalPolicy(AutoApproveMode.OFF)
 
     def _history_messages(self, session_id=None, limit=8):
         if session_id:
@@ -312,6 +314,8 @@ class VaelorBrain:
         workspace = task.get("workspace") or workspace
         max_runtime_seconds = task.get("max_runtime_seconds") or max_runtime_seconds
         owner = owner or f"brain-{os.getpid()}-{threading.get_ident()}"
+        if not hasattr(self, "approval_policy"):
+            self.approval_policy = ApprovalPolicy(AutoApproveMode.OFF)
         if not self.tasks.claim(task_id, owner):
             raise RuntimeError(f"Task {task_id} is already leased, awaiting approval, or requires recovery verification.")
         self.tasks.add_event(task_id, "started", {"goal": task_contract.goal, "owner": owner})
@@ -359,6 +363,9 @@ class VaelorBrain:
                         task_id, fingerprint, state_binding, invocation
                     ),
                     task_id=task_id,
+                    approval_policy=self.approval_policy,
+                    workspace=workspace or "",
+                    session_id=session_id or "",
                 )
         except Exception as exc:
             self.tasks.add_event(task_id, "crashed", {"error": str(exc)})
@@ -393,6 +400,13 @@ class VaelorBrain:
             )
         except Exception:
             return ""
+
+    def get_auto_approve_status(self):
+        return self.approval_policy.status()
+
+    def set_auto_approve_mode(self, mode: str):
+        self.approval_policy.set_mode(mode)
+        return self.approval_policy.status()
 
     def list_tasks(self, limit=50):
         return self.tasks.list(limit)

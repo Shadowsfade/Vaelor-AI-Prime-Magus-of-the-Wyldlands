@@ -72,3 +72,14 @@ Startup recovery remains owned by TaskStore. RESUME_SAFE and due RETRY_SAFE work
 Preflight emits preflight_started, validates an injected prerequisite check and an explicitly persisted workspace, and persists a structured block instead of crashing. Durable cancellation is checked immediately before execution, so disconnected clients do not affect server-side task lifetime and cancellation prevents new work. Existing Brain execution remains authoritative for governance, action approval, bounded steps, heartbeat renewal, and final verification.
 
 Remaining gaps: the runner is currently a local process and must be started by the server lifecycle in a later slice; richer executor-specific preflight adapters and a persisted wake-up/index are intentionally deferred.
+
+
+## Phase 5 Slice 5: Lightweight Smart Auto-Approve Governance
+
+Auto Approve is implemented as a deterministic local-first policy at the existing governed agent dispatch boundary. The model proposes what to do; policy code decides whether the action may proceed. Normal actions do not trigger an LLM classification call. An optional future ambiguous-action adapter can consume only compact action metadata and must fail closed to user approval.
+
+The policy classifies structured tool metadata and command effects into READ_ONLY, TRUSTED_WORKSPACE_WRITE, TEST_EXECUTION, SAFE_PROCESS_EXECUTION, NETWORK_READ, NETWORK_MUTATION, GIT_READ, GIT_FEATURE_BRANCH, GIT_COMMIT, GIT_PUSH_FEATURE_BRANCH, CANONICAL_BRANCH_CHANGE, DESTRUCTIVE_FILESYSTEM, CREDENTIAL_ACCESS, SYSTEM_CONFIGURATION, RELEASE_OPERATION, or UNKNOWN. Risk is LOW, MEDIUM, HIGH, or CRITICAL. Modes exposed to the product are OFF, SAFE, and TRUSTED_WORKSPACE. OFF requires manual approval for governed mutations; SAFE permits LOW-risk actions; TRUSTED_WORKSPACE also permits permitted MEDIUM actions only inside the explicitly supplied workspace scope.
+
+Scoped capability bundles reduce approval spam without introducing a second execution authority. Each bundle carries an id, task/session binding, workspace scope, allowed and denied action classes, creation/expiry timestamps, optional use bounds, and provenance. A capability is accepted only when all bindings and scope checks match. Exact fingerprints, state-bound approvals, task leases, governance invocation validation, and independent verification remain authoritative. Hard stops include canonical/master changes, force pushes, releases/tags, credentials/secrets, and destructive or security-sensitive operations.
+
+Every policy decision emits concise approval_policy_decided metadata, including decision, action class, risk tier, reason, scope, and capability id. The API exposes GET/POST /governance/auto-approve for the user-facing mode state; changing the mode changes policy behavior rather than skipping approval checks. The evaluation path is in-memory and bounded, with no filesystem scan, repo discovery, hardware probe, conversation history, or model call.
