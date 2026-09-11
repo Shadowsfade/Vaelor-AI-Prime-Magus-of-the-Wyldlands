@@ -78,7 +78,9 @@ class ApprovalCapability:
 
 def _under(path, root):
     try:
-        return os.path.normcase(os.path.abspath(path)).startswith(os.path.normcase(os.path.abspath(root)).rstrip("\\/") + os.sep)
+        candidate = os.path.normcase(os.path.abspath(os.path.normpath(path)))
+        trusted = os.path.normcase(os.path.abspath(os.path.normpath(root)))
+        return candidate == trusted or os.path.commonpath((candidate, trusted)) == trusted
     except (TypeError, ValueError, OSError):
         return False
 
@@ -110,6 +112,8 @@ def classify_action(context: ActionContext) -> tuple[ActionClass, RiskTier]:
         return ActionClass.SYSTEM_CONFIGURATION, RiskTier.HIGH
     if re.search(r"\b(curl|wget|invoke-webrequest)\b.*\b(post|put|patch|delete)\b", command):
         return ActionClass.NETWORK_MUTATION, RiskTier.HIGH
+    if "mutates" in args and args["mutates"] is False:
+        return ActionClass.READ_ONLY, RiskTier.LOW
     if re.search(r"\b(pytest|unittest|py_compile|npm\s+(test|run\s+test)|cargo\s+test|go\s+test)\b", command):
         return ActionClass.TEST_EXECUTION, RiskTier.LOW
     if tool in {"shell_exec","terminal_run"} and command:

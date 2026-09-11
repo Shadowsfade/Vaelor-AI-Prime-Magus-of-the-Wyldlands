@@ -45,6 +45,34 @@ class AutoApprovePolicyTests(unittest.TestCase):
         expired = datetime.now(timezone.utc) + timedelta(days=1)
         self.assertEqual(policy.evaluate(action, expired).decision, ApprovalDecision.REQUIRE_USER)
 
+    def test_trusted_root_equality_and_prefix_siblings(self):
+        policy = ApprovalPolicy("TRUSTED_WORKSPACE")
+        root = r"C:\Work\Project"
+        self.assertEqual(policy.evaluate(ActionContext("write_text_file", {"path": root}, workspace=root)).decision, ApprovalDecision.AUTO_APPROVE)
+        self.assertEqual(policy.evaluate(ActionContext("write_text_file", {"path": r"C:\WORK\PROJECT\core\x.py"}, workspace=root)).decision, ApprovalDecision.AUTO_APPROVE)
+        self.assertEqual(policy.evaluate(ActionContext("write_text_file", {"path": r"C:\Work\Project2"}, workspace=root)).decision, ApprovalDecision.REQUIRE_USER)
+        self.assertEqual(policy.evaluate(ActionContext("write_text_file", {"path": r"C:\Work"}, workspace=root)).decision, ApprovalDecision.REQUIRE_USER)
+
+    def test_trusted_root_cwd_and_context_workspace_without_path(self):
+        policy = ApprovalPolicy("TRUSTED_WORKSPACE")
+        root = r"C:\Work\Project"
+        self.assertEqual(policy.evaluate(ActionContext("shell_exec", {"command": "python -m unittest", "cwd": root}, workspace=root)).decision, ApprovalDecision.AUTO_APPROVE)
+        self.assertEqual(policy.evaluate(ActionContext("shell_exec", {"command": "python"}, workspace=root)).decision, ApprovalDecision.AUTO_APPROVE)
+
+    def test_structured_mutates_false_is_honored_before_generic_inference(self):
+        action_class, risk = classify_action(ActionContext("unknown_tool", {"command": "inspect", "mutates": False}))
+        self.assertEqual((action_class, risk), (ActionClass.READ_ONLY, RiskTier.LOW))
+        action_class, risk = classify_action(ActionContext("shell_exec", {"command": "git status", "mutates": False}))
+        self.assertEqual((action_class, risk), (ActionClass.GIT_READ, RiskTier.LOW))
+
+    def test_capability_root_includes_root_descendants_and_case(self):
+        policy = ApprovalPolicy("OFF")
+        root = r"C:\Work\Project"
+        cap = policy.issue_capability(task_id="t", workspace=root, allowed_classes=[ActionClass.TRUSTED_WORKSPACE_WRITE])
+        self.assertEqual(policy.evaluate(ActionContext("write_text_file", {"path": root}, task_id="t", workspace=root)).capability_id, cap.capability_id)
+        self.assertEqual(policy.evaluate(ActionContext("write_text_file", {"path": r"C:\WORK\PROJECT\x.py"}, task_id="t", workspace=root)).decision, ApprovalDecision.AUTO_APPROVE)
+        self.assertEqual(policy.evaluate(ActionContext("write_text_file", {"path": r"C:\Work\Project2"}, task_id="t", workspace=root)).decision, ApprovalDecision.REQUIRE_USER)
+
     def test_ambiguous_action_never_calls_a_model(self):
         policy = ApprovalPolicy("SAFE")
         result = policy.evaluate(ActionContext("unknown_tool", {"command": "do something"}))
