@@ -6,6 +6,12 @@ from core.task_intent import TaskIntent
 
 
 class BrainActionTests(unittest.TestCase):
+    def test_agent_code_prompt_cannot_launch_nested_aider(self):
+        with patch("spellbook.llm_client.chat", return_value="FINAL: done") as chat, patch("spellbook.spell_router.cast_aider_spell", side_effect=AssertionError("nested agent")):
+            response = VaelorBrain._agent_reply("modify file app.py", "code_forge")
+        self.assertEqual(response, "FINAL: done")
+        chat.assert_called_once_with("modify file app.py", spell="code_forge")
+
     def test_agent_failure_is_reported_instead_of_becoming_chat(self):
         brain = VaelorBrain.__new__(VaelorBrain)
         brain.conversations = MagicMock()

@@ -11,6 +11,81 @@ import json
 import re
 import urllib.parse
 import requests
+import ipaddress
+import socket
+from html.parser import HTMLParser
+from concurrent.futures import ThreadPoolExecutor
+
+
+class _SearchLinks(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.results = []
+        self.current = None
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if tag == 'a' and 'result__a' in attrs.get('class', '').split():
+            href = attrs.get('href', '')
+            parsed = urllib.parse.urlparse(href)
+            href = urllib.parse.parse_qs(parsed.query).get('uddg', [href])[0]
+            if href.startswith(('http://', 'https://')):
+                self.current = [href, []]
+
+    def handle_data(self, data):
+        if self.current is not None:
+            self.current[1].append(data)
+
+    def handle_endtag(self, tag):
+        if tag == 'a' and self.current is not None:
+            url, title = self.current
+            self.results.append((''.join(title).strip() or url, url, ''))
+            self.current = None
+
+
+def _ddg_search(query):
+    response = requests.get('https://html.duckduckgo.com/html/',
+                            params={'q': query}, headers=HEADERS, timeout=15)
+    response.raise_for_status()
+    parser = _SearchLinks()
+    parser.feed(response.text)
+    return parser.results
+
+
+def research_context(query, limit=4):
+    """Return bounded page evidence with URLs; unavailable sources stay explicit."""
+    query = (query or '').strip()
+    limit = max(1, min(int(limit), 5))
+    if not query:
+        return {'sources': [], 'context': ''}
+    if query.startswith(('https://', 'http://')) and not any(c.isspace() for c in query):
+        results = [(query, query, '')]
+    else:
+        results = []
+        for search in (_ddg_search, _ddg_instant, lambda q: _wikipedia(q, limit)):
+            try:
+                results = search(query)
+                if results:
+                    break
+            except requests.RequestException:
+                continue
+    unique = {}
+    for title, url, snippet in results:
+        if url and url not in unique:
+            unique[url] = (title, url, snippet)
+    def read(item):
+        title, url, snippet = item
+        page = fetch_url(url, max_chars=3500)
+        unavailable = page.startswith(('Fetch failed', 'Refused:'))
+        if unavailable and not snippet:
+            return None
+        return {'title': title, 'url': url,
+                'text': ('Search summary only: ' + snippet) if unavailable else page}
+    with ThreadPoolExecutor(max_workers=limit) as pool:
+        sources = [source for source in pool.map(read, list(unique.values())[:limit]) if source]
+    context = '\n\n'.join(f"[{i}] {s['title']}\nURL: {s['url']}\n{s['text']}"
+                          for i, s in enumerate(sources, 1))
+    return {'sources': sources, 'context': context}
 
 HEADERS = {
     "User-Agent": "VaelorArchive/1.0 (local assistant; +https://localhost)",
@@ -128,15 +203,34 @@ def fetch_url(url: str = "", max_chars: int = 4000) -> str:
         return "Refused: only http/https URLs allowed."
     max_chars = max(500, min(int(max_chars or 4000), 12000))
     try:
-        r = requests.get(url, headers=HEADERS, timeout=20)
-        r.raise_for_status()
-        ctype = (r.headers.get("Content-Type") or "").lower()
-        if "json" in ctype:
-            text = json.dumps(r.json(), indent=2)[:max_chars]
-            return f"----- {url} -----\n{text}"
-        if not any(x in ctype for x in ("html", "text", "xml")):
-            return f"Refused: unsupported content-type {ctype}"
-        text = _strip_tags(r.text)
+        current = url
+        for _ in range(6):
+            parsed = urllib.parse.urlsplit(current)
+            if parsed.scheme not in ('http', 'https') or not parsed.hostname or parsed.username or parsed.password:
+                return 'Refused: only public HTTP(S) URLs without credentials are supported.'
+            addresses = socket.getaddrinfo(parsed.hostname, parsed.port or (443 if parsed.scheme == 'https' else 80), type=socket.SOCK_STREAM)
+            if not addresses or any(not ipaddress.ip_address(a[4][0]).is_global for a in addresses):
+                return 'Refused: research cannot access private or local network addresses.'
+            with requests.get(current, headers=HEADERS, timeout=20, stream=True, allow_redirects=False) as r:
+                if r.is_redirect:
+                    current = urllib.parse.urljoin(current, r.headers['Location'])
+                    continue
+                r.raise_for_status()
+                ctype = (r.headers.get('Content-Type') or '').lower()
+                if not any(x in ctype for x in ('html', 'text', 'xml', 'json')):
+                    return f'Refused: unsupported content-type {ctype}'
+                chunks = []
+                total = 0
+                for chunk in r.iter_content(16384):
+                    total += len(chunk)
+                    if total > 2_000_000:
+                        break
+                    chunks.append(chunk)
+                raw = b''.join(chunks).decode(r.encoding or 'utf-8', errors='replace')
+                text = raw if 'json' in ctype else _strip_tags(raw)
+                break
+        else:
+            return 'Fetch failed: too many redirects'
         if len(text) > max_chars:
             text = text[:max_chars] + "…"
         return f"----- {url} -----\n{text}"

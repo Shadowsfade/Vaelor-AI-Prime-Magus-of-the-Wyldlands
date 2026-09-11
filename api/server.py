@@ -483,17 +483,7 @@ def route_message(message: str, session_id=None, images=None):
 
     elif mode == "search":
         q = prompt or message
-        research = brain.research(q)
-        response = (
-            "I consulted the wider aether (web search).\n\n"
-            + research
-            + "\n\n"
-            + brain.think(
-                "Summarize and answer using the research above.\nQuestion: " + q,
-                session_id=session_id,
-                use_web=False,
-            )
-        )
+        response = brain.research_answer(q, session_id=session_id)
 
     elif mode == "cleanup":
         response = brain.cleanup_workspace()

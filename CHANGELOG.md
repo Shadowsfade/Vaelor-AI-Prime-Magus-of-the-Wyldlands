@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-09-11 — Portable software workflow and research continuation
+
+- Continued the LEGO1 Phase 5 worktree and completed its in-progress portable
+  software contracts and CachyOS adapter integration.
+- Corrected TaskStore step-field matching so resumed work skips successful installs;
+  preserved and migrated Slice 8 source/plan evidence without rediscovery.
+- Restored bounded sudo preflight, default-deny missing policy, policy audit events,
+  and blocked uncertain mutation outcomes instead of silently reinstalling.
+- Separated executable aliases from package names, kept AUR helpers unprivileged,
+  verified recorded downloaded artifacts, and recorded bounded probe timeouts.
+- Added a Research button, `--research` CLI option and `/research topic` command.
+  Research reads bounded public pages, passes actual evidence to the model, keeps
+  citations and session history, and never routes scraped text through the tool agent.
+- Respected explicit web-disable requests and removed nested Aider launches from
+  the durable coding agent's model callback.
+- Added workflow, research/API/CLI, package classification and nested-agent regressions.
+  Windows symlink verification is skipped only when the account lacks that privilege;
+  the independent directory/deletion assertions still run.
+
 ## [Unreleased] — 2026-09-02
 
 ### Clean-package acceptance milestone 48

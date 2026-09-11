@@ -13,6 +13,7 @@ def build_parser():
     parser = argparse.ArgumentParser(description="Vaelor local AI assistant")
     parser.add_argument("prompt", nargs="*", help="Run one prompt and exit")
     parser.add_argument("--json", action="store_true", help="Emit machine-readable output")
+    parser.add_argument("--research", action="store_true", help="Research a topic using public web sources")
     parser.add_argument("--terminal", action="store_true", help="Start in persistent terminal mode")
     parser.add_argument("--cwd", help="Initial terminal working directory")
     parser.add_argument("--version", action="version", version=VAELOR_VERSION)
@@ -24,7 +25,7 @@ def main(argv=None):
     runtime = VaelorRuntime()
     if args.prompt:
         prompt = " ".join(args.prompt)
-        response = runtime.brain.think(prompt)
+        response = runtime.brain.research_answer(prompt) if args.research else runtime.brain.think(prompt)
         print(json.dumps({"response": response}) if args.json else response)
         return 0
 
@@ -41,7 +42,7 @@ def main(argv=None):
             if text in ("/quit", "/exit", "quit", "exit"):
                 return 0
             if text == "/help":
-                print("/terminal [cwd], /close, !command, /quit, or enter a natural-language request")
+                print("/terminal [cwd], /close, !command, /research topic, /quit, or enter a natural-language request")
                 continue
             if text.startswith("/terminal"):
                 if terminal_id:
@@ -62,7 +63,10 @@ def main(argv=None):
                 result = terminals.execute(terminal_id, text[1:].strip())
                 print(result["output"] or f"[exit {result['returncode']}; no output]")
                 continue
-            print(runtime.brain.think(text))
+            if text.startswith("/research "):
+                print(runtime.brain.research_answer(text[len("/research "):].strip()))
+            else:
+                print(runtime.brain.think(text))
     except (EOFError, KeyboardInterrupt):
         return 0
     finally:

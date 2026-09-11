@@ -6,6 +6,14 @@ from core.approval_policy import (
 )
 
 class AutoApprovePolicyTests(unittest.TestCase):
+    def test_arch_package_mutations_require_system_approval(self):
+        policy = ApprovalPolicy("TRUSTED_WORKSPACE")
+        for command in ("sudo -n pacman -S --needed --noconfirm tree", "paru -S tree", "yay -R tree"):
+            with self.subTest(command=command):
+                result = policy.evaluate(ActionContext("shell_exec", {"command": command}, workspace="."))
+                self.assertEqual(result.action_class, ActionClass.SYSTEM_CONFIGURATION)
+                self.assertEqual(result.decision, ApprovalDecision.REQUIRE_USER)
+
     def test_safe_mode_allows_reads_and_tests_but_off_requires_user(self):
         read = ActionContext("file_reader", {"path": "x"})
         test = ActionContext("shell_exec", {"command": "python -m unittest"})

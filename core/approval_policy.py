@@ -108,7 +108,7 @@ def classify_action(context: ActionContext) -> tuple[ActionClass, RiskTier]:
         return ActionClass.DESTRUCTIVE_FILESYSTEM, RiskTier.CRITICAL if not context.workspace else RiskTier.HIGH
     if re.search(r"\b(password|token|secret|credential|api[_ -]?key)\b", command) or tool in {"credential_access","secret_write"}:
         return ActionClass.CREDENTIAL_ACCESS, RiskTier.CRITICAL
-    if re.search(r"\b(install|set-itemproperty|reg\s+add|sc\s+config|systemctl)\b", command):
+    if re.search(r"\b(install|set-itemproperty|reg\s+add|sc\s+config|systemctl)\b", command) or re.search(r"\b(pacman|paru|yay)\s+-[a-z]*[sru]", command):
         return ActionClass.SYSTEM_CONFIGURATION, RiskTier.HIGH
     if re.search(r"\b(curl|wget|invoke-webrequest)\b.*\b(post|put|patch|delete)\b", command):
         return ActionClass.NETWORK_MUTATION, RiskTier.HIGH

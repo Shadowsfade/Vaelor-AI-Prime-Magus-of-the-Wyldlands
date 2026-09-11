@@ -92,3 +92,18 @@ def run_cachyos_workflow(task, store, policy=None, owner=""):
     except Exception as exc:
         store.finish_step(task_id, owner, step["id"], "failed", str(exc), "TRANSIENT", retry_eligible=True, error=str(exc)); store.record_runner_failure(task_id, owner, str(exc), 5, 60); return f"FINAL_SUMMARY: FAILED Download failed: {exc}"
     return _finish_verified(store, task, workflow, target, owner)
+
+
+def run_platform_workflow(task, store, policy=None, owner=""):
+    """Portable entry point retained beside the Slice 8 compatibility API."""
+    from core.software_workflow import run_software_workflow, select_platform_adapter
+
+    adapter = select_platform_adapter()
+    if adapter is None:
+        store.set_recovery(task["id"], "BLOCKED", "No supported software platform adapter was detected.", status="waiting")
+        return "FINAL_SUMMARY: BLOCKED No supported software platform adapter was detected."
+    try:
+        return run_software_workflow(task, store, adapter, policy, owner)
+    except ValueError as exc:
+        store.set_recovery(task["id"], "BLOCKED", str(exc), status="waiting")
+        return f"FINAL_SUMMARY: BLOCKED {exc}"

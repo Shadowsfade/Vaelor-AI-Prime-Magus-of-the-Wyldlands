@@ -442,6 +442,7 @@ select.voice-select{
   background:linear-gradient(180deg,#8a2a2a,#5c1515);
   box-shadow:0 0 16px rgba(220,80,60,.45);
 }
+#researchBtn{height:50px; flex-shrink:0}
 #sendBtn{
   height:50px; padding:0 24px;
   font-family:'Cinzel Decorative', serif; font-size:.88rem;
@@ -681,6 +682,7 @@ code{
           <input type="file" id="imageInput" accept="image/*" multiple hidden />
           <button class="icon-btn" id="imgBtn" title="Attach image for vision">🖼</button>
           <button class="icon-btn" id="micBtn" title="Speak">🎤</button>
+          <button class="btn" id="researchBtn" title="Research the topic in the message box using web sources">Research</button>
           <button id="sendBtn">Cast</button>
         </div>
       </section>
@@ -1035,10 +1037,10 @@ async function openSession(id){sessionId=id;chat.innerHTML='';try{const res=awai
 async function newSession(){sessionId=null;chat.innerHTML='';await ensureSession();addMessage('A fresh leaf of the archive turns. The ink awaits thy hand, Apprentice.','vaelor','session');loadSessions()}
 function renderImagePreview(){if(!pendingImages.length){imagePreview.classList.remove('active');imagePreview.innerHTML='';return}imagePreview.classList.add('active');imagePreview.innerHTML='';pendingImages.forEach((src,i)=>{const img=document.createElement('img');img.src=src;imagePreview.appendChild(img);const rm=document.createElement('button');rm.className='btn';rm.textContent='Remove';rm.onclick=()=>{pendingImages.splice(i,1);renderImagePreview()};imagePreview.appendChild(rm)})}
 async function fileToDataUrl(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file)})}
-async function sendMessage(){const message=inputBox.value.trim();if((!message&&!pendingImages.length)||busy)return;clearError();await ensureSession();if(message)addMessage(message,'user');if(pendingImages.length)addMessage(`[${pendingImages.length} vision-sigil(s) attached]`,'user','vision');const imgs=[...pendingImages];pendingImages=[];renderImagePreview();inputBox.value='';busy=true;sendBtn.disabled=true;orb.classList.add('thinking');
-const thinking=addMessage(useStream?'…the runes stream like starlight across the page…':'…the runes rearrange themselves in quiet fire…','vaelor','thinking');
+async function sendMessage(research=false){const topic=inputBox.value.trim();if(research&&!topic)return;const message=research?"search: "+topic:topic;if((!message&&!pendingImages.length)||busy)return;if(research&&pendingImages.length){showError("Research uses a text topic. Remove attached images or send them with Cast.");return}clearError();busy=true;sendBtn.disabled=true;document.getElementById("researchBtn").disabled=true;await ensureSession();if(message)addMessage(message,'user');if(pendingImages.length)addMessage(`[${pendingImages.length} vision-sigil(s) attached]`,'user','vision');const imgs=[...pendingImages];pendingImages=[];renderImagePreview();inputBox.value='';busy=true;sendBtn.disabled=true;orb.classList.add('thinking');
+const thinking=addMessage(research?'Reading web sources and preparing an answer…':useStream?'…the runes stream like starlight across the page…':'…the runes rearrange themselves in quiet fire…','vaelor','thinking');
 try{
-  if(useStream&&!imgs.length){
+  if(useStream&&!imgs.length&&!research){
     updateMessageContent(thinking,'',false);
     const res=await fetch('/chat/stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:message||'Describe.',session_id:sessionId})});
     if(!res.ok){
@@ -1060,7 +1062,7 @@ try{
   }
   loadTasks();loadSchedules();loadApprovals();loadProposals();loadTools();loadSessions();
 }catch(err){try{chat.removeChild(thinking.div)}catch(_){}dbgLog('chat error: '+err.message); showError('The archive could not be reached: '+err.message)}
-busy=false;sendBtn.disabled=false;orb.classList.remove('thinking');inputBox.focus()}
+busy=false;sendBtn.disabled=false;document.getElementById("researchBtn").disabled=false;orb.classList.remove('thinking');inputBox.focus()}
 function createRecognition(continuous){
   if(!SpeechRecognition) return null;
   const r = new SpeechRecognition();
@@ -1520,6 +1522,7 @@ if(closedBook){
   closedBook.setAttribute('role','button');
   closedBook.style.cursor = 'pointer';
 }
+document.getElementById('researchBtn').onclick = () => sendMessage(true);
 if(sendBtn) sendBtn.onclick = function(e){ e.preventDefault(); sendMessage(); };
 if(inputBox){
   inputBox.addEventListener('keydown', function(e){

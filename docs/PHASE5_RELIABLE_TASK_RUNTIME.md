@@ -94,7 +94,7 @@ Status failures are isolated by section. An unreadable task store or unavailable
 
 ## Phase 5 Slice 7: Real-World Workflow Bring-Up
 
-The first real workflow is a deterministic CachyOS/Arch application setup path entered through the ordinary durable task API: ìDownload jq, open it, and tell me how to use it on CachyOS.î Brain recognizes this narrow workflow without asking a model to classify routine orchestration, creates the normal durable task, and executes it only after the existing task lease is claimed.
+The first real workflow is a deterministic CachyOS/Arch application setup path entered through the ordinary durable task API: ‚ÄúDownload jq, open it, and tell me how to use it on CachyOS.‚Äù Brain recognizes this narrow workflow without asking a model to classify routine orchestration, creates the normal durable task, and executes it only after the existing task lease is claimed.
 
 The workflow detects the OS release, architecture, shell, user, home, and available pacman/paru/yay tools. It selects only the allowlisted official jq release source for this bring-up, places the binary under ~/.local/share/vaelor/tasks/<task-id>/jq, records the URL, destination, size, method, commands, and verification in the task record, and verifies both --version and --help before marking the task completed. Download, managed-workspace write, and launch decisions use the existing ApprovalPolicy; Auto Approve OFF pauses for approval, while the trusted-workspace policy can authorize the bounded setup.
 
@@ -113,3 +113,62 @@ Real Legion Go acceptance:
 - Install tree on CachyOS and tell me how to use it. Created task e7550584-e00; selected official pacman because the package exists in the official repository; persisted sudo -n pacman -S --needed --noconfirm tree; stopped cleanly for unavailable sudo authentication; resumed the same task ID and returned to waiting with its source and plan intact. No manual terminal driving or package mutation was performed.
 
 The outer workflow remains suitable for future Windows, macOS, and other Linux backends; only the platform resolver/executor boundary is CachyOS/Arch-specific. Remaining gaps are authenticated privileged installation UX, broader upstream artifact metadata/checksums, and the future platform-neutral software workflow core.
+# Phase 5 Slice 9: Portable software workflow core
+
+Slice 9 extracts a compact, serializable software workflow contract from the
+Slice 8 CachyOS implementation. `core/software_workflow.py` owns
+`SoftwareRequest`, `SoftwareEnvironment`, `SoftwareSource`, `SoftwarePlan`,
+`SoftwareArtifact`, `SoftwareVerification`, bounded safe verification, and
+durable orchestration. `core/software_platforms/cachyos.py` is the first
+`SoftwarePlatformAdapter`; it owns Arch-family detection, pacman/AUR/upstream
+source details, command construction, and usage/update/removal instructions.
+
+The flow is now detect -> canonicalize -> resolve -> plan -> persist plan ->
+governance -> execute -> verify -> durable result/recovery. Platform adapters
+never bypass ApprovalPolicy, Auto Approve, scoped capabilities, or waiting.
+TaskStore remains the only task engine. A waiting task resumes with the same
+task ID and persisted request, source, plan, artifacts, commands, events,
+approval history, and recovery reason; completed mutation steps are not
+repeated. Verification belongs to the portable core and requires a discoverable
+executable plus one successful bounded non-interactive probe.
+
+The current deterministic source order is already installed, official
+repository, trusted community repository, allowlisted official upstream
+artifact, then blocked/clarification. Unsupported platforms are durably
+blocked; there is no LLM fallback for package installation.
+
+Future adapters use the same core: Windows (`winget` -> Chocolatey -> official
+upstream), macOS (Homebrew -> official upstream), Debian/Ubuntu (apt -> official
+upstream), and Fedora (dnf -> official upstream). They are not implemented in
+Slice 9.
+
+## September 11 desktop continuation
+
+The Slice 9 production entry now uses the portable core with the existing
+TaskStore and heartbeat. Persisted step fields are `action_category` and `state`;
+resume recognizes successful mutations using those fields. Existing Slice 8
+records are converted without another source lookup, retaining the original plan
+under `legacy_plan`. Changed adapter commands are rejected rather than silently
+substituted for an approved plan. Uncertain/failed mutations wait for explicit
+reconciliation and are not automatically repeated.
+
+The Research button sends the current topic through the existing authenticated
+chat endpoint's search mode. `VaelorBrain.research_answer` fetches bounded page
+excerpts and invokes the configured reasoning model directly, with evidence and
+untrusted-content instructions. It keeps sources and session history. The CLI
+supports `--research topic` and interactive `/research topic`. No second task
+engine, model configuration, or runtime service was introduced.
+
+Validation on the Windows desktop includes the whole Python suite, inline UI
+JavaScript syntax, and the isolated clean-package build/import/API smoke gate.
+This is not a new on-device LEGO1 acceptance run. Real sudo installation and the
+Research button with a live model still need acceptance on the target host.
+
+Remaining release work: authenticated privilege/approval UX for package tasks,
+reviewed upstream checksums and broader sources, Windows/macOS package adapters,
+and a standalone installer that bundles its Python runtime. The portable ZIP
+still requires Python. The WebUI remains the shared desktop presentation layer.
+
+Verified result: 349 tests passed, one Windows symlink privilege skip, seven
+subtests passed. Python compilation and inline JavaScript syntax passed.
+The clean-package gate built and verified a 120-file archive and passed runtime smoke.

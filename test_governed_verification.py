@@ -105,8 +105,18 @@ class GovernedVerificationTests(unittest.TestCase):
             req = build_requirement("make_dir", {"path": str(target)}, "fp2", "t", "2")
             target.mkdir()
             self.assertEqual(verify_requirement(req, "t", "2", "fp2").status, VerificationStatus.PASSED)
+
+    def test_symlink_does_not_satisfy_directory_creation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "dir"
+            target.mkdir()
             link = Path(tmp) / "link"
-            link.symlink_to(target, target_is_directory=True)
+            try:
+                link.symlink_to(target, target_is_directory=True)
+            except OSError as exc:
+                if getattr(exc, "winerror", None) == 1314:
+                    self.skipTest("Windows account lacks symlink creation privilege")
+                raise
             req = build_requirement("make_dir", {"path": str(link)}, "fp3", "t", "3")
             self.assertEqual(verify_requirement(req, "t", "3", "fp3").status, VerificationStatus.FAILED)
 
