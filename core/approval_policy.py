@@ -128,6 +128,15 @@ class ApprovalPolicy:
         self.mode = AutoApproveMode(str(mode).upper()) if not isinstance(mode, AutoApproveMode) else mode
         self._lock = threading.RLock()
         self._capabilities = {}
+        self._last_decision = None
+
+    def _record_decision(self, context, assessment):
+        self._last_decision = {"decision": assessment.decision.value,
+            "action_class": assessment.action_class.value, "risk_tier": assessment.risk.value,
+            "reason": assessment.reason, "scope": assessment.scope,
+            "capability_id": assessment.capability_id or None, "tool": str(context.tool),
+            "timestamp": datetime.now(timezone.utc).isoformat()}
+        return assessment
 
     def issue_capability(self, task_id="", session_id="", workspace="", allowed_classes=None,
                          denied_classes=None, lifetime_seconds=3600, max_uses=None, provenance=()):
@@ -139,31 +148,44 @@ class ApprovalPolicy:
         return cap
 
     def evaluate(self, context: ActionContext, now=None) -> ActionAssessment:
-        action_class,risk=classify_action(context)
-        scope = "trusted_workspace" if context.workspace and _under(context.arguments.get("path") or context.arguments.get("cwd") or context.workspace, context.workspace) else "external"
-        if action_class in {ActionClass.CANONICAL_BRANCH_CHANGE,ActionClass.RELEASE_OPERATION,ActionClass.CREDENTIAL_ACCESS}:
-            return ActionAssessment(action_class,risk,ApprovalDecision.REQUIRE_USER,"hard stop rule",scope)
+        action_class, risk = classify_action(context)
+        scope = "trusted_workspace" if context.workspace and _under(
+            context.arguments.get("path") or context.arguments.get("cwd") or context.workspace,
+            context.workspace) else "external"
+        if action_class in {ActionClass.CANONICAL_BRANCH_CHANGE, ActionClass.RELEASE_OPERATION, ActionClass.CREDENTIAL_ACCESS}:
+            assessment = ActionAssessment(action_class, risk, ApprovalDecision.REQUIRE_USER, "hard stop rule", scope)
+        else:
+            with self._lock:
+                cap = next((c for c in self._capabilities.values() if c.valid(context, action_class, now)), None)
+                if cap:
+                    cap.consume()
+                    assessment = ActionAssessment(action_class, risk, ApprovalDecision.AUTO_APPROVE, "scoped capability", scope, cap.capability_id)
+                elif self.mode == AutoApproveMode.OFF:
+                    assessment = ActionAssessment(action_class, risk, ApprovalDecision.REQUIRE_USER, "auto approve is off", scope)
+                elif action_class == ActionClass.UNKNOWN:
+                    assessment = ActionAssessment(action_class, risk, ApprovalDecision.AMBIGUOUS, "action classification is ambiguous", scope)
+                elif self.mode == AutoApproveMode.SAFE and risk == RiskTier.LOW:
+                    assessment = ActionAssessment(action_class, risk, ApprovalDecision.AUTO_APPROVE, "safe low-risk action", scope)
+                elif self.mode == AutoApproveMode.TRUSTED_WORKSPACE and (risk == RiskTier.LOW or (risk == RiskTier.MEDIUM and scope == "trusted_workspace")):
+                    assessment = ActionAssessment(action_class, risk, ApprovalDecision.AUTO_APPROVE, "trusted workspace policy", scope)
+                else:
+                    assessment = ActionAssessment(action_class, risk, ApprovalDecision.REQUIRE_USER, "risk or scope exceeds policy", scope)
         with self._lock:
-            cap = next((c for c in self._capabilities.values() if c.valid(context,action_class,now)), None)
-            if cap:
-                cap.consume()
-                return ActionAssessment(action_class,risk,ApprovalDecision.AUTO_APPROVE,"scoped capability",scope,cap.capability_id)
-        if self.mode == AutoApproveMode.OFF:
-            return ActionAssessment(action_class,risk,ApprovalDecision.REQUIRE_USER,"auto approve is off",scope)
-        if action_class == ActionClass.UNKNOWN:
-            return ActionAssessment(action_class,risk,ApprovalDecision.AMBIGUOUS,"action classification is ambiguous",scope)
-        if self.mode == AutoApproveMode.SAFE and risk == RiskTier.LOW:
-            return ActionAssessment(action_class,risk,ApprovalDecision.AUTO_APPROVE,"safe low-risk action",scope)
-        if self.mode == AutoApproveMode.TRUSTED_WORKSPACE and (risk == RiskTier.LOW or (risk == RiskTier.MEDIUM and scope=="trusted_workspace")):
-            return ActionAssessment(action_class,risk,ApprovalDecision.AUTO_APPROVE,"trusted workspace policy",scope)
-        return ActionAssessment(action_class,risk,ApprovalDecision.REQUIRE_USER,"risk or scope exceeds policy",scope)
+            return self._record_decision(context, assessment)
 
     def set_mode(self, mode):
         self.mode = AutoApproveMode(str(mode).upper()) if not isinstance(mode, AutoApproveMode) else mode
 
     def status(self):
         with self._lock:
-            return {"mode": self.mode.value, "capabilities": len(self._capabilities)}
+            now = datetime.now(timezone.utc)
+            active = 0
+            for capability in self._capabilities.values():
+                try: active += int(datetime.fromisoformat(capability.expires_at) > now)
+                except (TypeError, ValueError): pass
+            return {"mode": self.mode.value, "active_capabilities": active,
+                    "capabilities": len(self._capabilities),
+                    "last_decision": dict(self._last_decision) if self._last_decision else None}
 
 def action_fingerprint(context: ActionContext) -> str:
     return hashlib.sha256(json.dumps({"tool":context.tool,"arguments":context.arguments},sort_keys=True,separators=(",",":")).encode()).hexdigest()

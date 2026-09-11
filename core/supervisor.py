@@ -27,6 +27,15 @@ class SupervisorRunner:
         self._stop = threading.Event()
         self.thread_factory = thread_factory
         self._worker = None
+        self._state_lock = threading.RLock()
+        self._started_at = None
+        self._last_cycle_at = None
+        self._last_successful_cycle_at = None
+        self._last_error_at = None
+        self._last_error_summary = None
+        self._tasks_processed = 0
+        self._active_claims = 0
+        self._last_event = None
 
     def _now(self):
         value = self.clock()
@@ -66,10 +75,54 @@ class SupervisorRunner:
         return sorted(result, key=lambda item: (item.get("created_at", ""), item.get("id", "")))
 
     def _event(self, task_id, name, data=None):
+        stamp = self._now().isoformat()
+        with self._state_lock:
+            self._last_event = {"type": str(name), "timestamp": stamp, "data": dict(data or {})}
         try:
-            self.store.add_event(task_id, name, data or {})
+            if task_id:
+                self.store.add_event(task_id, name, data or {})
         except Exception:
             pass
+
+    def status(self):
+        with self._state_lock:
+            worker = self._worker
+            return {
+                "running": bool(worker and worker.is_alive() and not self._stop.is_set()),
+                "thread_alive": bool(worker and worker.is_alive()),
+                "owner_id": self.owner,
+                "started_at": self._started_at,
+                "last_cycle_at": self._last_cycle_at,
+                "last_successful_cycle_at": self._last_successful_cycle_at,
+                "last_error_at": self._last_error_at,
+                "last_error_summary": self._last_error_summary,
+                "tasks_processed": self._tasks_processed,
+                "active_claims": self._active_claims,
+                "queue_depth": self._queue_depth(),
+                "last_event": dict(self._last_event) if self._last_event else None,
+            }
+
+    def _queue_depth(self):
+        try:
+            return len(self.eligible())
+        except Exception:
+            return None
+
+    def _cycle(self):
+        with self._state_lock:
+            self._last_cycle_at = self._now().isoformat()
+        try:
+            processed = self.run_once()
+            with self._state_lock:
+                self._tasks_processed += len(processed)
+                self._last_successful_cycle_at = self._now().isoformat()
+            return processed
+        except Exception as exc:
+            with self._state_lock:
+                self._last_error_at = self._now().isoformat()
+                self._last_error_summary = str(exc)[:1000]
+            self._event(None, "supervisor_error", {"error": str(exc)[:1000]})
+            return []
 
     def _preflight(self, task):
         self._event(task["id"], "preflight_started", {"owner": self.owner})
@@ -117,6 +170,8 @@ class SupervisorRunner:
         if not claimed:
             return None
         self._event(task_id, "task_claimed", {"owner": self.owner})
+        with self._state_lock:
+            self._active_claims += 1
         try:
             if self.store.is_cancelled(task_id):
                 return self.store.get(task_id)
@@ -143,6 +198,8 @@ class SupervisorRunner:
                 self._event(task_id, "runner_task_failure", {"error": str(exc)[:1000]})
             return self.store.get(task_id)
         finally:
+            with self._state_lock:
+                self._active_claims = max(0, self._active_claims - 1)
             try:
                 self.store.release(task_id, self.owner, "Supervisor cycle finished.")
             except Exception:
@@ -163,6 +220,11 @@ class SupervisorRunner:
         if self._worker is not None and self._worker.is_alive():
             return
         self._stop.clear()
+        with self._state_lock:
+            self._started_at = self._now().isoformat()
+            self._last_error_at = None
+            self._last_error_summary = None
+        self._event(None, "supervisor_started", {"owner": self.owner})
         worker = self.thread_factory(
             target=self.run_forever,
             args=(poll_interval_seconds,),
@@ -188,9 +250,9 @@ class SupervisorRunner:
     def run_forever(self, poll_interval_seconds: float = 5.0):
         interval = max(0.1, float(poll_interval_seconds))
         while not self._stop.is_set():
-            processed = self.run_once()
-            if not processed:
-                self._stop.wait(interval)
+            processed = self._cycle()
+            if not processed and self._stop.wait(interval):
+                break
 
     def request_stop(self):
         self._stop.set()

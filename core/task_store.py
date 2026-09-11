@@ -676,6 +676,33 @@ class TaskStore:
                 self._write(tasks)
             return changed
 
+    def aggregate_counts(self) -> Dict[str, int]:
+        counts = {"pending": 0, "running": 0, "waiting_approval": 0, "blocked": 0,
+                  "retry_scheduled": 0, "interrupted": 0, "failed": 0,
+                  "succeeded": 0, "cancelled": 0}
+        with self._lock:
+            for task in self._read():
+                status = str(task.get("status", "pending"))
+                if status == "completed": counts["succeeded"] += 1
+                elif status in counts: counts[status] += 1
+                if status == "waiting" and task.get("waiting_reason") == "approval":
+                    counts["waiting_approval"] += 1
+                if (task.get("recovery") or {}).get("decision") == "BLOCKED":
+                    counts["blocked"] += 1
+                retry = task.get("retry") or {}
+                if retry.get("retryable") and retry.get("next_retry_at"):
+                    counts["retry_scheduled"] += 1
+        return counts
+
+    def recent_event(self) -> Optional[dict]:
+        newest = None
+        with self._lock:
+            for task in self._read():
+                for event in task.get("events") or []:
+                    if newest is None or str(event.get("timestamp", "")) > str(newest.get("timestamp", "")):
+                        newest = {"task_id": task.get("id"), **deepcopy(event)}
+        return newest
+
     @staticmethod
     def _parse_time(value: Any) -> Optional[datetime]:
         if not value:

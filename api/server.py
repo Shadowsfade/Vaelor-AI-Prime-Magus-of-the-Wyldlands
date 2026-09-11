@@ -546,6 +546,21 @@ def health():
     }
 
 
+@app.get("/runtime/status")
+def runtime_status():
+    try:
+        counts = brain.tasks.aggregate_counts()
+        tasks = {**counts, "most_recent_event": brain.tasks.recent_event()}
+    except Exception as exc:
+        tasks = {"status": "degraded", "error": str(exc)[:500]}
+    try: supervisor = supervisor_runner.status()
+    except Exception as exc: supervisor = {"running": False, "status": "degraded", "error": str(exc)[:500]}
+    try: scheduler = scheduler_service.status()
+    except Exception as exc: scheduler = {"running": False, "status": "degraded", "error": str(exc)[:500]}
+    return {"server": {"status": "ok"}, "supervisor": supervisor, "scheduler": scheduler,
+            "tasks": tasks, "governance": brain.get_auto_approve_status()}
+
+
 @app.get("/readiness")
 def readiness():
     report = assess_readiness(brain, tool_registry, detect_backends)

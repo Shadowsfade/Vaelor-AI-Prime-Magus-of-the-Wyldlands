@@ -195,6 +195,20 @@ class SchedulerService:
         self.thread_factory = thread_factory
         self._stop = threading.Event()
         self._worker = None
+        self._state_lock = threading.RLock()
+        self._started_at = None
+        self._last_cycle_at = None
+        self._last_error_at = None
+        self._last_error_summary = None
+
+    def status(self):
+        with self._state_lock:
+            worker = self._worker
+            return {"running": bool(worker and worker.is_alive() and not self._stop.is_set()),
+                    "thread_alive": bool(worker and worker.is_alive()),
+                    "started_at": self._started_at, "last_cycle_at": self._last_cycle_at,
+                    "last_error_at": self._last_error_at,
+                    "last_error_summary": self._last_error_summary}
 
     def run_due_once(self, now: Optional[datetime] = None) -> list[str]:
         launched = []
@@ -228,9 +242,14 @@ class SchedulerService:
 
     def _loop(self):
         while not self._stop.wait(self.poll_seconds):
+            with self._state_lock:
+                self._last_cycle_at = _iso(_now())
             try:
                 self.run_due_once()
             except Exception as exc:
+                with self._state_lock:
+                    self._last_error_at = _iso(_now())
+                    self._last_error_summary = str(exc)[:1000]
                 try:
                     _audit({"tool": "scheduler_service", "error": str(exc)[:2000]})
                 except Exception:
@@ -240,6 +259,10 @@ class SchedulerService:
         if self._worker and self._worker.is_alive():
             return
         self._stop.clear()
+        with self._state_lock:
+            self._started_at = _iso(_now())
+            self._last_error_at = None
+            self._last_error_summary = None
         worker = self.thread_factory(target=self._loop, daemon=True)
         try:
             worker.start()
