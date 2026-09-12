@@ -11,6 +11,7 @@ import threading
 import uuid
 
 class ActionClass(str, Enum):
+    COMPUTER_INPUT="COMPUTER_INPUT"
     READ_ONLY="READ_ONLY"; TRUSTED_WORKSPACE_WRITE="TRUSTED_WORKSPACE_WRITE"; TEST_EXECUTION="TEST_EXECUTION"
     SAFE_PROCESS_EXECUTION="SAFE_PROCESS_EXECUTION"; NETWORK_READ="NETWORK_READ"; NETWORK_MUTATION="NETWORK_MUTATION"
     GIT_READ="GIT_READ"; GIT_FEATURE_BRANCH="GIT_FEATURE_BRANCH"; GIT_COMMIT="GIT_COMMIT"
@@ -86,6 +87,7 @@ def _under(path, root):
 
 def classify_action(context: ActionContext) -> tuple[ActionClass, RiskTier]:
     tool = str(context.tool or "").lower()
+    if tool == "computer_input": return ActionClass.COMPUTER_INPUT, RiskTier.HIGH
     args = context.arguments or {}
     command = str(args.get("command") or "").strip().lower()
     if tool in {"file_reader","project_scanner","list_dir","scan_unused_files","file_editor_propose","stage_file","list_proposals"}:

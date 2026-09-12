@@ -15,7 +15,7 @@ from core.software_workflow import (
     SoftwareSource, run_command,
 )
 
-UPSTREAM_SOURCES = {"jq": {"url": "https://github.com/jqlang/jq/releases/download/jq-1.8.1/jq-linux-amd64", "version": "1.8.1", "sha256": "020468de7539ce70ef1bceaf7cde2e8c4f2ca6c3afb84642aabc5c97d9fc2a0d", "checksum_url": "https://github.com/jqlang/jq/releases/download/jq-1.8.1/sha256sum.txt"}}
+UPSTREAM_SOURCES = {"jq": {"url": "https://github.com/jqlang/jq/releases/download/jq-1.8.2/jq-linux-amd64", "version": "1.8.2", "sha256": "b1c22172dd303f3be49e935aa56aa48a8b7a46e0bc838b4997d3bb451495870f", "checksum_url": "https://github.com/jqlang/jq/releases/download/jq-1.8.2/sha256sum.txt"}}
 ALIASES = {"ripgrep": "rg", "fd-find": "fd"}
 
 

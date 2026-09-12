@@ -20,7 +20,7 @@ BG = "#0a0603"
 
 def app_root() -> Path:
     if getattr(sys, "frozen", False):
-        return Path(sys.executable).resolve().parent
+        return Path(sys._MEIPASS).resolve()
     return Path(__file__).resolve().parent.parent
 
 
@@ -94,14 +94,19 @@ def start_server(root: Path, host: str, port: int):
         "--log-level",
         "warning",
     ]
-    return subprocess.Popen(
-        cmd,
-        cwd=str(root),
-        env=env,
-        stdout=log_f,
-        stderr=subprocess.STDOUT,
-        creationflags=creationflags,
-    )
+    if getattr(sys, "frozen", False):
+        cmd = [sys.executable, "--server", "--host", "127.0.0.1", "--port", str(port)]
+    try:
+        return subprocess.Popen(
+            cmd,
+            cwd=str(root),
+            env=env,
+            stdout=log_f,
+            stderr=subprocess.STDOUT,
+            creationflags=creationflags,
+        )
+    finally:
+        log_f.close()
 
 
 def splash_html(status: str = "Awakening the Grand Archive...") -> str:
@@ -197,7 +202,14 @@ def play_wizard_greeting(root: Path, base_url: str) -> None:
             pass
 
 
-def main() -> int:
+def main(argv=None) -> int:
+    import argparse
+    parser = argparse.ArgumentParser(description="Vaelor desktop runtime")
+    parser.add_argument("--server", action="store_true")
+    parser.add_argument("--host", choices=["127.0.0.1"], default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--smoke-ui-output", type=Path, help="Hidden native WebView smoke test report")
+    args = parser.parse_args(argv)
     root = app_root()
     os.chdir(root)
     sys.path.insert(0, str(root))
@@ -207,9 +219,17 @@ def main() -> int:
         init_local_config(root, force=False)
     except Exception:
         pass
+    if args.server:
+        import uvicorn
+        uvicorn.run("api.server:app", host=args.host, port=args.port,
+                    log_config=None, access_log=False)
+        return 0
     from core.netbind import resolve_bind
 
     host, port, url = resolve_bind(root)
+    # The desktop owns a private IPv4 loopback server, including when the
+    # portable network template uses the localhost alias.
+    host, url = "127.0.0.1", f"http://127.0.0.1:{port}/"
     app_url = url.rstrip("/") + "/?desktop=1"
 
     server_proc = start_server(root, host, port)
@@ -238,11 +258,18 @@ def main() -> int:
         background_color=BG,
         text_select=True,
         confirm_close=False,
+        hidden=bool(args.smoke_ui_output),
     )
+
+    smoke = {"status": "failed"}
 
     def boot() -> None:
         ready = wait_for_server(url, 70)
         if not ready:
+            if args.smoke_ui_output:
+                args.smoke_ui_output.write_text(json.dumps(smoke), encoding="utf-8")
+                window.destroy()
+                return
             try:
                 window.load_html(
                     splash_html(
@@ -259,13 +286,28 @@ def main() -> int:
                 window.evaluate_js(f"window.location.replace({json.dumps(app_url)})")
             except Exception:
                 pass
+        if args.smoke_ui_output:
+            try:
+                deadline = time.monotonic() + 20
+                while time.monotonic() < deadline:
+                    rendered = window.evaluate_js("Boolean(document.getElementById('researchBtn') && document.getElementById('taskCreateBtn') && document.getElementById('inputBox') && document.getElementById('computerEnable') && document.getElementById('computerStop') && typeof sendMessage === 'function')")
+                    if rendered:
+                        smoke.update(status="passed", research_button=True, task_center=True, chat=True, computer_controls=True)
+                        break
+                    time.sleep(.2)
+            except Exception as exc:
+                smoke["error"] = str(exc)
+            finally:
+                args.smoke_ui_output.write_text(json.dumps(smoke), encoding="utf-8")
+                window.destroy()
+            return
         time.sleep(1.2)
         play_wizard_greeting(root, url)
 
     threading.Thread(target=boot, daemon=True).start()
     webview.start()
     _cleanup()
-    return 0
+    return 0 if not args.smoke_ui_output or smoke["status"] == "passed" else 1
 
 
 if __name__ == "__main__":

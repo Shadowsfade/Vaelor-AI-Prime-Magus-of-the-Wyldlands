@@ -18,3 +18,13 @@ powershell -ExecutionPolicy Bypass -File installer\Build-AlphaPackage.ps1
 python installer\verify_clean_package.py
 
 Zip output: dist\Vaelor-Alpha-1.1.4-alpha.zip
+
+
+Frozen desktop (1.1.4-alpha): run Build-Vaelor-Exe.ps1 with -Python pointing to
+an environment containing requirements.txt and PyInstaller, and -OutDir pointing
+to a fresh folder. No virtual environment is shipped. Run verify_desktop.py on
+the resulting Vaelor folder to test relocation, bundled runtime and native UI.
+Extract the entire desktop ZIP before running Vaelor.exe; _internal is required.
+Install-Desktop.ps1 creates a fresh per-user copy and desktop shortcut. It refuses
+an existing destination to preserve memory/configuration. WebView2 and a configured
+model backend are separate prerequisites. This alpha is not code-signed.

@@ -61,3 +61,7 @@ Desktop.ini
 _fix_*.py
 _patch_*.py
 _write_*.py
+
+# Full originals preserved by context compaction
+memory/conversation_archive.json
+memory/conversation_archive.json.tmp

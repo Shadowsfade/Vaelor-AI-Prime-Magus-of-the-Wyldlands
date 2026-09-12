@@ -293,7 +293,10 @@ class TaskStore:
                 stored_invocation = task.get("authorized_invocation") or {}
                 if invocation is not None:
                     for key in ("tool", "arguments", "target", "scope", "effects", "task_id", "step_id", "provenance_ids", "verification_requirement"):
-                        if stored_invocation.get(key) != invocation.get(key):
+                        expected, actual = stored_invocation.get(key), invocation.get(key)
+                        if key == "provenance_ids":
+                            expected, actual = tuple(expected or ()), tuple(actual or ())
+                        if expected != actual:
                             return False
                     from core.verification import VerificationRequirement
                     raw_requirement = stored_invocation.get("verification_requirement")

@@ -681,6 +681,54 @@ def sessions_delete(session_id: str):
     return {"status": "ok", "session_id": session_id}
 
 
+class ComputerEnableRequest(BaseModel):
+    vision_model: str = Field(min_length=1, max_length=200)
+    task_id: str
+    seconds: int = Field(default=300, ge=10, le=600)
+
+
+def _computer_local_request(request: Request):
+    from core.api_security import _is_loopback
+    from urllib.parse import urlsplit
+    if not request.client or not _is_loopback(request.client.host):
+        raise HTTPException(status_code=403, detail="Enable computer control on the host computer")
+    origin = request.headers.get("origin")
+    if origin and urlsplit(origin).netloc != request.headers.get("host"):
+        raise HTTPException(status_code=403, detail="Same-origin request required")
+    if request.headers.get("x-vaelor-computer") != "1":
+        raise HTTPException(status_code=403, detail="Computer control UI header required")
+
+
+@app.get("/computer/status")
+def computer_status():
+    from core.computer_control import controller
+    return controller.status()
+
+
+@app.post("/computer/enable")
+def computer_enable(body: ComputerEnableRequest, request: Request):
+    _computer_local_request(request)
+    from core.computer_control import controller
+    if not brain.tasks.get(body.task_id):
+        raise HTTPException(status_code=404, detail="Task not found")
+    try:
+        status = controller.enable(body.task_id, body.seconds, body.vision_model)
+        from core.approval_policy import ActionClass
+        brain.approval_policy.issue_capability(task_id=body.task_id,
+            allowed_classes=[ActionClass.COMPUTER_INPUT], lifetime_seconds=body.seconds,
+            max_uses=100, provenance=("local-computer-control-ui",))
+        return status
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.post("/computer/stop")
+def computer_stop(request: Request):
+    _computer_local_request(request)
+    from core.computer_control import controller
+    return controller.stop()
+
+
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
     try:

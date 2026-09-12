@@ -49,7 +49,7 @@ class FakePlatformAdapter:
 
 class SoftwareWorkflowArchitectureTests(unittest.TestCase):
     def test_unsupported_platform_is_not_selected(self):
-        env = SoftwareEnvironment("Windows", "windows", "AMD64")
+        env = SoftwareEnvironment("UnsupportedOS", "unsupported", "AMD64")
         self.assertIsNone(select_platform_adapter(env))
 
     def test_fake_adapter_completes_without_cachyos_import(self):

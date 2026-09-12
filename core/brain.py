@@ -345,8 +345,8 @@ class VaelorBrain:
             raise RuntimeError(f"Task {task_id} is already leased, awaiting approval, or requires recovery verification.")
         self.tasks.add_event(task_id, "started", {"goal": task_contract.goal, "owner": owner})
 
-        from .cachyos_workflow import is_cachyos_request, run_platform_workflow
-        if is_cachyos_request(goal):
+        from .cachyos_workflow import is_software_request, run_platform_workflow
+        if is_software_request(goal):
             try:
                 from core.task_heartbeat import TaskHeartbeat
                 with TaskHeartbeat(self.tasks, task_id, owner=owner):
@@ -406,6 +406,7 @@ class VaelorBrain:
                         task_id, fingerprint, state_binding, invocation
                     ),
                     task_id=task_id,
+                    resume_action=(task or {}).get("authorized_invocation"),
                     approval_policy=self.approval_policy,
                     workspace=workspace or "",
                     session_id=session_id or "",
@@ -522,11 +523,11 @@ class VaelorBrain:
 
     def prepare_task(self, request, session_id=None, workspace=None, max_runtime_seconds=900):
         """Create a durable task before background execution begins."""
-        from .cachyos_workflow import is_cachyos_request
-        if is_cachyos_request(request):
+        from .cachyos_workflow import is_software_request
+        if is_software_request(request):
             contract = TaskIntent(
                 intent="act", goal=str(request),
-                success_criteria=["CachyOS application is downloaded, verified, and explained."],
+                success_criteria=["Application is installed or downloaded, verified, and explained."],
                 constraints=["Use an official source and a Vaelor-managed task directory."],
                 source="deterministic_cachyos_workflow",
             )

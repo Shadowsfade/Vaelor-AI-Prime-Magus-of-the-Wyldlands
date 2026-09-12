@@ -1,5 +1,31 @@
 # Changelog
 
+## 2026-09-12 — Windows software support
+
+- Added a Windows adapter for jq, ripgrep/rg, and Git using reviewed exact
+  WinGet IDs and saved versions. Installs request user scope, preserve WinGet
+  integrity checks, and require the existing scoped approval flow.
+- Existing executables are verified without reinstalling. jq also supports a
+  checksum-pinned official portable binary in the managed task directory.
+- Plain supported install requests route to the shared durable workflow on
+  Windows. Cross-platform saved/requested plans block on the wrong host.
+- Updated Windows and Linux jq fallback pins to official 1.8.2 checksums after
+  verifying upstream release metadata and the current WinGet package.
+- Live Windows portable acceptance completed approval, download, checksum,
+  executable probe and task completion in temporary storage. WinGet metadata
+  lookup was verified live; a full WinGet install was not run on the user's host.
+
+## 2026-09-12 — Frozen desktop packaging
+
+- Replaced bundled virtual environments with a PyInstaller runtime containing
+  Python and application dependencies. The same EXE runs its private loopback
+  server through --server, avoiding recursion or external Python discovery.
+- Build input comes from the existing privacy-checked source package. Added a
+  per-user installation/shortcut helper that refuses to overwrite existing data.
+- Added relocation acceptance with Python removed from PATH, API/UI checks,
+  and a hidden native WebView smoke mode. WebView2 and a model backend remain
+  external prerequisites; the package is unsigned alpha software.
+
 ## 2026-09-11 — Verified upstream software downloads
 
 - Pinned jq 1.8.1 Linux AMD64 to its official SHA-256 release checksum, including
@@ -728,3 +754,19 @@ See ROADMAP.md, CODER_BRIEFING.md, and git history.
 - Archive original compacted turns locally and clear them on session deletion. Reject empty summaries without discarding history.
 - Fix the session API return so the UI receives turns and summaries. Summaries remain extractive.
 - Validation: 29 conversation/API tests and Python syntax checks passed.
+
+## 2026-09-12 - Windows computer-control preview
+
+- Add task-bound, opt-in primary-screen observation through an explicitly selected vision model, plus guarded click, printable text, navigation key, and scroll actions.
+- Add Computer Control enable/stop controls to the shared WebUI. Sessions expire after five minutes by default; input requires a fresh, single-use screen snapshot and a user-enabled task session, capped at 100 input actions.
+- Reject stale/changed screens, foreground changes, unsupported keys, held modifiers, other tasks, and direct tool calls without trusted task context. Holding Escape stops the next input check; screenshots stay in memory.
+- Computer input has an explicit unavailable goal verifier: input delivery never establishes task success. This is an experimental Windows preview; real desktop input and model perception still need interactive acceptance testing.
+- Add controller and API regression coverage. Native Windows runtime and shared UI startup are verified separately from computer-input behavior.
+
+## 2026-09-12 - Exact approved-action resumption
+
+- Resume the saved action at its original step before asking the model to plan again. Recompute state, authorization, and verification requirements; changed state still requires new approval.
+- Normalize persisted provenance sequences when matching one-time approvals. Fix final budget summaries accepting success after an unresolved tool failure.
+- Regression coverage exercises a real temporary file write after approval at step two, cross-task replay rejection, and failed-tool final summaries.
+
+Validation for the combined Windows/runtime milestone: 392 tests passed, 1 skipped, 7 subtests passed. Python compilation and inline JavaScript syntax checks passed.

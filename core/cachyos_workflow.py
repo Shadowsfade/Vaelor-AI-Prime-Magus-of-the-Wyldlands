@@ -15,6 +15,24 @@ def is_cachyos_request(request):
     text = str(request or "").lower()
     return ("cachyos" in text or "arch linux" in text or "linux" in text) and any(w in text for w in ("download", "install", "set up", "setup"))
 
+def is_software_request(request):
+    if is_cachyos_request(request):
+        return True
+    text = str(request or "").lower()
+    action = re.search(r"\b(?:install|download|set up|setup)\s+", text)
+    if not action:
+        return False
+    if "windows" in text:
+        return True
+    if platform.system() == "Windows":
+        from core.software_platforms.windows import WindowsAdapter
+        try:
+            WindowsAdapter().canonicalize_program(text)
+            return True
+        except ValueError:
+            pass
+    return False
+
 def detect_environment():
     release = {}
     try:
@@ -106,6 +124,16 @@ def run_platform_workflow(task, store, policy=None, owner=""):
     if adapter is None:
         store.set_recovery(task["id"], "BLOCKED", "No supported software platform adapter was detected.", status="waiting")
         return "FINAL_SUMMARY: BLOCKED No supported software platform adapter was detected."
+    detected = adapter.detect_environment()
+    windows_host = detected.distribution.lower() == "windows"
+    text = str(task.get("request", "")).lower()
+    saved_distribution = ((task.get("workflow") or {}).get("environment") or {}).get("distribution")
+    mismatch = ((windows_host and any(word in text for word in ("cachyos", "arch linux", "on linux")))
+                or (not windows_host and "on windows" in text)
+                or (saved_distribution and (saved_distribution.lower() == "windows") != windows_host))
+    if mismatch:
+        store.set_recovery(task["id"], "BLOCKED", "Requested or saved platform differs from this host; prepare a task on the intended host.", status="waiting")
+        return "FINAL_SUMMARY: BLOCKED Software platform differs from this host."
     try:
         return run_software_workflow(task, store, adapter, policy, owner)
     except ValueError as exc:

@@ -127,7 +127,11 @@ def verify_executable(executable: str, candidates: list[str], runner=run_command
 
 def select_platform_adapter(environment: SoftwareEnvironment | None = None) -> SoftwarePlatformAdapter | None:
     """Select a deterministic adapter; unsupported platforms remain blocked."""
+    import platform
     from core.software_platforms import CachyOSAdapter
+    from core.software_platforms.windows import WindowsAdapter
+    if (environment and environment.distribution.lower() == "windows") or (environment is None and platform.system() == "Windows"):
+        return WindowsAdapter()
     adapter = CachyOSAdapter()
     detected = environment or adapter.detect_environment()
     if detected.distribution.lower() in {"cachyos", "arch", "manjaro"}:
@@ -163,7 +167,7 @@ def run_software_workflow(task: dict, store, adapter: SoftwarePlatformAdapter, p
                     commands=commands, expected_changes=old_plan.get("expected_changes", ""),
                     required_privilege="sudo" if method in {"official_repository", "trusted_community_repository"} else "none"))}
     environment = SoftwareEnvironment(**saved["environment"]) if saved.get("environment") else adapter.detect_environment()
-    work_dir = Path(saved.get("work_dir") or (Path(environment.home) / ".local" / "share" / "vaelor" / "tasks" / task_id))
+    work_dir = Path(saved.get("work_dir") or (adapter.work_directory(environment, task_id) if hasattr(adapter, "work_directory") else Path(environment.home) / ".local" / "share" / "vaelor" / "tasks" / task_id))
     request = SoftwareRequest(**saved["request"]) if saved.get("request") else adapter.canonicalize_program(task["request"])
     source = SoftwareSource(**saved["source"]) if saved.get("source") else adapter.resolve_source(request)
     plan = SoftwarePlan(**saved["plan"]) if saved.get("plan") else adapter.create_install_plan(request, source, work_dir)

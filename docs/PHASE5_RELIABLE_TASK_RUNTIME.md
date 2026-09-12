@@ -214,3 +214,30 @@ This covers the allowlisted upstream binary path; repository package integrity
 remains owned by the package manager. It does not add signature verification or
 new OS adapters. Live download verification passed on Windows without executing
 the Linux binary. Full live LEGO1 UI/install acceptance is still outstanding.
+
+## Windows and frozen desktop milestones (September 12)
+
+Windows currently supports jq, ripgrep/rg, and Git. The adapter resolves exact
+WinGet IDs, saves an explicit version and user scope in the approval card, and
+never disables package hash checks or requests automatic elevation/reboot. An
+unsupported installer scope or unresolved metadata blocks. This is intentionally
+not arbitrary package discovery or a Chocolatey backend. Windows jq has a pinned
+1.8.2 portable fallback; Linux jq uses the matching official 1.8.2 manifest.
+Sources: https://learn.microsoft.com/en-us/windows/package-manager/winget/install
+and https://github.com/jqlang/jq/releases/download/jq-1.8.2/sha256sum.txt
+
+The frozen desktop build uses sanitized runtime assets and bundled Python. The
+EXE starts itself in loopback-only server mode and reads assets from _internal.
+Users must keep that folder beside Vaelor.exe in a writable location. The optional
+Install-Desktop.ps1 helper copies to a fresh per-user installation and creates a
+shortcut; it does not migrate or overwrite an existing installation. Models and
+WebView2 are not bundled. A signed installer/updater and broad platform package
+coverage remain future release work.
+
+### Computer control preview (2026-09-12)
+
+The shared WebUI has a Computer Control panel. Use View on an existing task to select its ID (or enter the ID), enter an installed vision-capable model name, then enable the five-minute session on the Windows host. The agent can use `computer_observe` followed by `computer_input` actions. Enabling grants this task up to 100 input actions for that session; it grants no other tool permissions. The primary display must remain unchanged between observation and input; animations, focus changes, and slow model replies can require another observation. Use Stop computer control or hold Escape to stop the next input check.
+
+This preview supports left click, printable text, a small set of navigation keys, and vertical scrolling. It does not support elevated/secure desktops, dragging, multiple monitors, or unrestricted shortcuts. Images remain in process memory, while model descriptions enter normal task observations. Computer input remains unverified until an independent task-specific outcome check can prove the goal; do not present input delivery as completion. Models cannot enable their own session. Native input is not yet acceptance-tested against real applications.
+
+If a task attempted computer control before it was enabled, enable its session and use Resume in the Task Center. Switch to the target application before requesting an observation.

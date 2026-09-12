@@ -139,6 +139,8 @@ def _looks_failed(result: str) -> bool:
     if not r:
         return False
     low = r.lower()
+    if low.startswith(("file not found:", "not a file:", "write failed:")):
+        return True
     if low.startswith("unknown tool:"):
         return True
     if low.startswith("refused:"):
@@ -410,6 +412,7 @@ def run_agent(
     approval_policy=None,
     workspace: str = "",
     session_id: str = "",
+    resume_action: Optional[dict] = None,
 ) -> str:
     """Autonomous ReAct loop. ask_llm(prompt) -> model text."""
     registry  # loaded
@@ -484,6 +487,18 @@ def run_agent(
         ) from last_error
 
     step = 0
+    replay = None
+    if resume_action:
+        try:
+            resume_step = int(resume_action["step_id"])
+            if resume_action.get("task_id") != str(task_id) or not 1 <= resume_step <= 25:
+                raise ValueError("invalid task or step")
+            replay = json.dumps({"thought": "Retry the saved approved action after fresh authorization checks",
+                "actions": [{"tool": resume_action["tool"], "arguments": resume_action["arguments"]}], "final": None})
+            step = resume_step - 1
+            max_steps = max(max_steps, min(25, resume_step + 2))
+        except (KeyError, TypeError, ValueError):
+            return "FINAL_SUMMARY: FAILED Invalid saved action; no action replayed."
     while step < max_steps:
         if timed_out():
             return timeout_result("before_model", step)
@@ -516,7 +531,11 @@ def run_agent(
         )
         prompt = "\n".join(prompt_parts)
 
-        reply = ask_model(prompt, "decision", step)
+        if replay is not None:
+            reply, replay = replay, None
+            emit("approved_action_replayed", step=step)
+        else:
+            reply = ask_model(prompt, "decision", step)
         if reply.startswith("FINAL_SUMMARY: FAILED Task exceeded its"):
             return reply
         if reply.upper().startswith("FINAL_SUMMARY: CANCELLED"):
@@ -716,14 +735,14 @@ def run_agent(
                             result = registry.execute_guarded(
                                 name, authorization=authorization,
                                 fingerprint=getattr(authorization, "fingerprint", None),
-                                requires_authorization=is_mutating, invocation=invocation,
+                                requires_authorization=is_mutating, invocation=invocation, task_id=str(task_id),
                                 **kwargs
                             )
                     else:
                         result = registry.execute_guarded(
                             name, authorization=authorization,
                             fingerprint=getattr(authorization, "fingerprint", None),
-                            requires_authorization=is_mutating, invocation=invocation,
+                            requires_authorization=is_mutating, invocation=invocation, task_id=str(task_id),
                             **kwargs
                         )
                 except Exception as e:
@@ -854,6 +873,8 @@ def run_agent(
     else:
         tools, final_summary, legacy_final, _ = _extract_actions(last)
     if final_summary:
+        if last_failed and "SUCCESS" in final_summary.upper():
+            return "FINAL_SUMMARY: FAILED Reached max iterations with unresolved tool failure."
         if require_verification and unverified_mutation and "SUCCESS" in final_summary.upper():
             return "FINAL_SUMMARY: FAILED Reached max iterations with unverified changes."
         return final_summary
