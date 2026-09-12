@@ -24,16 +24,18 @@ def _now() -> str:
 
 class VaelorConversationMemory:
     def __init__(self, memory_dir: Optional[Path] = None, compact_after: int = DEFAULT_COMPACT_AFTER,
-                 keep_recent: int = DEFAULT_KEEP_RECENT):
+                 keep_recent: int = DEFAULT_KEEP_RECENT, compact_chars: int = 48000):
         self.memory_dir = Path(memory_dir or MEMORY_DIR)
         self.turns_path = self.memory_dir / "conversations.json"
         self.sessions_path = self.memory_dir / "sessions.json"
         self.summaries_path = self.memory_dir / "conversation_summaries.json"
+        self.archive_path = self.memory_dir / "conversation_archive.json"
+        self.compact_chars = max(1024, int(compact_chars))
         self.compact_after = max(4, int(compact_after))
         self.keep_recent = max(2, min(int(keep_recent), self.compact_after - 1))
         self._lock = threading.RLock()
         self.memory_dir.mkdir(parents=True, exist_ok=True)
-        for path in (self.turns_path, self.sessions_path, self.summaries_path):
+        for path in (self.turns_path, self.sessions_path, self.summaries_path, self.archive_path):
             if not path.exists():
                 self._write_json_file(path, [])
 
@@ -112,10 +114,27 @@ class VaelorConversationMemory:
                 "prompt": str(prompt), "response": str(response),
             }
             history.append(turn)
+            overflow = history[:-MAX_TURNS]
+            if overflow:
+                self._archive_turns(overflow)
             self._save_turns(history[-MAX_TURNS:])
-            if sid and sum(1 for item in history if item.get("session_id") == sid) > self.compact_after:
+            session_turns = [item for item in history if item.get("session_id") == sid]
+            context_chars = sum(len(t["prompt"]) + len(t["response"]) for t in session_turns)
+            if sid and (len(session_turns) > self.compact_after or context_chars > self.compact_chars):
                 self.compact_session(sid)
             return turn
+
+    def _archive_turns(self, turns):
+        archive = self._load_json_file(self.archive_path, [])
+        known = {item.get("id") for item in archive}
+        archive.extend(item for item in turns if item.get("id") not in known)
+        self._write_json_file(self.archive_path, archive)
+
+    def recall_archive(self, session_id):
+        """Original compacted turns, excluded from model prompts."""
+        with self._lock:
+            return [item for item in self._load_json_file(self.archive_path, [])
+                    if item.get("session_id") == session_id]
 
     def recall_recent(self, limit=5, session_id=None):
         with self._lock:
@@ -155,13 +174,23 @@ class VaelorConversationMemory:
         with self._lock:
             history = self._load_turns()
             session_turns = [item for item in history if item.get("session_id") == session_id]
-            if len(session_turns) <= self.keep_recent:
+            if len(session_turns) <= 2 or (len(session_turns) <= self.keep_recent and
+                    sum(len(str(t.get("prompt", ""))) + len(str(t.get("response", "")))
+                        for t in session_turns) <= self.compact_chars):
                 return {"compacted": 0, "kept": len(session_turns), "summary": self.get_summary(session_id)}
-            old = session_turns[:-self.keep_recent]
+            keep = min(self.keep_recent, len(session_turns))
+            while keep > 2 and sum(len(str(t.get("prompt", ""))) + len(str(t.get("response", "")))
+                                   for t in session_turns[-keep:]) > self.compact_chars:
+                keep -= 1
+            old = session_turns[:-keep]
             old_ids = {item.get("id") for item in old}
             previous = self.get_summary(session_id)
             summary = (summarizer or self._extractive_summary)(previous, old)
-            summary = str(summary or "")[-MAX_SUMMARY_CHARS:]
+            summary = str(summary or "").strip()
+            if not summary:
+                raise ValueError("Compaction produced an empty summary; history preserved")
+            summary = summary[-MAX_SUMMARY_CHARS:]
+            self._archive_turns(old)
             summaries = [item for item in self._load_summaries() if item.get("session_id") != session_id]
             summaries.append({
                 "session_id": session_id, "updated_at": _now(),
@@ -169,12 +198,16 @@ class VaelorConversationMemory:
             })
             self._save_summaries(summaries[-500:])
             self._save_turns([item for item in history if item.get("id") not in old_ids])
-            return {"compacted": len(old), "kept": self.keep_recent, "summary": summary}
+            return {"compacted": len(old), "kept": keep, "summary": summary}
 
     def clear_session(self, session_id):
         with self._lock:
             self._save_turns([
                 item for item in self._load_turns() if item.get("session_id") != session_id
+            ])
+            self._write_json_file(self.archive_path, [
+                item for item in self._load_json_file(self.archive_path, [])
+                if item.get("session_id") != session_id
             ])
             self._save_sessions([
                 item for item in self._load_sessions() if item.get("id") != session_id

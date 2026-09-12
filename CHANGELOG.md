@@ -721,3 +721,10 @@ Requires Python 3.10+, optional Ollama/LM Studio, Chrome/Edge for mic.
 
 ## Earlier milestones
 See ROADMAP.md, CODER_BRIEFING.md, and git history.
+
+## 2026-09-12 - Conversation compaction preservation
+
+- Compact by character volume or turn count; retain at least two recent turns. This is an approximate budget, not model-token accounting.
+- Archive original compacted turns locally and clear them on session deletion. Reject empty summaries without discarding history.
+- Fix the session API return so the UI receives turns and summaries. Summaries remain extractive.
+- Validation: 29 conversation/API tests and Python syntax checks passed.
