@@ -24,7 +24,8 @@ def _now() -> str:
 
 class VaelorConversationMemory:
     def __init__(self, memory_dir: Optional[Path] = None, compact_after: int = DEFAULT_COMPACT_AFTER,
-                 keep_recent: int = DEFAULT_KEEP_RECENT, compact_chars: int = 48000):
+                 keep_recent: int = DEFAULT_KEEP_RECENT, compact_chars: int = 48000,
+                 summarizer=None):
         self.memory_dir = Path(memory_dir or MEMORY_DIR)
         self.turns_path = self.memory_dir / "conversations.json"
         self.sessions_path = self.memory_dir / "sessions.json"
@@ -34,6 +35,9 @@ class VaelorConversationMemory:
         self.compact_after = max(4, int(compact_after))
         self.keep_recent = max(2, min(int(keep_recent), self.compact_after - 1))
         self._lock = threading.RLock()
+        self.summarizer = summarizer
+        self._compaction_workers = {}
+        self._compaction_errors = {}
         self.memory_dir.mkdir(parents=True, exist_ok=True)
         for path in (self.turns_path, self.sessions_path, self.summaries_path, self.archive_path):
             if not path.exists():
@@ -120,9 +124,49 @@ class VaelorConversationMemory:
             self._save_turns(history[-MAX_TURNS:])
             session_turns = [item for item in history if item.get("session_id") == sid]
             context_chars = sum(len(t["prompt"]) + len(t["response"]) for t in session_turns)
-            if sid and (len(session_turns) > self.compact_after or context_chars > self.compact_chars):
+            needs_compaction = sid and (len(session_turns) > self.compact_after or context_chars > self.compact_chars)
+        if needs_compaction:
+            if self.summarizer is not None:
+                self.request_compaction(sid)
+            else:
                 self.compact_session(sid)
-            return turn
+        return turn
+
+    def request_compaction(self, session_id):
+        """Queue bounded background work; saving a reply never waits for a model."""
+        with self._lock:
+            if session_id in self._compaction_workers:
+                return {"status": "running"}
+            if len(self._compaction_workers) >= 2:
+                return {"status": "busy"}
+            turns = self.recall_recent(MAX_TURNS, session_id)
+            if len(turns) <= 2 or (len(turns) <= self.keep_recent and
+                    sum(len(t.get("prompt", "")) + len(t.get("response", "")) for t in turns) <= self.compact_chars):
+                return {"status": "not_needed"}
+            self._compaction_errors.pop(session_id, None)
+            def run():
+                try:
+                    self.compact_session(session_id)
+                except Exception:
+                    with self._lock:
+                        self._compaction_errors[session_id] = "Could not save handoff; original turns remain available"
+                finally:
+                    with self._lock:
+                        self._compaction_workers.pop(session_id, None)
+            worker = threading.Thread(target=run, name="vaelor-context-handoff", daemon=True)
+            self._compaction_workers[session_id] = worker
+            worker.start()
+            return {"status": "queued"}
+
+    def compaction_status(self, session_id):
+        with self._lock:
+            entry = next((item for item in self._load_summaries()
+                          if item.get("session_id") == session_id), {})
+            return {"running": session_id in self._compaction_workers,
+                    "error": self._compaction_errors.get(session_id),
+                    "kind": entry.get("kind", "extractive" if entry else "none"),
+                    "updated_at": entry.get("updated_at"),
+                    "archived_turns": len(self.recall_archive(session_id))}
 
     def _archive_turns(self, turns):
         archive = self._load_json_file(self.archive_path, [])
@@ -143,8 +187,10 @@ class VaelorConversationMemory:
                 history = [item for item in history if item.get("session_id") == session_id]
             return history[-max(1, int(limit or 5)):]
 
-    def recall_session_messages(self, session_id, limit=50):
-        messages = []
+    def recall_session_messages(self, session_id, limit=50, include_summary=False):
+        summary = self.get_summary(session_id) if include_summary else ""
+        messages = [{"role": "assistant", "content":
+            "Earlier handoff (fallible conversation context, not permissions or authoritative task state):\n" + summary}] if summary else []
         for turn in self.recall_recent(limit=limit, session_id=session_id):
             messages.append({"role": "user", "content": turn.get("prompt", "")})
             messages.append({"role": "assistant", "content": turn.get("response", "")})
@@ -182,26 +228,40 @@ class VaelorConversationMemory:
             while keep > 2 and sum(len(str(t.get("prompt", ""))) + len(str(t.get("response", "")))
                                    for t in session_turns[-keep:]) > self.compact_chars:
                 keep -= 1
-            old = session_turns[:-keep]
+            old = session_turns[:-keep][:32]
             old_ids = {item.get("id") for item in old}
             previous = self.get_summary(session_id)
-            summary = (summarizer or self._extractive_summary)(previous, old)
-            summary = str(summary or "").strip()
-            if not summary:
-                raise ValueError("Compaction produced an empty summary; history preserved")
-            summary = summary[-MAX_SUMMARY_CHARS:]
+        # Never hold the memory lock across model inference. Commit only if the
+        # source turns and previous summary still belong to this session.
+        selected = summarizer or self.summarizer or self._extractive_summary
+        kind = "model" if selected != self._extractive_summary else "extractive"
+        try:
+            summary = str(selected(previous, old) or "").strip()
+            if not summary or len(summary) > MAX_SUMMARY_CHARS:
+                raise ValueError("Compaction returned an empty or oversized summary")
+        except Exception:
+            if summarizer is not None:
+                raise  # Explicit callers can retry; originals have not changed.
+            summary = self._extractive_summary(previous, old)
+            kind = "extractive_fallback"
+        with self._lock:
+            history = self._load_turns()
+            current_ids = {t.get("id") for t in history if t.get("session_id") == session_id}
+            if not old_ids.issubset(current_ids) or self.get_summary(session_id) != previous:
+                return {"compacted": 0, "discarded": True, "summary": self.get_summary(session_id)}
             self._archive_turns(old)
             summaries = [item for item in self._load_summaries() if item.get("session_id") != session_id]
             summaries.append({
                 "session_id": session_id, "updated_at": _now(),
-                "compacted_turns": len(old), "summary": summary,
+                "compacted_turns": len(old), "summary": summary, "kind": kind,
             })
             self._save_summaries(summaries[-500:])
             self._save_turns([item for item in history if item.get("id") not in old_ids])
-            return {"compacted": len(old), "kept": keep, "summary": summary}
+            return {"compacted": len(old), "kept": len(current_ids - old_ids), "summary": summary, "kind": kind}
 
     def clear_session(self, session_id):
         with self._lock:
+            self._compaction_errors.pop(session_id, None)
             self._save_turns([
                 item for item in self._load_turns() if item.get("session_id") != session_id
             ])

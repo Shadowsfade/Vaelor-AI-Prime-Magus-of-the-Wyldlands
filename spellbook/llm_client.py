@@ -316,6 +316,9 @@ def chat(
     history: Optional[List[dict]] = None,
     system: Optional[str] = None,
     temperature: Optional[float] = None,
+    response_schema: Optional[dict] = None,
+    context_window: Optional[int] = None,
+    max_tokens: Optional[int] = None,
 ) -> str:
     settings = get_backend_settings()
     route = resolve_route(spell=spell, provider=provider, model=model)
@@ -323,6 +326,16 @@ def chat(
     model_name = route["model"]
     timeout = settings["timeout"]
     msgs = _messages(prompt, system=system, images=images, history=history)
+    native_options = {}
+    compatible_options = {}
+    if response_schema is not None:
+        native_options["response_schema"] = compatible_options["response_schema"] = response_schema
+    if context_window is not None:
+        native_options["context_window"] = max(2048, min(int(context_window), 32768))
+    if max_tokens is not None:
+        native_options["max_tokens"] = compatible_options["max_tokens"] = max(128, min(int(max_tokens), 4096))
+    if temperature is not None:
+        native_options["temperature"] = temperature
 
     try:
         if backend == "lmstudio":
@@ -332,6 +345,7 @@ def chat(
                 messages=msgs,
                 timeout=timeout,
                 temperature=temperature,
+                **compatible_options,
             )
         # ollama native first (better vision/think flags), fallback openai compat
         return _ollama_chat(
@@ -340,6 +354,7 @@ def chat(
             messages=msgs,
             timeout=timeout,
             images=images,
+            **native_options,
         )
     except Exception as e:
         # Cross-backend fallback uses a model known to that provider when available.
@@ -355,6 +370,7 @@ def chat(
                     messages=msgs,
                     timeout=timeout,
                     temperature=temperature,
+                    **compatible_options,
                 )
             return _ollama_chat(
                 base_url=settings["ollama_url"],
@@ -362,6 +378,7 @@ def chat(
                 messages=msgs,
                 timeout=timeout,
                 images=images,
+                **native_options,
             )
         except Exception as e2:
             return f"Vaelor archive connection error ({backend}): {e} | fallback: {e2}"
@@ -389,7 +406,8 @@ def chat_stream(
         yield from _ollama_stream(settings["ollama_url"], model_name, msgs, timeout)
 
 
-def _ollama_chat(base_url: str, model: str, messages: List[dict], timeout: int, images=None) -> str:
+def _ollama_chat(base_url: str, model: str, messages: List[dict], timeout: int, images=None,
+                 response_schema=None, context_window=None, max_tokens=None, temperature=None) -> str:
     url = base_url.rstrip("/") + "/api/chat"
     # Convert multimodal OpenAI parts to ollama format if needed
     omsgs = []
@@ -415,6 +433,12 @@ def _ollama_chat(base_url: str, model: str, messages: List[dict], timeout: int, 
             omsgs.append({"role": m["role"], "content": content})
 
     payload = {"model": model, "messages": omsgs, "stream": False, "think": False}
+    options = {}
+    if response_schema is not None: payload["format"] = response_schema
+    if context_window is not None: options["num_ctx"] = context_window
+    if max_tokens is not None: options["num_predict"] = max_tokens
+    if temperature is not None: options["temperature"] = temperature
+    if options: payload["options"] = options
     r = requests.post(url, json=payload, timeout=timeout)
     r.raise_for_status()
     data = r.json()
@@ -448,7 +472,8 @@ def _ollama_stream(base_url: str, model: str, messages: List[dict], timeout: int
                 break
 
 
-def _openai_chat(base_url: str, model: str, messages: List[dict], timeout: int, temperature=None) -> str:
+def _openai_chat(base_url: str, model: str, messages: List[dict], timeout: int, temperature=None,
+                 response_schema=None, max_tokens=None) -> str:
     url = base_url.rstrip("/") + "/v1/chat/completions"
     # strip :latest style if lmstudio uses bare ids - keep as-is first
     payload = {
@@ -458,6 +483,10 @@ def _openai_chat(base_url: str, model: str, messages: List[dict], timeout: int, 
     }
     if temperature is not None:
         payload["temperature"] = temperature
+    if response_schema is not None:
+        payload["response_format"] = {"type": "json_schema", "json_schema": {
+            "name": "vaelor_handoff", "strict": True, "schema": response_schema}}
+    if max_tokens is not None: payload["max_tokens"] = max_tokens
     r = requests.post(url, json=payload, timeout=timeout)
     r.raise_for_status()
     data = r.json()

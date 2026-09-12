@@ -689,6 +689,7 @@ code{
           <input type="file" id="imageInput" accept="image/*" multiple hidden />
           <button class="icon-btn" id="imgBtn" title="Attach image for vision">🖼</button>
           <button class="icon-btn" id="micBtn" title="Speak">🎤</button>
+          <button class="btn" id="compactContextBtn" title="Create a handoff from older messages while keeping recent conversation">Compact context</button>
           <button class="btn" id="researchBtn" title="Research the topic in the message box using web sources">Research</button>
           <button id="sendBtn">Cast</button>
         </div>
@@ -1040,7 +1041,7 @@ async function watchTask(id){$('computerTaskId').value=id;if(taskEventSource){ta
 async function handleTaskAction(button){const id=button.dataset.id,action=button.dataset.act;button.disabled=true;try{if(action==='view'){await watchTask(id);return}let body={};if(action==='cancel')body={reason:'Cancelled from the Task Center.'};if(action==='resume'||action==='continue-software')body={max_steps:12};if(action==='clarify'){const answer=window.prompt('What should Vaelor know to continue this task?');if(!answer)return;body={answer,max_steps:12}}const res=await fetch(`/tasks/${encodeURIComponent(id)}/${action}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const data=await res.json();if(!res.ok)throw new Error(data.detail||`task ${res.status}`);addMessage(`${action[0].toUpperCase()+action.slice(1)} requested for task ${id}.`,'vaelor','task');await Promise.all([loadTasks(),loadApprovals()])}catch(err){showError('Task action failed: '+err.message)}finally{button.disabled=false}}
 async function loadSessions(){try{const res=await fetch('/sessions');if(!res.ok)throw 0;const data=await res.json();const sessions=data.sessions||[];sessionList.innerHTML='';if(!sessions.length){sessionList.innerHTML='<p class="muted">No saved dialogues yet.</p>';return}sessions.forEach(s=>{const c=document.createElement('div');c.className='session-card'+(s.id===sessionId?' active':'');c.innerHTML=`<strong>${escapeHtml(s.title||s.id)}</strong><div class="muted">${escapeHtml((s.updated_at||'').replace('T',' ').slice(0,19))}</div>`;c.onclick=()=>openSession(s.id);sessionList.appendChild(c)})}catch{sessionList.innerHTML='<p class="muted">Dialogues awaken after first cast.</p>'}}
 async function ensureSession(){if(sessionId)return sessionId;try{const res=await fetch('/sessions',{method:'POST'});if(res.ok){const s=await res.json();sessionId=s.id;await loadSessions();return sessionId}}catch(_){}sessionId='local-'+Date.now().toString(36);return sessionId}
-async function openSession(id){sessionId=id;chat.innerHTML='';try{const res=await fetch('/sessions/'+id);const data=await res.json();(data.turns||[]).forEach(t=>{if(t.prompt)addMessage(t.prompt,'user');if(t.response)addMessage(t.response,'vaelor')})}catch{}loadSessions()}
+async function openSession(id){sessionId=id;chat.innerHTML='';try{const res=await fetch('/sessions/'+encodeURIComponent(id));const data=await res.json();if(!res.ok)throw new Error(data.detail||'Session load failed');if(data.summary)addMessage('Earlier handoff ('+(data.compaction?.kind||'summary')+'; may omit details):\n'+data.summary,'vaelor','context');(data.turns||[]).forEach(t=>{if(t.prompt)addMessage(t.prompt,'user');if(t.response)addMessage(t.response,'vaelor')})}catch{}loadSessions()}
 async function newSession(){sessionId=null;chat.innerHTML='';await ensureSession();addMessage('A fresh leaf of the archive turns. The ink awaits thy hand, Apprentice.','vaelor','session');loadSessions()}
 function renderImagePreview(){if(!pendingImages.length){imagePreview.classList.remove('active');imagePreview.innerHTML='';return}imagePreview.classList.add('active');imagePreview.innerHTML='';pendingImages.forEach((src,i)=>{const img=document.createElement('img');img.src=src;imagePreview.appendChild(img);const rm=document.createElement('button');rm.className='btn';rm.textContent='Remove';rm.onclick=()=>{pendingImages.splice(i,1);renderImagePreview()};imagePreview.appendChild(rm)})}
 async function fileToDataUrl(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file)})}
@@ -1672,6 +1673,15 @@ async function computerControl(action){
 $('computerEnable').onclick=()=>computerControl('enable');
 $('computerStop').onclick=()=>computerControl('stop');
 setInterval(async()=>{try{const res=await fetch('/computer/status');if(!res.ok)return;const data=await res.json();$('computerStatus').textContent=data.enabled?'Enabled for '+data.task_id+' ('+data.seconds_remaining+' seconds remaining)':'Disabled'}catch{}},5000);
+
+$('compactContextBtn').onclick=async()=>{
+  if(!sessionId){showError('Start a conversation first.');return}
+  const button=$('compactContextBtn');button.disabled=true;
+  try{const res=await fetch('/sessions/'+encodeURIComponent(sessionId)+'/compact',{method:'POST'});
+    const data=await res.json();if(!res.ok)throw new Error(data.detail||'Compaction failed');
+    addMessage(data.status==='not_needed'?'This conversation is short enough to keep its recent messages intact.':data.status==='busy'?'Compaction workers are busy; try again shortly.':'Context handoff '+data.status+'. Older originals stay archived. Reopen this dialogue to inspect the saved handoff.','vaelor','context');
+  }catch(e){showError(e.message)}finally{button.disabled=false}
+};
 </script>
 </body>
 </html>

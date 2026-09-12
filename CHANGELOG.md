@@ -770,3 +770,13 @@ See ROADMAP.md, CODER_BRIEFING.md, and git history.
 - Regression coverage exercises a real temporary file write after approval at step two, cross-task replay rejection, and failed-tool final summaries.
 
 Validation for the combined Windows/runtime milestone: 392 tests passed, 1 skipped, 7 subtests passed. Python compilation and inline JavaScript syntax checks passed.
+
+## 2026-09-12 - Model-written context handoffs
+
+- Generate structured handoffs for goals, constraints, decisions, reported completed work, open questions, next steps, and references using the configured fast-thought model. Requests have a schema and explicit generation budget; no tools are available to the summarizer.
+- Run automatic compaction in at most two background workers without holding the conversation lock during inference. Preserve newly arriving turns; discard stale results when a session is cleared or another summary wins.
+- Preserve original messages and use a labeled extractive fallback for model failures. Summaries are conversation context, never approval or authoritative completion state.
+- Add the shared WebUI's Compact context button and saved-handoff display. Research also receives earlier handoff context. Status distinguishes model, fallback, and unneeded compaction.
+- Add schema, transport, fallback, concurrency, deletion, API, and history-delivery tests. Input uses bounded excerpts (at most 32 older turns per pass), not lossless recall or exact model-token accounting. OpenAI-compatible backends use their configured model context size.
+
+Validation: 402 tests passed, 1 skipped, 11 subtests passed. Python and JavaScript syntax checks passed. A synthetic conversation produced a schema-valid handoff through the installed Ollama backend; semantic accuracy remains fallible (the live sample turned an implementation detail into an open question).

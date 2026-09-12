@@ -290,9 +290,9 @@ def main(argv=None) -> int:
             try:
                 deadline = time.monotonic() + 20
                 while time.monotonic() < deadline:
-                    rendered = window.evaluate_js("Boolean(document.getElementById('researchBtn') && document.getElementById('taskCreateBtn') && document.getElementById('inputBox') && document.getElementById('computerEnable') && document.getElementById('computerStop') && typeof sendMessage === 'function')")
+                    rendered = window.evaluate_js("Boolean(document.getElementById('researchBtn') && document.getElementById('taskCreateBtn') && document.getElementById('inputBox') && document.getElementById('computerEnable') && document.getElementById('computerStop') && document.getElementById('compactContextBtn') && typeof sendMessage === 'function')")
                     if rendered:
-                        smoke.update(status="passed", research_button=True, task_center=True, chat=True, computer_controls=True)
+                        smoke.update(status="passed", research_button=True, task_center=True, chat=True, computer_controls=True, context_compaction=True)
                         break
                     time.sleep(.2)
             except Exception as exc:

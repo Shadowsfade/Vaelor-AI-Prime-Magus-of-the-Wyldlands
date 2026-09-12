@@ -241,3 +241,9 @@ The shared WebUI has a Computer Control panel. Use View on an existing task to s
 This preview supports left click, printable text, a small set of navigation keys, and vertical scrolling. It does not support elevated/secure desktops, dragging, multiple monitors, or unrestricted shortcuts. Images remain in process memory, while model descriptions enter normal task observations. Computer input remains unverified until an independent task-specific outcome check can prove the goal; do not present input delivery as completion. Models cannot enable their own session. Native input is not yet acceptance-tested against real applications.
 
 If a task attempted computer control before it was enabled, enable its session and use Resume in the Task Center. Switch to the target application before requesting an observation.
+
+### Model-written handoffs (2026-09-12)
+
+Automatic conversation compaction now calls the configured fast-thought model in the background. A JSON handoff carries the goal, constraints, decisions, reported work, unresolved questions, next steps, and references. Ollama requests use a 16K context window and an 1800-token output cap; compatible backends receive the schema and output cap but retain their configured context window. Original messages remain archived. The handoff is deliberately labeled as fallible context and cannot grant tool permissions or mark tasks complete.
+
+Use Compact context to request a pass, then reopen the saved dialogue to inspect its handoff and model/fallback label. Short conversations are left intact. At most 32 older turns are compacted per pass and two sessions can summarize concurrently. New messages are preserved during inference, deleted sessions cannot be resurrected by a late result, and a failed model response uses the existing extractive fallback. The current implementation compacts conversation history; long-running tool observation handoffs remain a separate next milestone.

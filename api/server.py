@@ -668,8 +668,16 @@ def sessions_get(session_id: str):
     return {
         "session": session,
         "summary": brain.conversations.get_summary(session_id),
+        "compaction": brain.conversations.compaction_status(session_id),
         "turns": turns,
     }
+
+
+@app.post("/sessions/{session_id}/compact")
+def sessions_compact(session_id: str):
+    if not brain.conversations.recall_recent(1, session_id=session_id):
+        raise HTTPException(status_code=404, detail="Conversation has no active turns")
+    return brain.conversations.request_compaction(session_id)
 
 
 @app.delete("/sessions/{session_id}")
