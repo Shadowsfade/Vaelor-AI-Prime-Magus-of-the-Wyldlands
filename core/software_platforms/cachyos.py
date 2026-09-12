@@ -8,14 +8,14 @@ import re
 import shutil
 import shlex
 import subprocess
-import urllib.request
+from core.verified_download import download_verified
 
 from core.software_workflow import (
     SoftwareArtifact, SoftwareEnvironment, SoftwarePlan, SoftwareRequest,
     SoftwareSource, run_command,
 )
 
-UPSTREAM_SOURCES = {"jq": {"url": "https://github.com/jqlang/jq/releases/download/jq-1.8.1/jq-linux-amd64", "version": "1.8.1"}}
+UPSTREAM_SOURCES = {"jq": {"url": "https://github.com/jqlang/jq/releases/download/jq-1.8.1/jq-linux-amd64", "version": "1.8.1", "sha256": "020468de7539ce70ef1bceaf7cde2e8c4f2ca6c3afb84642aabc5c97d9fc2a0d", "checksum_url": "https://github.com/jqlang/jq/releases/download/jq-1.8.1/sha256sum.txt"}}
 ALIASES = {"ripgrep": "rg", "fd-find": "fd"}
 
 
@@ -68,7 +68,7 @@ class CachyOSAdapter:
             if platform.machine().lower() not in {"amd64", "x86_64"}:
                 raise ValueError("No allowlisted upstream artifact for this architecture.")
             item = UPSTREAM_SOURCES[program]
-            return SoftwareSource("official_upstream_artifact", package=program, repository="official upstream", version=item["version"], url=item["url"], reason="Selected the allowlisted official upstream artifact.")
+            return SoftwareSource("official_upstream_artifact", package=program, repository="official upstream", version=item["version"], url=item["url"], checksum_sha256=item["sha256"], checksum_url=item["checksum_url"], reason="Selected the allowlisted official upstream artifact.")
         raise ValueError(f"No trusted CachyOS source matched {program!r}.")
 
     def create_install_plan(self, request, source, work_dir):
@@ -101,18 +101,8 @@ class CachyOSAdapter:
             rc, output = run_command(command, 120)
             return {"returncode": rc, "output": output, "commands": [{"command": plan.commands[0], "returncode": rc, "output": output}]}
         target = work_dir / source.package
-        with urllib.request.urlopen(source.url, timeout=20) as response, target.open("wb") as output:
-            total = 0
-            while chunk := response.read(65536):
-                total += len(chunk)
-                if total > 32 * 1024 * 1024:
-                    raise ValueError("Upstream artifact exceeds the 32 MiB limit.")
-                output.write(chunk)
-        size = target.stat().st_size
-        if size <= 0:
-            raise RuntimeError("Downloaded file is empty.")
-        target.chmod(target.stat().st_mode | 0o111)
-        artifact = SoftwareArtifact(source=source.url, destination=str(target), filename=target.name, size=size)
+        size, checksum = download_verified(source.url, target, source.checksum_sha256)
+        artifact = SoftwareArtifact(source=source.url, destination=str(target), filename=target.name, size=size, checksum=checksum)
         return {"returncode": 0, "output": "Downloaded official artifact", "commands": [], "artifacts": [artifact]}
 
     def find_executable(self, request, source):

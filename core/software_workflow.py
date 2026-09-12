@@ -40,6 +40,8 @@ class SoftwareSource:
     url: str = ""
     helper: str = ""
     executable: str = ""
+    checksum_sha256: str = ""
+    checksum_url: str = ""
 
 
 @dataclass
@@ -231,6 +233,18 @@ def _verify_and_finish(task, store, adapter, request, source, workflow, owner):
     executable = adapter.find_executable(request, source)
     if workflow["artifacts"]:
         executable = workflow["artifacts"][-1].get("destination") or executable
+    if source.method == "official_upstream_artifact":
+        from core.verified_download import verify_file
+        try:
+            verify_file(executable or "", source.checksum_sha256)
+        except (OSError, ValueError) as exc:
+            store.finish_step(task["id"], owner, step["id"], "failed", str(exc),
+                              "TERMINAL", verification_state="failed")
+            workflow["current_step"] = "integrity_failed"
+            workflow["verification"].append({"status": "failed", "output": str(exc)})
+            store.update_workflow(task["id"], workflow, "artifact_integrity_failed")
+            store.set_recovery(task["id"], "TERMINAL_FAILURE", str(exc), status="failed")
+            return f"FINAL_SUMMARY: FAILED {exc}"
     verification, attempts = verify_executable(executable or "", adapter.verification_candidates(request))
     workflow["verification"].append(serializable(verification)); workflow["commands"].extend(attempts); workflow["current_step"] = "completed" if verification.status == "passed" else "verification_failed"
     store.update_workflow(task["id"], workflow, "workflow_verified")

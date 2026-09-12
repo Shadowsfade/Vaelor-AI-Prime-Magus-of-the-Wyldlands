@@ -195,3 +195,22 @@ acceptance on LEGO1, additional OS adapters, upstream checksum verification,
 and Python-bundled packaging remain release work.
 
 Validation: full suite 354 passed and one Windows symlink-privilege skip; final focused approval suite seven passed (including two additional cases). Python compilation, JavaScript syntax, mocked UI recheck routing, and isolated clean-package acceptance passed. No live privileged installation was performed.
+
+## Verified upstream artifact milestone
+
+Official upstream sources now persist checksum_sha256 and checksum_url alongside
+URL/version. These fields participate in exact-operation approval. The jq 1.8.1
+Linux AMD64 pin was retrieved from:
+https://github.com/jqlang/jq/releases/download/jq-1.8.1/sha256sum.txt
+
+The downloader enforces HTTPS, a 32 MiB limit and bounded reads, writes a unique
+temporary file, checks SHA-256, and only then publishes the executable. A mismatch
+cannot overwrite the prior target. Software verification rehashes downloaded
+artifacts before probing them, so resumed tasks reject changed bytes. Old records
+without a reviewed pin fail closed and need a newly reviewed setup request.
+Task Console shows the recorded digest when viewing artifact details.
+
+This covers the allowlisted upstream binary path; repository package integrity
+remains owned by the package manager. It does not add signature verification or
+new OS adapters. Live download verification passed on Windows without executing
+the Linux binary. Full live LEGO1 UI/install acceptance is still outstanding.

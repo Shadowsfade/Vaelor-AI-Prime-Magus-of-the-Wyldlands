@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-09-11 — Verified upstream software downloads
+
+- Pinned jq 1.8.1 Linux AMD64 to its official SHA-256 release checksum, including
+  checksum provenance in the persisted source and approval fingerprint.
+- Added bounded HTTPS downloads into temporary files; only matching bytes are
+  published and marked executable. Failures remove partial files and preserve
+  any previously installed target.
+- Revalidate upstream artifacts before executable probes, including resumed tasks.
+  Missing legacy pins block execution instead of trusting an unverified download.
+- Task Console displays recorded artifact hashes. The legacy CachyOS download
+  path shares the verified downloader and release metadata.
+- Validation: full suite 362 passed, one Windows-specific skip; final targeted
+  suite 27 passed, including tampered-resume prevention. Python compilation and
+  UI JavaScript syntax passed. A live official jq download matched the pinned
+  hash (2,255,816 bytes); it was not executed.
+
 ## 2026-09-11 — Software approval and host-authentication continuation
 
 - Software setup now creates durable Approve Once cards using the existing

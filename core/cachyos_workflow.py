@@ -4,7 +4,11 @@ from pathlib import Path
 import os, platform, re, shutil, subprocess, urllib.request
 from core.approval_policy import ActionContext, ApprovalDecision
 
-UPSTREAM_SOURCES = {"jq": {"url": "https://github.com/jqlang/jq/releases/download/jq-1.8.1/jq-linux-amd64", "method": "official_binary", "version": "1.8.1"}}
+from core.software_platforms.cachyos import UPSTREAM_SOURCES as VERIFIED_UPSTREAM
+from core.verified_download import download_verified
+
+UPSTREAM_SOURCES = {name: {**metadata, "method": "official_binary"} for name, metadata in VERIFIED_UPSTREAM.items()}
+
 ALIASES = {"ripgrep": "rg", "fd-find": "fd"}
 
 def is_cachyos_request(request):
@@ -86,9 +90,9 @@ def run_cachyos_workflow(task, store, policy=None, owner=""):
     if not allowed: return _waiting(store, task_id, "WAIT_FOR_APPROVAL", reason, "WAITING_APPROVAL")
     store.update_workflow(task_id, workflow, "workflow_source_selected"); step = store.begin_step(task_id, owner, "cachyos_workflow", "download")
     try:
-        urllib.request.urlretrieve(source["url"], target); size = target.stat().st_size
+        size, checksum = download_verified(source["url"], target, source.get("sha256", ""))
         if size <= 0: raise RuntimeError("Downloaded file is empty.")
-        target.chmod(target.stat().st_mode | 0o111); workflow["artifacts"].append({"source_url": source["url"], "destination": str(target), "filename": target.name, "size": size, "temporary": False, "method": source["method"]}); store.update_workflow(task_id, workflow, "artifact_downloaded"); store.finish_step(task_id, owner, step["id"], "succeeded", "Downloaded official artifact", verification_state="not_required")
+        target.chmod(target.stat().st_mode | 0o111); workflow["artifacts"].append({"source_url": source["url"], "destination": str(target), "filename": target.name, "size": size, "checksum": checksum, "temporary": False, "method": source["method"]}); store.update_workflow(task_id, workflow, "artifact_downloaded"); store.finish_step(task_id, owner, step["id"], "succeeded", "Downloaded official artifact", verification_state="not_required")
     except Exception as exc:
         store.finish_step(task_id, owner, step["id"], "failed", str(exc), "TRANSIENT", retry_eligible=True, error=str(exc)); store.record_runner_failure(task_id, owner, str(exc), 5, 60); return f"FINAL_SUMMARY: FAILED Download failed: {exc}"
     return _finish_verified(store, task, workflow, target, owner)
