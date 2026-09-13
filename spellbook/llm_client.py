@@ -321,6 +321,7 @@ def chat(
     system: Optional[str] = None,
     temperature: Optional[float] = None,
     response_schema: Optional[dict] = None,
+    schema_strict: bool = True,
     context_window: Optional[int] = None,
     max_tokens: Optional[int] = None,
 ) -> str:
@@ -334,6 +335,8 @@ def chat(
     compatible_options = {}
     if response_schema is not None:
         native_options["response_schema"] = compatible_options["response_schema"] = response_schema
+        if not schema_strict:
+            compatible_options["schema_strict"] = False
     if context_window is not None:
         native_options["context_window"] = max(2048, min(int(context_window), 32768))
     if max_tokens is not None:
@@ -492,7 +495,7 @@ def _ollama_stream(base_url: str, model: str, messages: List[dict], timeout: int
 
 
 def _openai_chat(base_url: str, model: str, messages: List[dict], timeout: int, temperature=None,
-                 response_schema=None, max_tokens=None) -> str:
+                 response_schema=None, max_tokens=None, schema_strict=True) -> str:
     url = base_url.rstrip("/") + "/v1/chat/completions"
     # strip :latest style if lmstudio uses bare ids - keep as-is first
     payload = {
@@ -504,7 +507,7 @@ def _openai_chat(base_url: str, model: str, messages: List[dict], timeout: int, 
         payload["temperature"] = temperature
     if response_schema is not None:
         payload["response_format"] = {"type": "json_schema", "json_schema": {
-            "name": "vaelor_handoff", "strict": True, "schema": response_schema}}
+            "name": "vaelor_response", "strict": schema_strict, "schema": response_schema}}
     if max_tokens is not None: payload["max_tokens"] = max_tokens
     r = requests.post(url, json=payload, timeout=timeout)
     r.raise_for_status()

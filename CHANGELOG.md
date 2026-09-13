@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-09-13 — Structured agent decisions
+
+- Agent model calls request the action JSON schema, with deterministic sampling
+  and bounded output. The parser, tool validation and approval boundary still
+  validate each decision; JSON conformance grants no execution permissions.
+- Read-only instructions distinguish information retrieval from mutation
+  verification. Near-budget verification reminders apply to unverified changes.
+- Live llama3.2:3b acceptance exposed prose around JSON before this change. With
+  structured output it executed the restricted synthetic file-read tool, but
+  repeated the read and stopped safely; end-to-end task completion did not pass.
+
 ## 2026-09-13 — Streaming task parity
 
 - Streaming and normal chat share task classification, clarification, explicit

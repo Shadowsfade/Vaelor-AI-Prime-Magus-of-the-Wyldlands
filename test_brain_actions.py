@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 
 from core.brain import VaelorBrain
 from core.task_intent import TaskIntent
+from core.action_protocol import ACTION_RESPONSE_SCHEMA
 
 
 class BrainActionTests(unittest.TestCase):
@@ -10,7 +11,8 @@ class BrainActionTests(unittest.TestCase):
         with patch("spellbook.llm_client.chat", return_value="FINAL: done") as chat, patch("spellbook.spell_router.cast_aider_spell", side_effect=AssertionError("nested agent")):
             response = VaelorBrain._agent_reply("modify file app.py", "code_forge")
         self.assertEqual(response, "FINAL: done")
-        chat.assert_called_once_with("modify file app.py", spell="code_forge")
+        chat.assert_called_once_with("modify file app.py", spell="code_forge",
+            response_schema=ACTION_RESPONSE_SCHEMA, schema_strict=False, max_tokens=1800, temperature=0)
 
     def test_agent_failure_is_reported_instead_of_becoming_chat(self):
         brain = VaelorBrain.__new__(VaelorBrain)

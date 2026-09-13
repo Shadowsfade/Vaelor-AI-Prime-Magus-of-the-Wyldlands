@@ -12,6 +12,25 @@ JSON_FENCE_RE = re.compile(r"^\s*```(?:json)?\s*(.*?)\s*```\s*$", re.I | re.S)
 MAX_ACTIONS_PER_TURN = 8
 
 
+ACTION_RESPONSE_SCHEMA = {
+    "type": "object", "additionalProperties": False,
+    "required": ["thought", "actions", "final"],
+    "properties": {
+        "thought": {"type": "string"},
+        "actions": {"type": "array", "maxItems": MAX_ACTIONS_PER_TURN,
+            "items": {"type": "object", "additionalProperties": False,
+                "required": ["tool", "arguments"], "properties": {
+                    "tool": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$"},
+                    "arguments": {"type": "object", "additionalProperties": True}}}},
+        "final": {"anyOf": [{"type": "null"}, {
+            "type": "object", "additionalProperties": False,
+            "required": ["status", "summary"], "properties": {
+                "status": {"type": "string", "enum": ["SUCCESS", "FAILED"]},
+                "summary": {"type": "string"}}}]},
+    },
+}
+
+
 @dataclass
 class ProtocolResponse:
     matched: bool = False

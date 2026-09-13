@@ -98,7 +98,9 @@ class VaelorBrain:
     def _agent_reply(prompt, spell):
         # The durable agent owns execution; never launch nested interactive Aider.
         from spellbook.llm_client import chat
-        return chat(prompt, spell=spell)
+        from core.action_protocol import ACTION_RESPONSE_SCHEMA
+        return chat(prompt, spell=spell, response_schema=ACTION_RESPONSE_SCHEMA,
+                    schema_strict=False, max_tokens=1800, temperature=0)
 
     def research_answer(self, query: str, session_id=None) -> str:
         """Read web evidence and answer without routing source text to tools."""

@@ -358,7 +358,9 @@ If OBSERVATION shows returncode != 0, Refused, Traceback, or stderr errors:
   rebuild is required before the new capability can be used.
 
 ## VERIFICATION (mandatory before success)
-Before final.status SUCCESS you MUST verify, e.g.:
+For read-only requests, answer from successful tool observations once the requested information is available.
+Do not repeat an identical successful read or run unrelated tests.
+After changing anything, before final.status SUCCESS you MUST verify, e.g.:
 - shell_exec: python -m py_compile <files>
 - shell_exec: pytest / npm test / relevant checks
 If verification fails, keep iterating.
@@ -521,7 +523,7 @@ def run_agent(
                 "SYSTEM: Last tool failed. Analyze the error in thought, then return "
                 "corrective JSON actions. Do not finalize SUCCESS yet.\n"
             )
-        if require_verification and step >= max_steps - 2 and not verified_hint:
+        if require_verification and step >= max_steps - 2 and unverified_mutation:
             prompt_parts.append(
                 "SYSTEM: Near step budget. If changes were made, run verification tools now "
                 "or return final.status FAILED with a reason.\n"

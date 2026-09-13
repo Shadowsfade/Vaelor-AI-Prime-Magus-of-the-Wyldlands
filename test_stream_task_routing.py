@@ -68,3 +68,30 @@ def test_stream_requires_completion_marker(backend, complete):
         else:
             with pytest.raises(llm_client.ModelConnectionError, match='before completion'):
                 list(stream('unused', 'model', [], 1))
+
+
+def test_failed_stream_does_not_save_partial_reply():
+    from spellbook.llm_client import ModelConnectionError
+    brain = object.__new__(VaelorBrain)
+    brain._route_thought_task = Mock(return_value=None)
+    brain._context_prefix = Mock(return_value='')
+    brain._history_text = Mock(return_value='')
+    brain._history_messages = Mock(return_value=[])
+    brain.conversations = Mock()
+    def interrupted(*args, **kwargs):
+        yield 'partial reply'
+        raise ModelConnectionError('stream interrupted')
+    with patch('core.brain.cast_spell_stream', side_effect=interrupted):
+        with pytest.raises(ModelConnectionError):
+            list(brain.think_stream('hello', session_id='s', use_web=False))
+    brain.conversations.remember_turn.assert_not_called()
+
+
+def test_agent_model_requests_structured_protocol():
+    from core.action_protocol import ACTION_RESPONSE_SCHEMA
+    from spellbook import llm_client
+    with patch.object(llm_client, 'chat', return_value='{}') as chat:
+        VaelorBrain._agent_reply('task', 'core_reasoning')
+    assert chat.call_args.kwargs['response_schema'] == ACTION_RESPONSE_SCHEMA
+    assert chat.call_args.kwargs['schema_strict'] is False
+    assert chat.call_args.kwargs['temperature'] == 0
