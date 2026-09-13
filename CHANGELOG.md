@@ -7,6 +7,7 @@
   validate each decision; JSON conformance grants no execution permissions.
 - Read-only instructions distinguish information retrieval from mutation
   verification. Near-budget verification reminders apply to unverified changes.
+- Regression validation: 420 passed, one skipped and 11 passing subtests.
 - Live llama3.2:3b acceptance exposed prose around JSON before this change. With
   structured output it executed the restricted synthetic file-read tool, but
   repeated the read and stopped safely; end-to-end task completion did not pass.
