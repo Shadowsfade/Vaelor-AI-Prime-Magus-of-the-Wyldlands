@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-09-13 — Read-only repetition recovery
+
+- Repeated successful reads get one bounded summary-only recovery phase. The
+  recovery cannot execute tools and must return a validated final decision.
+- Any failed tool or attempted mutation disables this recovery; cancellation,
+  deadlines and the existing repetition guard remain enforced.
+- Validation: 425 tests passed, one skipped and 11 subtests; all six recovery
+  tests passed, including the subsequently added mutation regression.
+- Live installed llama3.2:3b read the synthetic file and returned its unique marker
+  successfully after two reads, fixing the previously recorded acceptance failure.
+
 ## 2026-09-13 — Structured agent decisions
 
 - Agent model calls request the action JSON schema, with deterministic sampling
