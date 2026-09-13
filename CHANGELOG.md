@@ -9,6 +9,10 @@
   assistant replies. Chat reports HTTP 503 and streaming backend errors propagate.
 - Added regression coverage for occupied ports, backend identity, model outages,
   streaming errors and the chat API error status.
+- Validation: full suite 407 passed, one skipped and 11 subtests; the additional
+  API outage test and desktop regression selection passed (10 tests). Frozen
+  relocation and native WebView passed with Python absent from PATH and port
+  8765 occupied; chat, research, task, computer and compaction controls rendered.
 
 ## 2026-09-12 — Windows software support
 
