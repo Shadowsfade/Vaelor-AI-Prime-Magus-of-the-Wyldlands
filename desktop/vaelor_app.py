@@ -12,6 +12,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+import uuid
 from pathlib import Path
 
 WINDOW_TITLE = "Vaelor - Grand Archive"
@@ -39,28 +40,39 @@ def port_open(host: str, port: int) -> bool:
         return False
 
 
-def wait_for_server(url: str, timeout: float = 70.0) -> bool:
+def select_desktop_port(preferred: int) -> int:
+    """Choose a free loopback port without reusing another server's socket."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+        if os.name == "nt":
+            listener.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        try:
+            listener.bind(("127.0.0.1", preferred))
+        except OSError:
+            listener.bind(("127.0.0.1", 0))
+        return listener.getsockname()[1]
+
+
+def wait_for_server(url: str, timeout: float = 70.0, expected_instance: str | None = None) -> bool:
     deadline = time.time() + timeout
     health = url.rstrip("/") + "/health"
     while time.time() < deadline:
         try:
             with urllib.request.urlopen(health, timeout=1.5) as resp:
                 if resp.status == 200:
-                    return True
-        except (urllib.error.URLError, TimeoutError, OSError):
+                    if expected_instance is None:
+                        return True
+                    data = json.loads(resp.read(65536))
+                    if data.get("desktop_instance") == expected_instance:
+                        return True
+        except (urllib.error.URLError, TimeoutError, OSError, ValueError, AttributeError):
             pass
         time.sleep(0.3)
     return False
 
 
-def start_server(root: Path, host: str, port: int):
+def start_server(root: Path, host: str, port: int, instance: str | None = None):
     if port_open(host, port):
-        try:
-            with urllib.request.urlopen(f"http://{host}:{port}/health", timeout=0.8) as r:
-                if b"status" in r.read():
-                    return None
-        except Exception:
-            pass
+        raise RuntimeError(f"Desktop port {port} was taken before launch; please retry.")
 
     py = find_python(root)
     env = os.environ.copy()
@@ -69,6 +81,7 @@ def start_server(root: Path, host: str, port: int):
     env["VAELOR_HOST"] = host
     env["VAELOR_PORT"] = str(port)
     env["VAELOR_DESKTOP"] = "1"
+    env["VAELOR_DESKTOP_INSTANCE"] = instance or uuid.uuid4().hex
 
     creationflags = 0
     if os.name == "nt":
@@ -224,15 +237,11 @@ def main(argv=None) -> int:
         uvicorn.run("api.server:app", host=args.host, port=args.port,
                     log_config=None, access_log=False)
         return 0
-    from core.netbind import resolve_bind
-
-    host, port, url = resolve_bind(root)
-    # The desktop owns a private IPv4 loopback server, including when the
-    # portable network template uses the localhost alias.
+    port = select_desktop_port(args.port)
     host, url = "127.0.0.1", f"http://127.0.0.1:{port}/"
     app_url = url.rstrip("/") + "/?desktop=1"
-
-    server_proc = start_server(root, host, port)
+    instance = uuid.uuid4().hex
+    server_proc = start_server(root, host, port, instance=instance)
 
     def _cleanup() -> None:
         if server_proc and server_proc.poll() is None:
@@ -264,7 +273,7 @@ def main(argv=None) -> int:
     smoke = {"status": "failed"}
 
     def boot() -> None:
-        ready = wait_for_server(url, 70)
+        ready = wait_for_server(url, 70, expected_instance=instance)
         if not ready:
             if args.smoke_ui_output:
                 args.smoke_ui_output.write_text(json.dumps(smoke), encoding="utf-8")

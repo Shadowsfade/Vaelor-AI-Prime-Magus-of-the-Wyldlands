@@ -1,5 +1,6 @@
 import sys
 import os
+from spellbook.llm_client import ModelConnectionError
 import re
 import io
 import json
@@ -535,6 +536,7 @@ def health():
     settings = get_voice_settings()
     return {
         "status": "online",
+        "desktop_instance": os.environ.get("VAELOR_DESKTOP_INSTANCE"),
         "name": runtime.name,
         "title": runtime.title,
         "version": VAELOR_VERSION,
@@ -746,6 +748,8 @@ def chat(request: ChatRequest):
             images=request.images,
         )
         return ChatResponse(mode=mode, response=response, session_id=request.session_id)
+    except ModelConnectionError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"chat failed: {e}")
 

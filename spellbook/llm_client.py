@@ -307,6 +307,10 @@ def _messages(
     return msgs
 
 
+class ModelConnectionError(RuntimeError):
+    """The configured model failed to return a usable response."""
+
+
 def chat(
     prompt: str,
     model: Optional[str] = None,
@@ -381,7 +385,7 @@ def chat(
                 **native_options,
             )
         except Exception as e2:
-            return f"Vaelor archive connection error ({backend}): {e} | fallback: {e2}"
+            raise ModelConnectionError(f"Model backend {backend} failed: {e}; fallback: {e2}") from e2
 
 
 def chat_stream(
@@ -442,7 +446,12 @@ def _ollama_chat(base_url: str, model: str, messages: List[dict], timeout: int, 
     r = requests.post(url, json=payload, timeout=timeout)
     r.raise_for_status()
     data = r.json()
-    return data.get("message", {}).get("content") or "The archive returned no response."
+    if data.get("error"):
+        raise ModelConnectionError(str(data["error"]))
+    content = (data.get("message") or {}).get("content")
+    if not content:
+        raise ModelConnectionError("The model returned no response.")
+    return content
 
 
 def _ollama_stream(base_url: str, model: str, messages: List[dict], timeout: int):
@@ -465,6 +474,8 @@ def _ollama_stream(base_url: str, model: str, messages: List[dict], timeout: int
                 data = json.loads(line)
             except json.JSONDecodeError:
                 continue
+            if data.get("error"):
+                raise ModelConnectionError(str(data["error"]))
             piece = (data.get("message") or {}).get("content") or ""
             if piece:
                 yield piece
@@ -492,9 +503,11 @@ def _openai_chat(base_url: str, model: str, messages: List[dict], timeout: int, 
     data = r.json()
     choices = data.get("choices") or []
     if not choices:
-        return "The archive returned no response."
+        raise ModelConnectionError("The model returned no response.")
     msg = choices[0].get("message") or {}
-    return msg.get("content") or "The archive returned no response."
+    if not msg.get("content"):
+        raise ModelConnectionError("The model returned no response.")
+    return msg["content"]
 
 
 def _openai_stream(base_url: str, model: str, messages: List[dict], timeout: int):
@@ -513,6 +526,8 @@ def _openai_stream(base_url: str, model: str, messages: List[dict], timeout: int
                 data = json.loads(line)
             except json.JSONDecodeError:
                 continue
+            if data.get("error"):
+                raise ModelConnectionError(str(data["error"]))
             choices = data.get("choices") or []
             if not choices:
                 continue

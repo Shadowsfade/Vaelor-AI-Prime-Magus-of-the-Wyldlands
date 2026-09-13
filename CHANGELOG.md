@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-09-13 — Desktop backend ownership and model failures
+
+- Desktop launches select an unused loopback port and verify a per-launch instance
+  identifier before opening the UI, preventing attachment to an older running server.
+  Existing listeners are left running; a port race fails safely rather than reusing them.
+- Exhausted model fallback raises an error instead of storing connection errors as
+  assistant replies. Chat reports HTTP 503 and streaming backend errors propagate.
+- Added regression coverage for occupied ports, backend identity, model outages,
+  streaming errors and the chat API error status.
+
 ## 2026-09-12 — Windows software support
 
 - Added a Windows adapter for jq, ripgrep/rg, and Git using reviewed exact
