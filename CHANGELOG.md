@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-09-13 — Streaming task parity
+
+- Streaming and normal chat share task classification, clarification, explicit
+  preference learning and governed agent execution. Action requests no longer
+  silently become conversation when streaming is enabled.
+- Explicit agent/command stream failures emit error events without a false done
+  event. Completed agent results remain one-shot rather than token streamed.
+- Model streams require completion evidence and nonempty text, so dropped streams
+  raise errors instead of being saved as completed assistant turns.
+- Added transport parity, session propagation, SSE failure and truncated-stream tests.
+
 ## 2026-09-13 — Desktop backend ownership and model failures
 
 - Desktop launches select an unused loopback port and verify a per-launch instance

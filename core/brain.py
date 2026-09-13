@@ -149,7 +149,8 @@ class VaelorBrain:
             "- Do not manufacture objections: answer directly when the requested path is already sound.\n"
         )
 
-    def think(self, prompt, session_id=None, images=None, use_web=None):
+    def _route_thought_task(self, prompt, session_id=None, images=None):
+        """Share task classification and execution across both chat transports."""
         # Only direct first-person preference declarations auto-activate.
         # Inferred lessons remain proposed until the user confirms them.
         preferences = getattr(self, "preferences", None)
@@ -177,6 +178,12 @@ class VaelorBrain:
                 )
                 self.conversations.remember_turn(prompt, response, session_id=session_id)
                 return response
+        return None
+
+    def think(self, prompt, session_id=None, images=None, use_web=None):
+        task_response = self._route_thought_task(prompt, session_id=session_id, images=images)
+        if task_response is not None:
+            return task_response
         if use_web is None:
             use_web = self.needs_web(prompt)
         enhanced = (
@@ -222,6 +229,10 @@ class VaelorBrain:
         return response
 
     def think_stream(self, prompt, session_id=None, use_web=None):
+        task_response = self._route_thought_task(prompt, session_id=session_id)
+        if task_response is not None:
+            yield task_response
+            return
         if use_web is None:
             use_web = self.needs_web(prompt)
         enhanced = (

@@ -465,6 +465,8 @@ def _ollama_stream(base_url: str, model: str, messages: List[dict], timeout: int
         else:
             omsgs.append({"role": m["role"], "content": content})
     payload = {"model": model, "messages": omsgs, "stream": True, "think": False}
+    completed = False
+    received_text = False
     with requests.post(url, json=payload, timeout=timeout, stream=True) as r:
         r.raise_for_status()
         for line in r.iter_lines(decode_unicode=True):
@@ -478,9 +480,15 @@ def _ollama_stream(base_url: str, model: str, messages: List[dict], timeout: int
                 raise ModelConnectionError(str(data["error"]))
             piece = (data.get("message") or {}).get("content") or ""
             if piece:
+                received_text = True
                 yield piece
             if data.get("done"):
+                completed = True
                 break
+    if not completed:
+        raise ModelConnectionError("The model stream ended before completion. Please retry.")
+    if not received_text:
+        raise ModelConnectionError("The model returned no response.")
 
 
 def _openai_chat(base_url: str, model: str, messages: List[dict], timeout: int, temperature=None,
@@ -513,14 +521,17 @@ def _openai_chat(base_url: str, model: str, messages: List[dict], timeout: int, 
 def _openai_stream(base_url: str, model: str, messages: List[dict], timeout: int):
     url = base_url.rstrip("/") + "/v1/chat/completions"
     payload = {"model": model, "messages": messages, "stream": True}
+    completed = False
+    received_text = False
     with requests.post(url, json=payload, timeout=timeout, stream=True) as r:
         r.raise_for_status()
         for line in r.iter_lines(decode_unicode=True):
             if not line:
                 continue
-            if line.startswith("data: "):
-                line = line[6:]
+            if line.startswith("data:"):
+                line = line[5:].lstrip()
             if line.strip() == "[DONE]":
+                completed = True
                 break
             try:
                 data = json.loads(line)
@@ -531,10 +542,17 @@ def _openai_stream(base_url: str, model: str, messages: List[dict], timeout: int
             choices = data.get("choices") or []
             if not choices:
                 continue
+            if choices[0].get("finish_reason") is not None:
+                completed = True
             delta = choices[0].get("delta") or {}
             piece = delta.get("content") or ""
             if piece:
+                received_text = True
                 yield piece
+    if not completed:
+        raise ModelConnectionError("The model stream ended before completion. Please retry.")
+    if not received_text:
+        raise ModelConnectionError("The model returned no response.")
 
 
 def backend_status() -> dict:

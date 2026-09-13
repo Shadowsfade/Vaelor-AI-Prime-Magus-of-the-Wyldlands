@@ -765,17 +765,17 @@ def chat_stream(request: ChatRequest):
 
     # Non-think modes: return one-shot SSE then done (keeps UI simple)
     if mode != "think":
-        _mode, response = route_message(
-            message,
-            session_id=request.session_id,
-            images=request.images,
-        )
-
         def one_shot():
-            payload = json.dumps({"type": "token", "text": response, "mode": _mode})
-            yield f"data: {payload}\n\n"
-            done = json.dumps({"type": "done", "mode": _mode, "session_id": request.session_id})
-            yield f"data: {done}\n\n"
+            try:
+                _mode, response = route_message(
+                    message, session_id=request.session_id, images=request.images,
+                )
+                payload = json.dumps({"type": "token", "text": response, "mode": _mode})
+                yield f"data: {payload}\n\n"
+                done = json.dumps({"type": "done", "mode": _mode, "session_id": request.session_id})
+                yield f"data: {done}\n\n"
+            except Exception as exc:
+                yield f"data: {json.dumps({'type': 'error', 'error': str(exc)})}\n\n"
 
         return StreamingResponse(one_shot(), media_type="text/event-stream")
 
