@@ -87,7 +87,7 @@ def _under(path, root):
 
 def classify_action(context: ActionContext) -> tuple[ActionClass, RiskTier]:
     tool = str(context.tool or "").lower()
-    if tool == "computer_input": return ActionClass.COMPUTER_INPUT, RiskTier.HIGH
+    if tool in {"computer_input", "computer_focus"}: return ActionClass.COMPUTER_INPUT, RiskTier.HIGH
     args = context.arguments or {}
     command = str(args.get("command") or "").strip().lower()
     if tool in {"file_reader","project_scanner","list_dir","scan_unused_files","file_editor_propose","stage_file","list_proposals"}:

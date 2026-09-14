@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-09-14 — Scoped window focus
+
+- Added a local UI focus action and governed computer_focus tool. Both target only
+  the task's explicitly selected window and check its current process ownership.
+- Focus attempts consume the computer action budget and invalidate prior images.
+  Windows focus refusal is reported without bypassing OS restrictions.
+- Foreground confirmation describes focus only, never overall goal completion.
+- Slow vision inference revalidates screen pixels and foreground state before
+  refreshing snapshot age. Changed frames never receive a fresh input token.
+- Live synthetic-image acceptance: vaelor-prime correctly identified blue; cold
+  inference took about 101 seconds. No user screenshot or desktop input was used.
+
 ## 2026-09-14 — Provider-reported model capabilities
 
 - Computer Control can discover installed Ollama vision models and suggest the

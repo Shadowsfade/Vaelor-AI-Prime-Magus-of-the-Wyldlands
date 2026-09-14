@@ -758,6 +758,20 @@ def computer_enable(body: ComputerEnableRequest, request: Request):
         raise HTTPException(status_code=400, detail=str(exc))
 
 
+class ComputerFocusRequest(BaseModel):
+    task_id: str
+
+
+@app.post("/computer/focus")
+def computer_focus(body: ComputerFocusRequest, request: Request):
+    _computer_local_request(request)
+    from core.computer_control import controller
+    try:
+        return controller.focus(body.task_id)
+    except (RuntimeError, PermissionError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @app.post("/computer/stop")
 def computer_stop(request: Request):
     _computer_local_request(request)

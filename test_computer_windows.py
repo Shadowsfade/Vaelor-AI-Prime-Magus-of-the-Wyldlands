@@ -64,6 +64,54 @@ class WindowScopeTests(unittest.TestCase):
         desktop._send.assert_not_called()
 
 
+    def test_focus_only_uses_selected_window_and_invalidates_snapshot(self):
+        self.controller.observe('task')
+        self.backend.focus.return_value={'focus_confirmed':True,'window_id':'123'}
+        result=self.controller.focus('task')
+        self.assertTrue(result['focus_confirmed'])
+        self.assertFalse(result['goal_verified'])
+        self.assertIsNone(self.controller.snapshot)
+        self.assertEqual(self.controller.remaining_actions,99)
+        self.assertEqual(self.backend.focus.call_args.args[0]['id'],'123')
+
+    def test_focus_cannot_cross_task_or_action_budget(self):
+        with self.assertRaises(PermissionError): self.controller.focus('other')
+        self.controller.remaining_actions=0
+        with self.assertRaises(PermissionError): self.controller.focus('task')
+        self.backend.focus.assert_not_called()
+
+    def test_focus_requires_explicit_window_selection(self):
+        self.controller.enable('task',vision_model='vision')
+        with self.assertRaises(PermissionError): self.controller.focus('task')
+        self.backend.focus.assert_not_called()
+
+    def test_rejected_focus_still_consumes_attempt_and_snapshot(self):
+        self.controller.observe('task')
+        self.backend.focus.side_effect=RuntimeError('focus denied')
+        with self.assertRaises(RuntimeError): self.controller.focus('task')
+        self.assertEqual(self.controller.remaining_actions,99)
+        self.assertIsNone(self.controller.snapshot)
+
+
+    def test_slow_vision_revalidates_before_refreshing_snapshot_age(self):
+        now=[0]
+        self.controller.clock=lambda:now[0]
+        self.controller.enable('task',vision_model='vision',window_id='123')
+        snap,_=self.controller.observe('task')
+        now[0]=101
+        completed=self.controller.complete_observation('task',snap['snapshot_id'])
+        self.assertEqual(completed['created'],101)
+        self.controller.act('task',completed['snapshot_id'],'click',x=20,y=20)
+        self.backend.act.assert_called_once()
+
+    def test_changed_frame_during_vision_never_refreshes_age(self):
+        snap,_=self.controller.observe('task')
+        self.backend.capture.return_value=(b'changed',100,80,123)
+        with self.assertRaises(PermissionError):
+            self.controller.complete_observation('task',snap['snapshot_id'])
+        self.assertIsNone(self.controller.snapshot)
+
+
 def test_window_inventory_requires_local_ui_header():
     from api import server
     from conftest import SynchronousASGIClient

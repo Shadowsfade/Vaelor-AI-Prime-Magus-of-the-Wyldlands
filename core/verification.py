@@ -184,7 +184,7 @@ def _git_requirement(tool: str, arguments: Mapping[str, Any], fingerprint: str, 
 
 
 def build_requirement(tool: str, arguments: Mapping[str, Any], fingerprint: str, task_id: str, step_id: str) -> VerificationRequirement | None:
-    if tool == "computer_input":
+    if tool in {"computer_input", "computer_focus"}:
         return VerificationRequirement(f"vr-{task_id}-{step_id}", fingerprint, tool,
             "computer_interaction", {"requires_independent_goal_check": True}, {},
             "computer.unverified", task_id, step_id, dict(arguments))
