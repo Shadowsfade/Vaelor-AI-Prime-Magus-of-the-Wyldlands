@@ -139,12 +139,29 @@ def _looks_like_capability_request(request: str) -> bool:
     return any(marker in text for marker in markers)
 
 
+_OBVIOUS_ACTION_RE = re.compile(
+    r"^(?:(?:please|can you|could you|would you|i need you to|go ahead and)\s+)?"
+    r"(download|install|setup|set up|configure|clone|run|execute|start|stop|restart|"
+    r"fix|repair|update|upgrade|build|test|check|inspect|open|create|remove|uninstall)\b",
+    re.IGNORECASE,
+)
+
+
+def _looks_like_obvious_action(request: str) -> bool:
+    return bool(_OBVIOUS_ACTION_RE.match(str(request or "").strip()))
 def classify_task(
     request: str,
     ask_classifier: Callable[[str], str],
     fallback_should_act: bool = False,
 ) -> TaskIntent:
     """Classify a request; malformed or unavailable model output falls back safely."""
+    if _looks_like_obvious_action(request):
+        return TaskIntent(
+            intent="act",
+            goal=str(request or "").strip(),
+            success_criteria=["The requested outcome is complete and verified."],
+            source="deterministic",
+        )
     prompt = f"""
 Classify the user's request for a local assistant. Return JSON only with this schema:
 {{

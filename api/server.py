@@ -106,6 +106,8 @@ class TaskCreateRequest(BaseModel):
     max_steps: int = Field(default=12, ge=3, le=25)
     workspace: Optional[str] = Field(default=None, max_length=4096)
     max_runtime_seconds: int = Field(default=900, ge=10, le=1200)
+    plan_only: bool = False
+
 
 
 class PreferenceCreateRequest(BaseModel):
@@ -147,6 +149,7 @@ class ScheduleCreateRequest(BaseModel):
     enabled: bool = True
     max_steps: int = Field(default=12, ge=3, le=25)
     max_runtime_seconds: int = Field(default=900, ge=10, le=1200)
+
 
 
 class ScheduleStatusRequest(BaseModel):
@@ -259,6 +262,7 @@ def create_task(request: TaskCreateRequest, background_tasks: BackgroundTasks):
             request.session_id,
             request.workspace,
             request.max_runtime_seconds,
+            request.plan_only,
         )
     except (ValueError, PermissionError, FileNotFoundError) as exc:
         raise HTTPException(status_code=400, detail=str(exc))

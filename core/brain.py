@@ -535,14 +535,14 @@ class VaelorBrain:
         })
         return feedback
 
-    def prepare_task(self, request, session_id=None, workspace=None, max_runtime_seconds=900):
+    def prepare_task(self, request, session_id=None, workspace=None, max_runtime_seconds=900, plan_only=False):
         """Create a durable task before background execution begins."""
         from .cachyos_workflow import is_software_request
         if is_software_request(request):
             contract = TaskIntent(
                 intent="act", goal=str(request),
                 success_criteria=["Application is installed or downloaded, verified, and explained."],
-                constraints=["Use an official source and a Vaelor-managed task directory."],
+                constraints=["Use an official source and a Vaelor-managed task directory."] + (["Plan only: do not perform mutation."] if plan_only else []),
                 source="deterministic_cachyos_workflow",
             )
         else:

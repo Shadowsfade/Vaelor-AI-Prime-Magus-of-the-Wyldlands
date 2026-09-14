@@ -3,11 +3,13 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
+import hashlib
 import os
 from pathlib import Path
 import threading
 import uuid
 from typing import Callable, Optional
+from core.storage_lock import StorageLock
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -34,24 +36,39 @@ class VaelorConversationMemory:
         self.compact_chars = max(1024, int(compact_chars))
         self.compact_after = max(4, int(compact_after))
         self.keep_recent = max(2, min(int(keep_recent), self.compact_after - 1))
-        self._lock = threading.RLock()
+        self._lock = StorageLock(self.memory_dir / ".conversation.lock")
         self.summarizer = summarizer
         self._compaction_workers = {}
         self._compaction_errors = {}
         self.memory_dir.mkdir(parents=True, exist_ok=True)
-        for path in (self.turns_path, self.sessions_path, self.summaries_path, self.archive_path):
-            if not path.exists():
-                self._write_json_file(path, [])
+        with self._lock:
+            for path in (self.turns_path, self.sessions_path, self.summaries_path, self.archive_path):
+                if not path.exists():
+                    self._write_json_file(path, [])
 
     def _load_json_file(self, path: Path, default):
         try:
-            data = json.loads(path.read_text(encoding="utf-8-sig"))
-            return data if isinstance(data, type(default)) else default
-        except Exception:
+            raw = path.read_bytes()
+        except FileNotFoundError:
             return default
+        try:
+            data = json.loads(raw.decode("utf-8-sig"))
+            if not isinstance(data, type(default)):
+                raise ValueError("Unexpected storage structure")
+            return data
+        except (ValueError, UnicodeError) as exc:
+            # Preserve evidence; never turn damaged history into an empty archive.
+            digest = hashlib.sha256(raw).hexdigest()[:16]
+            backup = path.with_name(path.name + ".corrupt-" + digest)
+            try:
+                with backup.open("xb") as stream:
+                    stream.write(raw)
+            except FileExistsError:
+                pass
+            raise ValueError(f"Conversation storage is damaged: {path.name}; original preserved") from exc
 
     def _write_json_file(self, path: Path, data) -> None:
-        temp = path.with_suffix(path.suffix + ".tmp")
+        temp = path.with_name(path.name + "." + uuid.uuid4().hex + ".tmp")
         temp.write_text(json.dumps(data, indent=2), encoding="utf-8")
         os.replace(temp, path)
 

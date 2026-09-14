@@ -42,7 +42,17 @@ class SoftwareSource:
     executable: str = ""
     checksum_sha256: str = ""
     checksum_url: str = ""
+    publisher: str = ""
+    confidence: str = ""
+    evidence: list[dict[str, Any]] = field(default_factory=list)
+    discovery: list[dict[str, Any]] = field(default_factory=list)
 
+
+@dataclass
+class SoftwareResolutionError(ValueError):
+    def __init__(self, message: str, evidence=None):
+        super().__init__(message)
+        self.evidence = evidence or []
 
 @dataclass
 class SoftwareArtifact:
@@ -180,6 +190,14 @@ def run_software_workflow(task: dict, store, adapter: SoftwarePlatformAdapter, p
         "current_step": saved.get("current_step", "plan_persisted"),
     }
     store.update_workflow(task_id, workflow, "software_plan_persisted")
+    plan_only = any("plan only" in str(item).lower() for item in (task.get("contract") or {}).get("constraints", []))
+    if plan_only:
+        workflow["current_step"] = "plan_only_stopped"
+        store.update_workflow(task_id, workflow, "plan_only_stopped")
+        store.add_event(task_id, "plan_only_completed", {"mutation_skipped": True, "reason": "Plan-only task requested."})
+        result = "FINAL_SUMMARY: PLAN_ONLY " + request.canonical_name + " plan prepared; no mutation performed."
+        store.update(task_id, status="completed", result=result)
+        return result
     if source.method == "already_installed" or "install" not in plan.actions and "download" not in plan.actions:
         return _verify_and_finish(task, store, adapter, request, source, workflow, owner)
     mutations = [step for step in task.get("steps", [])

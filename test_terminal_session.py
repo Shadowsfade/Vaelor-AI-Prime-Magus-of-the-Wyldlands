@@ -67,5 +67,23 @@ class TerminalSessionTests(unittest.TestCase):
         self.assertIn("omega", "".join(streamed))
 
 
+
+class WindowsTerminalFallbackTests(unittest.TestCase):
+    @unittest.skipUnless(os.name == 'nt', 'Windows shell fallback')
+    def test_builtin_powershell_runs_when_pwsh_is_unavailable(self):
+        import shutil
+        original=shutil.which
+        manager=TerminalSessionManager()
+        with tempfile.TemporaryDirectory() as directory:
+            try:
+                with patch('core.terminal_session.shutil.which',side_effect=lambda name: None if name=='pwsh' else original(name)):
+                    session=manager.create(directory)
+                result=manager.execute(session['id'],'Write-Output VAELOR_FALLBACK_OK',timeout=10)
+                self.assertEqual(result['returncode'],0)
+                self.assertIn('VAELOR_FALLBACK_OK',result['output'])
+            finally:
+                manager.close_all()
+
+
 if __name__ == "__main__":
     unittest.main()

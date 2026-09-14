@@ -124,28 +124,9 @@ function Copy-CoreTree {
 function Write-EasyLauncher {
   param([string]$TargetDir)
   $bat = Join-Path $TargetDir "Start-Vaelor.bat"
-  @(
-    "@echo off",
-    "setlocal",
-    "cd /d `"%~dp0`"",
-    "title Vaelor",
-    "echo.",
-    "echo  Starting Vaelor (Vay-lore)...",
-    "echo  A browser window should open. Keep THIS window open while you use Vaelor.",
-    "echo  To quit: close this window.",
-    "echo.",
-    "if not exist `".venv\Scripts\python.exe`" (",
-    "  echo Vaelor is not fully installed.",
-    "  echo Double-click INSTALL.bat again.",
-    "  pause",
-    "  exit /b 1",
-    ")",
-    "start `"`" `"http://localhost:8000`"",
-    "`".venv\Scripts\python.exe`" -m uvicorn api.server:app --host localhost --port 8000",
-    "echo.",
-    "echo Vaelor stopped.",
-    "pause"
-  ) | Set-Content -Path $bat -Encoding ASCII
+  $sourceBat = Join-Path $PSScriptRoot "..\Start-Vaelor.bat"
+  if (-not (Test-Path $sourceBat)) { throw "Authoritative Start-Vaelor.bat template is missing." }
+  Copy-Item -LiteralPath $sourceBat -Destination $bat -Force
 
   $how = Join-Path $TargetDir "HOW-TO-USE.txt"
   @(
@@ -326,5 +307,3 @@ Write-Step "Step 5 of 5 - Desktop shortcut and Start menu"
 catch {
   Stop-Install $_.Exception.Message
 }
-
-

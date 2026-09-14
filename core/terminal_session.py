@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import queue
 import signal
+import shutil
 import subprocess
 import threading
 import time
@@ -50,7 +51,14 @@ class TerminalSessionManager:
     @staticmethod
     def _command():
         if os.name == "nt":
-            return ["pwsh", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", "-"]
+            shell = shutil.which("pwsh") or shutil.which("powershell")
+            if shell is None:
+                builtin = Path(os.environ.get("SystemRoot", "C:/Windows")) / "System32/WindowsPowerShell/v1.0/powershell.exe"
+                if builtin.is_file():
+                    shell = str(builtin)
+            if shell is None:
+                raise RuntimeError("PowerShell was not found. Install PowerShell or restore Windows PowerShell.")
+            return [shell, "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", "-"]
         return ["bash", "--noprofile", "--norc"]
 
     @staticmethod
@@ -69,6 +77,7 @@ class TerminalSessionManager:
         process = subprocess.Popen(
             self._command(), cwd=workdir, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT, text=True, bufsize=1,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0,
             env={**os.environ, "GIT_PAGER": "cat", "PAGER": "cat"},
         )
         session = TerminalSession(str(uuid.uuid4())[:12], workdir, process)

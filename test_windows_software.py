@@ -14,8 +14,7 @@ class WindowsSoftwareTests(unittest.TestCase):
     def test_known_alias_and_unknown_block(self):
         adapter = WindowsAdapter()
         self.assertEqual(adapter.canonicalize_program("install rg on Windows").canonical_name, "ripgrep")
-        with self.assertRaises(ValueError):
-            adapter.canonicalize_program("install something on Windows")
+        self.assertEqual(adapter.canonicalize_program("install something on Windows").canonical_name, "something")
 
     def test_version_and_user_scope_are_preserved(self):
         adapter = WindowsAdapter()
@@ -51,4 +50,4 @@ class WindowsSoftwareTests(unittest.TestCase):
         from core.cachyos_workflow import is_software_request
         with patch("core.cachyos_workflow.platform.system", return_value="Windows"):
             self.assertTrue(is_software_request("install jq"))
-            self.assertFalse(is_software_request("install dependencies for my project"))
+            self.assertTrue(is_software_request("install dependencies for my project"))

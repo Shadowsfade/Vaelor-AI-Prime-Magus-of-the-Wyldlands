@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-09-13 — Concurrent conversation storage and Windows terminals
+
+- Adapted OpenCode's cross-process storage lock into the current memory system,
+  adding reentrancy across memory objects and locking initialization. Desktop,
+  CLI and worker writes now share an OS lock; model compaction runs outside it.
+- Damaged JSON is preserved and reported instead of silently becoming empty
+  history. Writes use distinct temporary files.
+- Windows terminal sessions fall back to built-in Windows PowerShell when pwsh
+  is absent, and background sessions use CREATE_NO_WINDOW.
+- Added real concurrent-process, owner-exit, nested-lock, corruption-preservation
+  and live Windows PowerShell fallback tests.
+
 ## 2026-09-13 — Read-only repetition recovery
 
 - Repeated successful reads get one bounded summary-only recovery phase. The

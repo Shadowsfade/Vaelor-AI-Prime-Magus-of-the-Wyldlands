@@ -199,3 +199,32 @@ The world evolves.
 The foundation comes first.
 
 The intelligence grows from the foundation.
+
+---
+
+# Post-stabilization capability direction
+
+These are roadmap items only. They must reuse Vaelor's durable task runtime, governance, approval, observation, recovery, and verification boundaries. Do not implement them through larger prompts or parallel task engines.
+
+## Capability adapters
+
+- ComputerUse: observable screenshots, window enumeration, application focus/launch, bounded click/type/keyboard/scroll/clipboard, before/after evidence, and risk-gated confirmation. Prefer APIs, terminals, filesystem operations, and native automation.
+- Capability/model routing: model-independent routing across general, reasoning, coding, vision, image generation, speech-to-text, and text-to-speech; smallest capable local model by default, health checks, safe fallback, and explicit override.
+- Coding-agent supervision: Vaelor remains the durable supervisor for its own tools, OpenCode, Codex, and future backends: inspect, plan, edit, test, observe, recover, independently verify, and apply Git gates.
+- Voice client: wake word or push-to-talk, STT, normal durable tasks, streamed events, concise status, and TTS. CLI, Web, Android, and future Android Auto clients share the same runtime.
+- Vision/screen: structured screenshot, shared-screen, window, and explicitly enabled camera observations. Continuous monitoring must be visibly user-controlled.
+- ImageGeneration: provider/model selection, generation, artifact tracking, preview/verification, and saved output through an adapter.
+- 3D application adapters: begin with Blender's Python API for scene/model creation, materials, lighting, camera, rendering, import/export, preview verification, and saved artifacts; later consider Unity, O3DE, and other creative applications.
+- Discoverable tool/plugin architecture: capability metadata, schemas, permissions, health, platform support, risk classification, and verification strategy without hardcoding every application into core agent logic.
+
+## Context-scoped instructions
+
+Use a small core Vaelor policy plus dynamically loaded capability instructions, relevant project context, and current durable task state. Load ComputerUse, Blender, coding, voice, or other instructions only for the active capability.
+
+## Software direction
+
+Explicit imperative software requests are ACTION regardless of whether the name is known. The current Windows adapter resolves only reviewed git, jq, and ripgrep metadata; unknown software must remain ACTION and produce deterministic trusted-source investigation or BLOCKED evidence rather than CHAT. Future discovery should search native package managers, configured trusted providers, and verifiable official upstream distributions, never model-invented URLs or commands.
+
+## Target experience
+
+Users state outcomes; Vaelor selects capabilities, models, tools, machines, plan, approvals, execution, and verification.

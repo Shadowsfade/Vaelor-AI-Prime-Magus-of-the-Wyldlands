@@ -1,5 +1,6 @@
 import unittest
 from unittest.mock import patch
+import requests
 
 import spellbook.llm_client as llm_client
 from spellbook.llm_client import chat, resolve_route, select_available_model
@@ -80,6 +81,50 @@ class ModelRoutingTests(unittest.TestCase):
         self.assertEqual(chat("hello"), "fallback worked")
         self.assertEqual(openai_chat.call_args.kwargs["model"], "fallback:3b")
 
+
+
+    def test_ollama_native_request_schema_and_response(self):
+        class Response:
+            status_code = 200
+            text = '{"message":{"content":"ok"}}'
+            reason = "OK"
+            def json(self):
+                return {"message": {"content": "ok"}}
+
+        with patch("spellbook.llm_client.requests.post", return_value=Response()) as post:
+            result = llm_client._ollama_chat(
+                "http://ollama", "model:latest", [{"role": "user", "content": "hello"}], 5
+            )
+        self.assertEqual(result, "ok")
+        self.assertEqual(post.call_args.args[0], "http://ollama/api/chat")
+        payload = post.call_args.kwargs["json"]
+        self.assertEqual(payload["model"], "model:latest")
+        self.assertEqual(payload["messages"], [{"role": "user", "content": "hello"}])
+        self.assertFalse(payload["stream"])
+
+    def test_provider_error_preserves_ollama_response_body(self):
+        class Response:
+            status_code = 400
+            text = '{"error":"malformed request: bad messages"}'
+            reason = "Bad Request"
+            def json(self):
+                return {"error": "malformed request: bad messages"}
+
+        with patch("spellbook.llm_client.requests.post", return_value=Response()):
+            with self.assertRaisesRegex(llm_client.ModelConnectionError, "malformed request: bad messages"):
+                llm_client._ollama_chat(
+                    "http://ollama", "model:latest", [{"role": "user", "content": "hello"}], 5
+                )
+
+    def test_provider_timeout_is_not_silenced(self):
+        with patch(
+            "spellbook.llm_client.requests.post",
+            side_effect=requests.Timeout("timed out"),
+        ):
+            with self.assertRaises(requests.Timeout):
+                llm_client._ollama_chat(
+                    "http://ollama", "model:latest", [{"role": "user", "content": "hello"}], 1
+                )
 
 if __name__ == "__main__":
     unittest.main()

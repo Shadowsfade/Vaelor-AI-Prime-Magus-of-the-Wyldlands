@@ -28,7 +28,7 @@ class TaskApiTests(unittest.TestCase):
         })
         self.assertEqual(response.status_code, 200)
         self.brain.prepare_task.assert_called_once_with(
-            "inspect this project", None, "C:/demo", 900
+            "inspect this project", None, "C:/demo", 900, False
         )
         self.brain.run_prepared_task.assert_called_once_with("task-1", 8)
 

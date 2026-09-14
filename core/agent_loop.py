@@ -20,6 +20,7 @@ from core.action_protocol import parse_structured_response
 from core.governance import (GovernedInvocation, bound_action_fingerprint,
                               current_state_binding, issue_authorization)
 from core.verification import build_requirement, verify_requirement
+from core.project_context import resolve_execution_workspace
 
 TOOL_RE = re.compile(
     r"^\s*(?:TOOL|ACTION)\s*:?\s*([a-zA-Z0-9_]+)\s*(.*)$",
@@ -596,6 +597,10 @@ def run_agent(
                 continue
             step_failed = False
             for name, kwargs in tools:
+                if name in ("shell_exec", "terminal_run") and isinstance(kwargs, dict):
+                    kwargs["cwd"] = str(resolve_execution_workspace(
+                        kwargs.get("cwd"), workspace
+                    ))
                 if timed_out():
                     return timeout_result("before_tool", step)
                 if cancelled():

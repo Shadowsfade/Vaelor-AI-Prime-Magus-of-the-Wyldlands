@@ -30,7 +30,7 @@ $excludeDirNames = @(
   ".venv", "__pycache__", ".pytest_cache", ".git", "node_modules",
   ".staging", "dist", "memory"
 )
-$excludeFileNames = @("conftest.py", "requirements-test.txt")
+$excludeFileNames = @("conftest.py", "requirements-test.txt", "UNATTENDED_WORK_HANDOFF.md")
 # Include a clean memory placeholder; exclude live personal memory dumps from package
 function Should-SkipDir([string]$name) {
   return $excludeDirNames -contains $name
@@ -98,7 +98,7 @@ New-Item -ItemType Directory -Path $mem -Force | Out-Null
 
 ## Install (Windows)
 1. Unzip this folder anywhere (or run the installer script).
-2. Right-click ``installer\Install-Vaelor-Alpha.ps1`` → Run with PowerShell
+2. Right-click ``installer\Install-Vaelor-Alpha.ps1`` â†’ Run with PowerShell
    - Or from PowerShell:
      ``powershell -ExecutionPolicy Bypass -File installer\Install-Vaelor-Alpha.ps1``
 3. Double-click **Vaelor Alpha** on your Desktop (or ``Start-Vaelor.bat``).

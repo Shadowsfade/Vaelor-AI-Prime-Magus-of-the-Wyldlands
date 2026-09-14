@@ -51,6 +51,9 @@ def get_backend_settings() -> dict:
         "ollama_url": backends.get("ollama", {}).get("endpoint", "http://localhost:11434"),
         "lmstudio_url": backends.get("lmstudio", {}).get("endpoint", "http://localhost:1234"),
         "timeout": int(cfg.get("timeout_seconds", 180)),
+        # Vaelor structured agent prompts exceed Ollama default 4096-token context.
+        # Keep the request explicit and bounded; callers can override it.
+        "context_window": int(cfg.get("context_window", 16384)),
     }
 
 
@@ -331,6 +334,8 @@ def chat(
     model_name = route["model"]
     timeout = settings["timeout"]
     msgs = _messages(prompt, system=system, images=images, history=history)
+    if context_window is None and backend == "ollama":
+        context_window = settings.get("context_window", 16384)
     native_options = {}
     compatible_options = {}
     if response_schema is not None:
@@ -413,6 +418,22 @@ def chat_stream(
         yield from _ollama_stream(settings["ollama_url"], model_name, msgs, timeout)
 
 
+def _raise_provider_error(response, protocol: str) -> None:
+    """Raise a useful provider error while preserving the server response body."""
+    status = getattr(response, "status_code", None)
+    if not isinstance(status, int) or status < 400:
+        return
+    detail = (getattr(response, "text", "") or "").strip()
+    if not detail:
+        detail = getattr(response, "reason", "") or "no response body"
+    try:
+        payload = response.json()
+        if isinstance(payload, dict) and payload.get("error"):
+            detail = str(payload["error"])
+    except (TypeError, ValueError):
+        pass
+    raise ModelConnectionError(f"{protocol} HTTP {status}: {detail[:2000]}")
+
 def _ollama_chat(base_url: str, model: str, messages: List[dict], timeout: int, images=None,
                  response_schema=None, context_window=None, max_tokens=None, temperature=None) -> str:
     url = base_url.rstrip("/") + "/api/chat"
@@ -447,7 +468,7 @@ def _ollama_chat(base_url: str, model: str, messages: List[dict], timeout: int, 
     if temperature is not None: options["temperature"] = temperature
     if options: payload["options"] = options
     r = requests.post(url, json=payload, timeout=timeout)
-    r.raise_for_status()
+    _raise_provider_error(r, "Ollama native /api/chat")
     data = r.json()
     if data.get("error"):
         raise ModelConnectionError(str(data["error"]))
@@ -471,7 +492,7 @@ def _ollama_stream(base_url: str, model: str, messages: List[dict], timeout: int
     completed = False
     received_text = False
     with requests.post(url, json=payload, timeout=timeout, stream=True) as r:
-        r.raise_for_status()
+        _raise_provider_error(r, "Ollama native /api/chat")
         for line in r.iter_lines(decode_unicode=True):
             if not line:
                 continue
@@ -510,7 +531,7 @@ def _openai_chat(base_url: str, model: str, messages: List[dict], timeout: int, 
             "name": "vaelor_response", "strict": schema_strict, "schema": response_schema}}
     if max_tokens is not None: payload["max_tokens"] = max_tokens
     r = requests.post(url, json=payload, timeout=timeout)
-    r.raise_for_status()
+    _raise_provider_error(r, "OpenAI-compatible /v1/chat/completions")
     data = r.json()
     choices = data.get("choices") or []
     if not choices:
@@ -527,7 +548,7 @@ def _openai_stream(base_url: str, model: str, messages: List[dict], timeout: int
     completed = False
     received_text = False
     with requests.post(url, json=payload, timeout=timeout, stream=True) as r:
-        r.raise_for_status()
+        _raise_provider_error(r, "OpenAI-compatible /v1/chat/completions")
         for line in r.iter_lines(decode_unicode=True):
             if not line:
                 continue

@@ -36,7 +36,8 @@
   "provider": "ollama",
   "backends": {
     "ollama": {
-      "endpoint": "http://localhost:11434"
+      "endpoint": "http://localhost:11434",
+      "context_window": 16384
     },
     "lmstudio": {
       "endpoint": "http://localhost:1234"

@@ -30,7 +30,7 @@ def is_software_request(request):
             WindowsAdapter().canonicalize_program(text)
             return True
         except ValueError:
-            pass
+            return platform.system() == "Windows"
     return False
 
 def detect_environment():
@@ -137,5 +137,29 @@ def run_platform_workflow(task, store, policy=None, owner=""):
     try:
         return run_software_workflow(task, store, adapter, policy, owner)
     except ValueError as exc:
+        evidence = getattr(exc, "evidence", [])
+        if evidence:
+            from core.software_workflow import serializable
+            request = adapter.canonicalize_program(task.get("request", ""))
+            constraints = (task.get("contract") or {}).get("constraints", [])
+            workflow = {
+                "name": "software_workflow",
+                "request": serializable(request),
+                "environment": serializable(detected),
+                "work_dir": str(adapter.work_directory(detected, task["id"])) if hasattr(adapter, "work_directory") else "",
+                "source": None,
+                "discovery": evidence,
+                "candidates": [],
+                "plan": {"actions": [], "commands": [], "expected_changes": "none", "required_privilege": "none", "verification_strategy": []},
+                "current_step": "source_blocked",
+                "mutation_status": "none",
+                "blocked_reason": str(exc),
+                "plan_only": any("plan only" in str(item).lower() for item in constraints),
+            }
+            store.update_workflow(task["id"], workflow, "software_source_blocked")
+            store.add_event(task["id"], "software_source_blocked", {"requested_program": request.requested_program, "canonical_name": request.canonical_name, "discovery": evidence, "reason": str(exc), "mutation_status": "none"})
+            result = f"FINAL_SUMMARY: BLOCKED {exc}"
+            store.update(task["id"], status="waiting", result=result)
+            return result
         store.set_recovery(task["id"], "BLOCKED", str(exc), status="waiting")
         return f"FINAL_SUMMARY: BLOCKED {exc}"

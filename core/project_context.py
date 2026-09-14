@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import subprocess
+import re
 from typing import Optional
 
 from core.tools.fs_ops import _resolve_path
@@ -23,6 +25,27 @@ def resolve_workspace(path: Optional[str]) -> Optional[Path]:
     if not resolved.is_dir():
         raise ValueError(f"workspace is not a directory: {resolved}")
     return resolved
+
+
+def resolve_execution_workspace(requested: Optional[str] = None, active: Optional[str] = None) -> Path:
+    """Resolve a tool cwd without translating stale paths across operating systems."""
+    for raw in (requested, active):
+        if not raw:
+            continue
+        value = str(raw).strip()
+        if not value:
+            continue
+        if os.name == "nt" and value.startswith("/"):
+            continue
+        if os.name != "nt" and re.match(r"^[A-Za-z]:[\\/]", value):
+            continue
+        try:
+            resolved = resolve_workspace(value)
+        except (OSError, ValueError, PermissionError):
+            continue
+        if resolved is not None:
+            return resolved
+    return Path(__file__).resolve().parents[1]
 
 
 def _git_root(workspace: Path) -> Optional[Path]:

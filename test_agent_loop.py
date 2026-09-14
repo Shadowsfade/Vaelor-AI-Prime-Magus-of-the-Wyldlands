@@ -1,3 +1,4 @@
+import os
 import unittest
 from unittest.mock import patch
 
@@ -69,9 +70,7 @@ class AgentLoopTests(unittest.TestCase):
         ):
             result = run_agent("inspect status", model)
         self.assertEqual(result, "FINAL_SUMMARY: SUCCESS inspected")
-        execute.assert_called_once_with(
-            "shell_exec", command="git status --short", confirm="yes"
-        )
+        execute.assert_called_once_with("shell_exec", command="git status --short", confirm="yes", cwd=os.path.dirname(os.path.abspath(__file__)))
 
     def test_supervised_mode_ignores_model_authored_confirmation(self):
         model = ScriptedModel([
