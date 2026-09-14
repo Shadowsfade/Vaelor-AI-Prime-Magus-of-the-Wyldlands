@@ -53,6 +53,7 @@ class SupervisorRunner:
 
     def eligible(self, now: Optional[datetime] = None):
         current = now or self._now()
+        self.store.recover_interrupted(now=current)
         result = []
         for task in self.store.list(limit=200):
             status = str(task.get("status", "pending"))

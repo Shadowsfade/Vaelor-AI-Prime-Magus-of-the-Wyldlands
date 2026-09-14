@@ -85,7 +85,7 @@ class DurableRuntimeTests(unittest.TestCase):
     def test_restart_recovery_records_safe_decision(self):
         store = self.make_store()
         task = store.create("inspect")
-        store.claim(task["id"], "worker-a")
+        store.claim(task["id"], "worker-a", now=datetime.now(timezone.utc) - timedelta(hours=1))
         TaskStore(store.path)
         recovered = TaskStore(store.path).get(task["id"])
         self.assertEqual(recovered["status"], "interrupted")

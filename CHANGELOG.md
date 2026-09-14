@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-09-14 — Durable task claims and recovery
+
+- Task updates now use a cross-process file lock and flushed atomic replacement.
+  Concurrent workers cannot claim the same task or consume one approval twice.
+- Opening another store preserves active worker leases. Supervisor polling recovers
+  expired leases and requires verification before retrying uncertain mutations.
+- Damaged task JSON is preserved with a diagnostic copy and raises an error instead
+  of silently replacing the queue with an empty list.
+
 ## 2026-09-14 — Scoped window focus
 
 - Added a local UI focus action and governed computer_focus tool. Both target only
@@ -9,7 +18,7 @@
 - Foreground confirmation describes focus only, never overall goal completion.
 - Slow vision inference revalidates screen pixels and foreground state before
   refreshing snapshot age. Changed frames never receive a fresh input token.
-- Live synthetic-image acceptance: vaelor-prime correctly identified blue; cold
+- Live synthetic-image acceptance: vaelor-prime correctly identified blue;
   inference took about 101 seconds. No user screenshot or desktop input was used.
 
 ## 2026-09-14 — Provider-reported model capabilities

@@ -6,7 +6,8 @@ from datetime import datetime, timedelta, timezone
 import json
 import os
 from pathlib import Path
-import threading
+import hashlib
+from core.storage_lock import StorageLock
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -46,23 +47,40 @@ def _validate_transition(current: str, target: str) -> None:
 class TaskStore:
     def __init__(self, path: Optional[Path] = None):
         root = Path(__file__).resolve().parent.parent
-        self.path = Path(path or root / "memory" / "tasks.json")
-        self._lock = threading.RLock()
+        self.path = Path(path or root / "memory" / "tasks.json").resolve()
+        self._lock = StorageLock(self.path.with_name(self.path.name + ".lock"))
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        if not self.path.exists():
-            self._write([])
+        with self._lock:
+            if not self.path.exists():
+                self._write([])
         self.recover_interrupted()
 
     def _read(self) -> List[dict]:
         try:
-            value = json.loads(self.path.read_text(encoding="utf-8-sig"))
-            return value if isinstance(value, list) else []
-        except Exception:
+            raw = self.path.read_bytes()
+        except FileNotFoundError:
             return []
+        try:
+            value = json.loads(raw.decode("utf-8-sig"))
+            if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
+                raise ValueError("Expected a list of task records")
+            return value
+        except (ValueError, UnicodeError) as exc:
+            digest = hashlib.sha256(raw).hexdigest()[:16]
+            backup = self.path.with_name(self.path.name + ".corrupt-" + digest)
+            try:
+                with backup.open("xb") as stream:
+                    stream.write(raw)
+            except FileExistsError:
+                pass
+            raise ValueError(f"Task storage is damaged: {self.path.name}; original preserved") from exc
 
     def _write(self, tasks: List[dict]) -> None:
-        temp = self.path.with_suffix(self.path.suffix + ".tmp")
-        temp.write_text(json.dumps(tasks, indent=2), encoding="utf-8")
+        temp = self.path.with_name(self.path.name + "." + uuid.uuid4().hex + ".tmp")
+        with temp.open("x", encoding="utf-8") as stream:
+            json.dump(tasks, stream, indent=2)
+            stream.flush()
+            os.fsync(stream.fileno())
         os.replace(temp, self.path)
 
     def create(self, request: str, contract: Optional[dict] = None, session_id: Optional[str] = None,
@@ -704,12 +722,17 @@ class TaskStore:
         return self.schedule_retry(task_id, owner, reason, "RECOVERABLE", attempt, limit,
                                    base_seconds, cap_seconds)
 
-    def recover_interrupted(self) -> int:
+    def recover_interrupted(self, now: Optional[datetime] = None) -> int:
+        current = now or datetime.now(timezone.utc)
         with self._lock:
             tasks = self._read()
             changed = 0
             for task in tasks:
                 if task.get("status") != "running":
+                    continue
+                lease = task.get("lease") or {}
+                expiry = self._parse_time(lease.get("lease_expires_at"))
+                if lease.get("owner") and expiry and expiry > current:
                     continue
                 _validate_transition("running", "interrupted")
                 task["status"] = "interrupted"
@@ -721,13 +744,13 @@ class TaskStore:
                 task["lease"] = None
                 task["recovery"] = {
                     "decision": decision,
-                    "reason": "Vaelor restarted before task completion.",
+                    "reason": "Task has no active supervisor lease.",
                     "at": stamp,
                 }
                 task["updated_at"] = stamp
                 task.setdefault("events", []).append({
                     "timestamp": stamp, "type": "interrupted",
-                    "data": {"reason": "Vaelor restarted before task completion.", "recovery": decision},
+                    "data": {"reason": "Task has no active supervisor lease.", "recovery": decision},
                 })
                 task["events"] = task["events"][-250:]
                 changed += 1

@@ -97,7 +97,7 @@ class SupervisorRunnerTests(unittest.TestCase):
     def test_restart_discovers_recoverable_task(self):
         store = self.make()
         task = store.create("restart")
-        store.claim(task["id"], "dead")
+        store.claim(task["id"], "dead", now=datetime.now(timezone.utc) - timedelta(hours=1))
         TaskStore(store.path)
         runner = SupervisorRunner(TaskStore(store.path), FakeBrain(TaskStore(store.path)), owner="new")
         self.assertEqual(len(runner.eligible()), 1)
