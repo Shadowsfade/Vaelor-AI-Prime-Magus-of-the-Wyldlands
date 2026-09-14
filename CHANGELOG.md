@@ -7,6 +7,8 @@
   as permission to continue.
 - A temporary task read failure no longer terminates the heartbeat thread.
 - Regression tests cover checks before/after inference and heartbeat recovery.
+- Windows validation: 477 tests and 11 subtests passed, 1 test skipped. The frozen
+  package passed relocated startup without Python on PATH and native WebView checks.
 
 ## 2026-09-14 — Durable task claims and recovery
 
