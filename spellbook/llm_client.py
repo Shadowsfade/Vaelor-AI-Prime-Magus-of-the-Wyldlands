@@ -327,6 +327,7 @@ def chat(
     schema_strict: bool = True,
     context_window: Optional[int] = None,
     max_tokens: Optional[int] = None,
+    required_capability: Optional[str] = None,
 ) -> str:
     settings = get_backend_settings()
     route = resolve_route(spell=spell, provider=provider, model=model)
@@ -350,6 +351,9 @@ def chat(
         native_options["temperature"] = temperature
 
     try:
+        if required_capability:
+            from core.model_capabilities import require_capability
+            require_capability(route, settings, required_capability)
         if backend == "lmstudio":
             return _openai_chat(
                 base_url=settings["lmstudio_url"],
@@ -375,6 +379,8 @@ def chat(
             if not fallback:
                 raise RuntimeError("no alternate local model backend is available")
             fallback_model = fallback["model"]
+            if required_capability:
+                require_capability(fallback, settings, required_capability)
             if fallback["provider"] == "lmstudio":
                 return _openai_chat(
                     base_url=settings["lmstudio_url"],

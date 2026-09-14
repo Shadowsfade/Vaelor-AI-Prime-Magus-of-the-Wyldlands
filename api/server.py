@@ -696,6 +696,7 @@ def sessions_delete(session_id: str):
 
 
 class ComputerEnableRequest(BaseModel):
+    window_id: str = Field(default="", max_length=32)
     vision_model: str = Field(min_length=1, max_length=200)
     task_id: str
     seconds: int = Field(default=300, ge=10, le=600)
@@ -719,6 +720,27 @@ def computer_status():
     return controller.status()
 
 
+@app.get("/computer/models")
+def computer_models(request: Request):
+    _computer_local_request(request)
+    from core.model_capabilities import ollama_catalog
+    from spellbook.llm_client import get_backend_settings
+    try:
+        return ollama_catalog(get_backend_settings()["ollama_url"])
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Could not inspect Ollama models") from exc
+
+
+@app.get("/computer/windows")
+def computer_windows(request: Request):
+    _computer_local_request(request)
+    from core.computer_control import WindowsDesktop
+    try:
+        return {"windows": WindowsDesktop().windows()}
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @app.post("/computer/enable")
 def computer_enable(body: ComputerEnableRequest, request: Request):
     _computer_local_request(request)
@@ -726,7 +748,7 @@ def computer_enable(body: ComputerEnableRequest, request: Request):
     if not brain.tasks.get(body.task_id):
         raise HTTPException(status_code=404, detail="Task not found")
     try:
-        status = controller.enable(body.task_id, body.seconds, body.vision_model)
+        status = controller.enable(body.task_id, body.seconds, body.vision_model, window_id=body.window_id)
         from core.approval_policy import ActionClass
         brain.approval_policy.issue_capability(task_id=body.task_id,
             allowed_classes=[ActionClass.COMPUTER_INPUT], lifetime_seconds=body.seconds,

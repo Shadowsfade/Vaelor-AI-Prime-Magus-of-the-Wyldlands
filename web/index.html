@@ -652,8 +652,13 @@ code{
         <div class="sidebar-section"><h2>Spellbook</h2><div id="spellList"></div></div>
         <div class="sidebar-section"><h2>Computer Control (Preview)</h2>
         <p class="muted">Windows primary screen. Requires a vision model. Allow one task to send up to 100 input actions for 5 minutes. Hold Escape to stop the next action.</p>
-        <input id="computerVisionModel" placeholder="Installed vision model name" aria-label="Vision model">
+        <input id="computerVisionModel" placeholder="Installed Ollama vision model name" aria-label="Vision model" list="computerVisionModels">
+        <datalist id="computerVisionModels"></datalist>
+        <button class="btn" id="computerDiscoverModels">Find vision models</button>
         <input id="computerTaskId" placeholder="Task ID" aria-label="Task to control the computer">
+        <select id="computerWindow" aria-label="Allowed input window"><option value="">Current foreground window (unrestricted)</option></select>
+        <p>Window restriction applies to input. Observations include the primary screen.</p>
+        <button class="btn" id="computerRefreshWindows">Refresh windows</button>
         <button class="btn" id="computerEnable">Allow task for 5 minutes</button>
         <button class="btn" id="computerStop">Stop computer control</button>
         <p id="computerStatus" role="status">Disabled</p></div>
@@ -1663,16 +1668,36 @@ async function secureBoot(){
 secureBoot();
 console.log('[Vaelor UI] tome open handlers restored');
 
+function computerStatusText(data){return data.enabled?'Enabled for '+data.task_id+' ('+data.seconds_remaining+' seconds remaining) — '+(data.window?'Input window: '+data.window.title:'Input window: unrestricted'):'Disabled'}
 async function computerControl(action){
   try {
-    const res=await fetch('/computer/'+action,{method:'POST',headers:{'Content-Type':'application/json','X-Vaelor-Computer':'1'},body:action==='enable'?JSON.stringify({task_id:$('computerTaskId').value.trim(),vision_model:$('computerVisionModel').value.trim(),seconds:300}):undefined});
+    const res=await fetch('/computer/'+action,{method:'POST',headers:{'Content-Type':'application/json','X-Vaelor-Computer':'1'},body:action==='enable'?JSON.stringify({task_id:$('computerTaskId').value.trim(),vision_model:$('computerVisionModel').value.trim(),seconds:300,window_id:$('computerWindow').value}):undefined});
     const data=await res.json(); if(!res.ok)throw new Error(data.detail||'Computer control failed');
-    $('computerStatus').textContent=data.enabled?'Enabled for task '+data.task_id+' ('+data.seconds_remaining+' seconds remaining)':'Disabled';
+    $('computerStatus').textContent=computerStatusText(data);
   }catch(e){$('computerStatus').textContent=String(e.message||e)}
 }
+$('computerDiscoverModels').onclick=async()=>{
+  const button=$('computerDiscoverModels');button.disabled=true;
+  try{
+    const res=await fetch('/computer/models',{headers:{'X-Vaelor-Computer':'1'}});
+    const data=await res.json();if(!res.ok)throw new Error(data.detail||'Unable to inspect models');
+    const list=$('computerVisionModels');list.replaceChildren();
+    for(const model of data.models.filter(m=>m.status==='verified'&&m.capabilities.includes('vision')))list.appendChild(new Option(model.model,model.model));
+    if(data.recommended_vision_model){$('computerVisionModel').value=data.recommended_vision_model;$('computerStatus').textContent='Selected smallest installed vision-capable model. Use Allow task to apply this selection.'}
+    else $('computerStatus').textContent='No installed model reports vision support. Install one in Ollama, then refresh.';
+  }catch(e){$('computerStatus').textContent=String(e.message||e)}finally{button.disabled=false}
+};
+$('computerRefreshWindows').onclick=async()=>{
+  try{
+    const res=await fetch('/computer/windows',{headers:{'X-Vaelor-Computer':'1'}});
+    const data=await res.json();if(!res.ok)throw new Error(data.detail||'Unable to list windows');
+    const select=$('computerWindow');select.replaceChildren(new Option('Current foreground window (unrestricted)',''));
+    for(const window of data.windows)select.add(new Option(window.title,window.id));
+  }catch(e){$('computerStatus').textContent=String(e.message||e)}
+};
 $('computerEnable').onclick=()=>computerControl('enable');
 $('computerStop').onclick=()=>computerControl('stop');
-setInterval(async()=>{try{const res=await fetch('/computer/status');if(!res.ok)return;const data=await res.json();$('computerStatus').textContent=data.enabled?'Enabled for '+data.task_id+' ('+data.seconds_remaining+' seconds remaining)':'Disabled'}catch{}},5000);
+setInterval(async()=>{try{const res=await fetch('/computer/status');if(!res.ok)return;const data=await res.json();$('computerStatus').textContent=computerStatusText(data)}catch{}},5000);
 
 $('compactContextBtn').onclick=async()=>{
   if(!sessionId){showError('Start a conversation first.');return}

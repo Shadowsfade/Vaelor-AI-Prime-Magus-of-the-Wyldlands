@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-09-14 — Provider-reported model capabilities
+
+- Computer Control can discover installed Ollama vision models and suggest the
+  smallest by download size, with explicit user override. This size ranking is
+  a heuristic, not a latency or memory-fit guarantee.
+- Screenshot requests verify vision capability before transmission. A failing
+  provider cannot silently fall back to a model without verified vision support.
+- Missing capability metadata remains unknown. LM Studio capability verification
+  is not yet supported for Computer Control; normal chat routing is unchanged.
+- Metadata contract: https://docs.ollama.com/api-reference/show-model-details
+
+## 2026-09-14 — ComputerUse window scope
+
+- Local Computer Control can list visible windows and restrict an enabled task
+  to a selected window and process. Closed/replaced windows revoke the session.
+- Observation requires that window in front. Clicks stay inside its bounds;
+  pointer input checks the actual window under the point, and scrolling targets
+  its visible center. Existing snapshot, expiry and approval limits still apply.
+- The UI labels the scope accurately: input is window-restricted, while screenshot
+  observations still cover the primary display. No automatic focus changes occur.
+- Failed or superseded vision calls cannot leave their snapshot usable for input.
+
 ## 2026-09-13 — Concurrent conversation storage and Windows terminals
 
 - Adapted OpenCode's cross-process storage lock into the current memory system,
