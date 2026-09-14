@@ -8,6 +8,9 @@
   expired leases and requires verification before retrying uncertain mutations.
 - Damaged task JSON is preserved with a diagnostic copy and raises an error instead
   of silently replacing the queue with an empty list.
+- Added process-race, corruption, and lease-recovery regressions. Full suite:
+  474 passed, 1 skipped, and 11 subtests passed on Windows.
+- Added docs/COMPUTER_CONTROL_PREVIEW.md for manual desktop acceptance.
 
 ## 2026-09-14 — Scoped window focus
 
