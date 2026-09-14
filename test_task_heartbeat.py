@@ -8,6 +8,22 @@ from core.task_store import TaskStore
 
 
 class TaskHeartbeatTests(unittest.TestCase):
+    def test_temporary_read_failure_does_not_kill_heartbeat(self):
+        import threading
+        renewed = threading.Event()
+        class FlakyStore:
+            reads = 0
+            def get(self, task_id):
+                self.reads += 1
+                if self.reads == 1:
+                    raise TimeoutError("temporarily locked")
+                return {"status": "running"}
+            def heartbeat(self, *args):
+                renewed.set()
+                return True
+        with TaskHeartbeat(FlakyStore(), "task", interval_seconds=0.01, owner="worker"):
+            self.assertTrue(renewed.wait(2), "heartbeat did not recover after read failure")
+
     def test_emits_only_while_task_is_running_and_stops_on_exit(self):
         with tempfile.TemporaryDirectory() as temp:
             store = TaskStore(Path(temp) / "tasks.json")

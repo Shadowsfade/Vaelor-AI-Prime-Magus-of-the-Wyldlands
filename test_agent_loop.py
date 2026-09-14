@@ -28,6 +28,28 @@ class ScriptedModel:
 
 
 class AgentLoopTests(unittest.TestCase):
+    def test_task_state_failure_after_model_prevents_tool_execution(self):
+        model = ScriptedModel(['{"actions":[{"tool":"shell_exec","arguments":{"command":"git status"}}],"final":null}'])
+        def unavailable_after_model():
+            if model.prompts:
+                raise TimeoutError("task state unavailable")
+            return False
+        with patch("core.agent_loop.registry.specs_for_prompt", return_value="tools"), patch("core.agent_loop.registry.execute") as execute:
+            with self.assertRaisesRegex(RuntimeError, "Cannot verify task cancellation state"):
+                run_agent("inspect", model, should_cancel=unavailable_after_model)
+        self.assertEqual(len(model.prompts), 1)
+        execute.assert_not_called()
+
+    def test_task_state_read_failure_stops_before_model_or_tools(self):
+        model = ScriptedModel([])
+        def unavailable():
+            raise TimeoutError("task store locked")
+        with patch("core.agent_loop.registry.specs_for_prompt", return_value="tools"), patch("core.agent_loop.registry.execute") as execute:
+            with self.assertRaisesRegex(RuntimeError, "Cannot verify task cancellation state"):
+                run_agent("inspect", model, should_cancel=unavailable)
+        self.assertEqual(model.prompts, [])
+        execute.assert_not_called()
+
     def test_autonomy_matrix_blocks_high_risk_in_trusted(self):
         self.assertTrue(_allows_automatic_action("trusted", "medium"))
         self.assertFalse(_allows_automatic_action("trusted", "high"))

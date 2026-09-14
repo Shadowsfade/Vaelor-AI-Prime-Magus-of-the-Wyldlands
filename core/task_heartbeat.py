@@ -29,11 +29,11 @@ class TaskHeartbeat:
 
     def _run(self):
         while not self._stop.wait(self.interval):
-            task = self.store.get(self.task_id)
-            if not task or task.get("status") != "running":
-                return
-            elapsed = max(0, int(time.monotonic() - self._started))
             try:
+                task = self.store.get(self.task_id)
+                if not task or task.get("status") != "running":
+                    return
+                elapsed = max(0, int(time.monotonic() - self._started))
                 if self.owner:
                     if not self.store.heartbeat(self.task_id, self.owner, self.lease_seconds):
                         return

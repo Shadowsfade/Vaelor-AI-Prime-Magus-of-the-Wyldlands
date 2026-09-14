@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-09-14 — Task-state availability checks
+
+- Agent execution stops if its cancellation-state callback fails, including after
+  model inference and before tool execution. It no longer treats a failed check
+  as permission to continue.
+- A temporary task read failure no longer terminates the heartbeat thread.
+- Regression tests cover checks before/after inference and heartbeat recovery.
+
 ## 2026-09-14 — Durable task claims and recovery
 
 - Task updates now use a cross-process file lock and flushed atomic replacement.

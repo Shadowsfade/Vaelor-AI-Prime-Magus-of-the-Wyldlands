@@ -452,8 +452,9 @@ def run_agent(
     def cancelled() -> bool:
         try:
             return bool(should_cancel and should_cancel())
-        except Exception:
-            return False
+        except Exception as exc:
+            emit("task_state_unavailable", reason="Cancellation state could not be checked")
+            raise RuntimeError("Cannot verify task cancellation state; execution stopped") from exc
 
     def timed_out() -> bool:
         return clock() >= deadline
