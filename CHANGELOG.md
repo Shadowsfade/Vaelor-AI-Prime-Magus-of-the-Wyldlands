@@ -8,6 +8,8 @@
   with the task update, preserving a replacement worker's result.
 - Added regressions for expired leases, replacement results, and lease transfer
   during inference or immediately before final publication.
+- Windows validation: 483 tests and 11 subtests passed, 1 skipped. Updated EXE
+  passed relocated startup and native WebView checks.
 - This does not interrupt commands already running or add ownership fencing to
   every specialized software workflow mutation.
 
