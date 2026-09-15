@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-09-14 — Stale agent worker fencing
+
+- Generic agent cancellation checkpoints now also verify the current worker lease.
+  A delayed model response cannot authorize another tool after lease transfer.
+- Agent final/error writes and workflow error writes validate ownership atomically
+  with the task update, preserving a replacement worker's result.
+- Added regressions for expired leases, replacement results, and lease transfer
+  during inference or immediately before final publication.
+- This does not interrupt commands already running or add ownership fencing to
+  every specialized software workflow mutation.
+
 ## 2026-09-14 — Task-state availability checks
 
 - Agent execution stops if its cancellation-state callback fails, including after

@@ -12,6 +12,10 @@ import uuid
 from typing import Any, Dict, List, Optional
 
 
+class LeaseLostError(RuntimeError):
+    """The worker no longer has authority to change this task."""
+
+
 TERMINAL_STATES = {"completed", "failed", "cancelled"}
 LEASE_SECONDS = 60
 MAX_STEPS = 100
@@ -129,7 +133,7 @@ class TaskStore:
             return deepcopy(tasks[:max(1, min(int(limit or 50), 200))])
 
     def update(self, task_id: str, status: Optional[str] = None, result: Any = None,
-               waiting_reason: Optional[str] = None) -> dict:
+               waiting_reason: Optional[str] = None, owner: Optional[str] = None) -> dict:
         if status is not None and status not in VALID_STATES:
             raise ValueError(f"Invalid task status: {status}")
         if waiting_reason is not None and waiting_reason not in {"privilege", "blocked"}:
@@ -139,6 +143,10 @@ class TaskStore:
             for task in tasks:
                 if task.get("id") != task_id:
                     continue
+                if owner is not None:
+                    self._require_owner(task, owner)
+                    if task.get("status") == "cancelled":
+                        return deepcopy(task)
                 if waiting_reason is not None:
                     if (status or task.get("status")) != "waiting":
                         raise ValueError("A waiting reason requires a waiting task.")
@@ -231,6 +239,23 @@ class TaskStore:
                 self._write(tasks)
                 return deepcopy(task)
         raise KeyError(f"Unknown task: {task_id}")
+
+    def _require_owner(self, task: dict, owner: str) -> None:
+        lease = task.get("lease") or {}
+        expiry = self._parse_time(lease.get("lease_expires_at"))
+        if not owner or lease.get("owner") != owner or not expiry or expiry <= datetime.now(timezone.utc):
+            raise LeaseLostError("Task worker lease expired or changed ownership.")
+
+    def worker_cancelled(self, task_id: str, owner: str) -> bool:
+        """Check cancellation and current lease before a worker proceeds."""
+        with self._lock:
+            task = self.get(task_id)
+            if task is None:
+                raise LeaseLostError("Task no longer exists.")
+            if task.get("status") == "cancelled":
+                return True
+            self._require_owner(task, owner)
+            return False
 
     def is_cancelled(self, task_id: str) -> bool:
         task = self.get(task_id)

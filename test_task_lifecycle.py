@@ -142,7 +142,7 @@ class TaskLifecycleTests(unittest.TestCase):
             self.brain.run_prepared_task(task["id"])
         saved = self.brain.get_task(task["id"])
         self.assertEqual(saved["status"], "cancelled")
-        self.assertTrue(saved["result"].startswith("FINAL_SUMMARY: CANCELLED"))
+        self.assertEqual(saved["result"], "Cancelled by user.")
 
     def test_cancelled_task_is_not_resumed(self):
         task = self.brain.tasks.create("inspect project", self.contract.to_dict())

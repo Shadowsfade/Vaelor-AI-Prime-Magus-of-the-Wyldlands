@@ -5,7 +5,7 @@ import threading
 from .memory_manager import VaelorMemoryManager
 from .conversation_memory import VaelorConversationMemory
 from .task_intent import TaskIntent, classify_task
-from .task_store import TaskStore
+from .task_store import TaskStore, LeaseLostError
 from .preference_store import PreferenceStore
 from .project_context import build_project_context, resolve_workspace
 from .approval_policy import ApprovalPolicy, AutoApproveMode
@@ -367,8 +367,10 @@ class VaelorBrain:
                     result = run_platform_workflow(task, self.tasks, self.approval_policy, owner)
             except Exception as exc:
                 self.tasks.add_event(task_id, "workflow_failed", {"error": str(exc)[:1000]})
-                if not self.tasks.is_cancelled(task_id):
-                    self.tasks.update(task_id, status="failed", result=f"Workflow error: {exc}")
+                try:
+                    self.tasks.update(task_id, status="failed", result=f"Workflow error: {exc}", owner=owner)
+                except LeaseLostError:
+                    pass  # Do not replace a newer worker's result with this failure.
                 self.tasks.release(task_id, owner, "Workflow failed.")
                 raise
             self.tasks.release(task_id, owner, "Workflow reached terminal or waiting state.")
@@ -413,7 +415,7 @@ class VaelorBrain:
                     session_context=ctx,
                     require_verification=True,
                     event_callback=record_agent_event,
-                    should_cancel=lambda: self.tasks.is_cancelled(task_id),
+                    should_cancel=lambda: self.tasks.worker_cancelled(task_id, owner),
                     max_runtime_seconds=max_runtime_seconds,
                     approval_required=lambda action: self.tasks.request_approval(task_id, action),
                     consume_approval=lambda fingerprint, state_binding=None, invocation=None: self.tasks.consume_action_approval(
@@ -427,8 +429,10 @@ class VaelorBrain:
                 )
         except Exception as exc:
             self.tasks.add_event(task_id, "crashed", {"error": str(exc)})
-            if not self.tasks.is_cancelled(task_id):
-                self.tasks.update(task_id, status="failed", result=f"Agent error: {exc}")
+            try:
+                self.tasks.update(task_id, status="failed", result=f"Agent error: {exc}", owner=owner)
+            except LeaseLostError:
+                pass  # The replacement worker owns the task result now.
             self.tasks.release(task_id, owner, "Task crashed.")
             raise
         if result.upper().startswith("FINAL_SUMMARY: WAITING_APPROVAL"):
@@ -437,7 +441,7 @@ class VaelorBrain:
             status = "cancelled"
         else:
             status = "completed" if result.upper().startswith("FINAL_SUMMARY: SUCCESS") else "failed"
-        self.tasks.update(task_id, status=status, result=result)
+        self.tasks.update(task_id, status=status, result=result, owner=owner)
         self.tasks.release(task_id, owner, "Task reached terminal or waiting state.")
         self.conversations.remember_turn(f"[agent] {goal}", result, session_id=session_id)
         return result
