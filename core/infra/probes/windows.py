@@ -471,9 +471,33 @@ def probe_listener_ownership(observer: str, target: str, ports: Optional[list[in
 
 
 def probe_git_identity(observer: str, target: str, worktree_path: Optional[str] = None) -> ProbeEvidence:
-    """Get Git branch, HEAD, and dirty status using porcelain format."""
+    """Get Git branch, HEAD, and dirty status using porcelain format.
+
+    If worktree_path is provided, use it. Otherwise, attempt to discover
+    the git repository root from the current working directory."""
     start = time.perf_counter()
-    path = worktree_path or r"S:\VaelorServer\Workspace\ComputerUse-Foundation-20260914"
+
+    # Determine the path to use for git commands
+    if worktree_path:
+        path = worktree_path
+    else:
+        # Try to discover git root from current directory
+        cmd_discover = 'git rev-parse --show-toplevel 2>$null'
+        rc, stdout, stderr = _run_powershell(cmd_discover)
+        if rc == 0 and stdout.strip():
+            path = stdout.strip()
+        else:
+            # No git repo found - return failed evidence
+            latency = (time.perf_counter() - start) * 1000
+            return ProbeEvidence(
+                probe="git_identity",
+                observer_node=observer,
+                target_node=target,
+                status="failed",
+                latency_ms=latency,
+                detail="no git repository discovered",
+                raw={"error": "no_git_repo", "cwd": str(Path.cwd())},
+            )
 
     # Use porcelain format for reliable parsing
     cmd = (

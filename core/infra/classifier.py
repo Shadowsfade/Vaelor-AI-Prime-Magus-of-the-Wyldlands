@@ -62,7 +62,7 @@ def classify_observation(obs: NodeObservation, expectations: Optional[NodeExpect
     - DEGRADED: host reachable + at least one REQUIRED probe failed (False)
     - RECOVERING: explicit recovery in progress (set externally)
     - UNREACHABLE: host not reachable from observer
-    - UNKNOWN: insufficient evidence (required probe is None and no other evidence proves degradation)
+    - UNKNOWN: insufficient evidence (required probe is None)
     """
     if expectations is None:
         expectations = NodeExpectations.for_node(obs.node)
@@ -132,28 +132,11 @@ def classify_observation(obs: NodeObservation, expectations: Optional[NodeExpect
     if required_failures:
         return NodeState.DEGRADED
 
-    # If any REQUIRED unknown and no other evidence proves degradation -> UNKNOWN
-    # This prevents treating missing evidence as failure
+    # If any REQUIRED unknown -> UNKNOWN
+    # A required probe that is None means evidence is unavailable.
+    # This must NOT become DEGRADED merely because another required probe is True.
     if required_unknown:
-        # But if we have some positive evidence, the unknown required might be degraded
-        # Check if we have ANY positive evidence from required probes
-        required_positive = []
-        if expectations.tailscale_required and obs.tailscale_service is True:
-            required_positive.append("tailscale_service")
-        if expectations.vaelor_required and obs.vaelor_health is True:
-            required_positive.append("vaelor_health")
-        if expectations.ssh_required and obs.ssh_service is True:
-            required_positive.append("ssh_service")
-        if expectations.model_backend_required and obs.model_backend is True:
-            required_positive.append("model_backend")
-        
-        if not required_positive:
-            # No positive required evidence, unknown dominates
-            return NodeState.UNKNOWN
-        
-        # Some required probes are ok but others are unknown -> DEGRADED
-        # We cannot classify as HEALTHY when required evidence is missing
-        return NodeState.DEGRADED
+        return NodeState.UNKNOWN
 
     # If no required failures but optional failures -> DEGRADED
     if optional_failures:

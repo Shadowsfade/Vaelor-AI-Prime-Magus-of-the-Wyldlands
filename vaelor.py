@@ -4,10 +4,20 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from pathlib import Path
 
 from core.runtime import VaelorRuntime
 from core.terminal_session import TerminalSessionManager
 from core.version import VAELOR_VERSION
+
+
+def _discover_worktree_root() -> Path:
+    """Discover the Vaelor worktree root from the current module location.
+
+    This avoids hardcoding any specific worktree path.
+    """
+    # vaelor.py is at <worktree_root>/vaelor.py
+    return Path(__file__).resolve().parent
 
 
 def build_parser():
@@ -31,7 +41,8 @@ def handle_infra_status(args):
     from core.infra.classifier import get_state_summary
     from core.infra.recovery import get_recovery_policy
 
-    obs = observe_local(node_name=args.infra_node or "skyai", worktree_path=r"S:\VaelorServer\Workspace\ComputerUse-Foundation-20260914")
+    worktree_root = _discover_worktree_root()
+    obs = observe_local(node_name=args.infra_node or "skyai", worktree_path=str(worktree_root))
 
     if args.json:
         print(json.dumps(obs.to_dict(), indent=2))

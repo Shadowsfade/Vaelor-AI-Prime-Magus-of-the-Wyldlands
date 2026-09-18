@@ -186,16 +186,15 @@ class TestRequiredNoneUnknown(unittest.TestCase):
         state = classify_observation(obs, expectations)
         self.assertEqual(state, NodeState.UNKNOWN)
 
-    def test_required_none_with_some_positive_evidence_is_degraded(self):
+    def test_required_none_with_some_positive_evidence_is_unknown(self):
         obs = NodeObservation(
             node="skyai", observer_node="skyai", state=NodeState.UNKNOWN,
             host_reachable=True, tailscale_service=True, vaelor_health=None, ssh_service=True
         )
         expectations = NodeExpectations.for_node("skyai")
         state = classify_observation(obs, expectations)
-        # With required vaelor_health=None but other required probes True,
-        # classification should be DEGRADED (unknown required evidence)
-        self.assertEqual(state, NodeState.DEGRADED)
+        # Required probe is None -> UNKNOWN, even though other required probes are True
+        self.assertEqual(state, NodeState.UNKNOWN)
 
 
 class TestModelBackendDownNotUnreachable(unittest.TestCase):
@@ -381,3 +380,82 @@ class TestFailedEndpointNoUnboundLocalError(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class TestHardcodedPathRemoved(unittest.TestCase):
+    """Test that infra status does not depend on hardcoded ComputerUse-Foundation path."""
+
+    @patch('core.infra.probes.windows._run_powershell')
+    @patch('core.infra.probes.windows._run_cmd')
+    @patch('core.infra.probes.windows.probe_vaelor_endpoints')
+    @patch('core.infra.probes.windows.probe_model_backend')
+    def test_observe_local_without_hardcoded_path(self, mock_model, mock_vaelor, mock_cmd, mock_ps):
+        # Mock all probes to return valid evidence
+        mock_ps.return_value = (0, '{"Status": "Running", "StartType": "Automatic"}', '')
+        mock_cmd.return_value = (0, json.dumps({'BackendState': 'Running', 'TailscaleIPs': [], 'Peer': {}}), '')
+
+        mock_vaelor.return_value = [
+            ProbeEvidence(probe='vaelor_health_8765', observer_node='skyai', target_node='skyai', status='ok', raw={'source': 'configured', 'identity_confidence': 'VERIFIED', 'verified_vaelor': True}),
+        ]
+        mock_model.return_value = ProbeEvidence(probe='model_backend', observer_node='skyai', target_node='skyai', status='failed')
+
+        # Call observe_local WITHOUT providing worktree_path
+        # This should work via git discovery
+        obs = observe_local(node_name='skyai', observer_name='skyai', worktree_path=None)
+
+        # Should not crash and should produce a valid observation
+        self.assertIsNotNone(obs)
+        self.assertEqual(obs.node, 'skyai')
+
+
+class TestRequiredNoneClassification(unittest.TestCase):
+    """Test required None -> UNKNOWN semantics (not DEGRADED)."""
+
+    def test_required_none_is_unknown_even_with_other_required_true(self):
+        # host_reachable=True, tailscale=True, ssh=True, vaelor_health=None
+        # vaelor_health is required for skyai and is None -> must be UNKNOWN
+        obs = NodeObservation(
+            node='skyai', observer_node='skyai', state=NodeState.UNKNOWN,
+            host_reachable=True, tailscale_service=True, vaelor_health=None, ssh_service=True
+        )
+        expectations = NodeExpectations.for_node('skyai')
+        state = classify_observation(obs, expectations)
+        # Required probe is None -> UNKNOWN, even though other required probes are True
+        self.assertEqual(state, NodeState.UNKNOWN, 'Required None must be UNKNOWN, not DEGRADED')
+
+    def test_required_false_is_degraded(self):
+        obs = NodeObservation(
+            node='skyai', observer_node='skyai', state=NodeState.UNKNOWN,
+            host_reachable=True, tailscale_service=False, vaelor_health=True, ssh_service=True
+        )
+        expectations = NodeExpectations.for_node('skyai')
+        state = classify_observation(obs, expectations)
+        self.assertEqual(state, NodeState.DEGRADED)
+
+    def test_optional_false_is_degraded(self):
+        # model_backend is optional for skyai
+        obs = NodeObservation(
+            node='skyai', observer_node='skyai', state=NodeState.UNKNOWN,
+            host_reachable=True, tailscale_service=True, vaelor_health=True,
+            ssh_service=True, model_backend=False
+        )
+        expectations = NodeExpectations.for_node('skyai')
+        state = classify_observation(obs, expectations)
+        self.assertEqual(state, NodeState.DEGRADED)
+
+    def test_host_unreachable_is_unreachable(self):
+        obs = NodeObservation(
+            node='skyai', observer_node='skyai', state=NodeState.UNKNOWN,
+            host_reachable=False, tailscale_service=True, vaelor_health=True, ssh_service=True
+        )
+        expectations = NodeExpectations.for_node('skyai')
+        state = classify_observation(obs, expectations)
+        self.assertEqual(state, NodeState.UNREACHABLE)
+
+    def test_all_required_true_is_healthy(self):
+        obs = NodeObservation(
+            node='skyai', observer_node='skyai', state=NodeState.UNKNOWN,
+            host_reachable=True, tailscale_service=True, vaelor_health=True, ssh_service=True
+        )
+        expectations = NodeExpectations.for_node('skyai')
+        state = classify_observation(obs, expectations)
+        self.assertEqual(state, NodeState.HEALTHY)
