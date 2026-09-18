@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 
 from core.runtime import VaelorRuntime
 from core.terminal_session import TerminalSessionManager
@@ -10,18 +11,96 @@ from core.version import VAELOR_VERSION
 
 
 def build_parser():
-    parser = argparse.ArgumentParser(description="Vaelor local AI assistant")
+    parser = argparse.ArgumentParser(description="Vaelor local AI assistant", prog="vaelor")
     parser.add_argument("prompt", nargs="*", help="Run one prompt and exit")
     parser.add_argument("--json", action="store_true", help="Emit machine-readable output")
     parser.add_argument("--research", action="store_true", help="Research a topic using public web sources")
     parser.add_argument("--terminal", action="store_true", help="Start in persistent terminal mode")
     parser.add_argument("--cwd", help="Initial terminal working directory")
     parser.add_argument("--version", action="version", version=VAELOR_VERSION)
+    # New infra subcommands - parsed as positional args when no flags given
+    parser.add_argument("--infra", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--infra-command", dest="infra_command", help=argparse.SUPPRESS)
+    parser.add_argument("--infra-node", dest="infra_node", help=argparse.SUPPRESS)
     return parser
 
 
+def handle_infra_status(args):
+    """Handle 'vaelor infra status' command."""
+    from core.infra.observer import observe_local
+    from core.infra.classifier import get_state_summary
+    from core.infra.recovery import get_recovery_policy
+
+    obs = observe_local(node_name=args.infra_node or "skyai", worktree_path=r"S:\VaelorServer\Workspace\ComputerUse-Foundation-20260914")
+
+    if args.json:
+        print(json.dumps(obs.to_dict(), indent=2))
+        return 0
+
+    summary = get_state_summary(obs)
+    print(f"{summary['node'].upper()}")
+    print(f"State: {summary['state']}")
+    print()
+    print(f"Host             {summary['host']}")
+    print(f"Tailscale        {summary['tailscale']}")
+    print(f"Tailscale Backend {summary['tailscale_backend']}")
+    print(f"Tailscale Peers  {summary['tailscale_peers']}")
+    print(f"SSH Service      {summary['ssh_service']}")
+    print(f"Vaelor API       {summary['vaelor_health']}")
+    print(f"Vaelor Readiness {summary['vaelor_readiness']}")
+    print(f"Supervisor       {summary['supervisor']}")
+    print(f"Model Backend    {summary['model_backend']}")
+    print()
+    if summary['uptime_seconds']:
+        print(f"Uptime: {summary['uptime_seconds']:.0f}s")
+    if summary['git_branch']:
+        print(f"Git:")
+        print(f"  branch: {summary['git_branch']}")
+        print(f"  HEAD: {summary['git_head']}")
+    print()
+    print("Listeners:")
+    for port, info in summary['listeners'].items():
+        exe = info.get('exe', 'unknown')
+        pid = info.get('pid', 'unknown')
+        hint = info.get('worktree_hint', '')
+        hint_str = f" ({hint})" if hint else ""
+        print(f"  {port} -> {exe} (PID {pid}){hint_str}")
+    print()
+    policy = get_recovery_policy(observation_only=True)
+    print("Recovery:")
+    print("  observation-only")
+    print("  no actions taken")
+    return 0
+
+
+def handle_infra_diagnose(args):
+    """Handle 'vaelor infra diagnose' command."""
+    # Create args with proper node
+    args.infra_node = args.prompt[0] if args.prompt else "skyai"
+    return handle_infra_status(args)
+
+
 def main(argv=None):
-    args = build_parser().parse_args(argv)
+    parser = build_parser()
+    args = parser.parse_args(argv)
+
+    # Detect infra subcommand: first positional arg is 'infra' and second is 'status'/'diagnose'
+    if args.prompt and args.prompt[0] == "infra":
+        if len(args.prompt) >= 2 and args.prompt[1] in ("status", "diagnose"):
+            # Rewrite args for infra handling
+            args.infra_command = args.prompt[1]
+            if args.infra_command == "diagnose" and len(args.prompt) >= 3:
+                args.infra_node = args.prompt[2]
+            else:
+                args.infra_node = "skyai"
+            if args.infra_command == "status":
+                return handle_infra_status(args)
+            elif args.infra_command == "diagnose":
+                return handle_infra_diagnose(args)
+        else:
+            parser.print_help()
+            return 1
+
     runtime = VaelorRuntime()
     if args.prompt:
         prompt = " ".join(args.prompt)
@@ -33,7 +112,7 @@ def main(argv=None):
     terminal_id = None
     if args.terminal:
         terminal_id = terminals.create(args.cwd)["id"]
-    print(f"Vaelor {VAELOR_VERSION} — type /help for commands")
+    print(f"Vaelor {VAELOR_VERSION} - type /help for commands")
     try:
         while True:
             text = input("Vaelor > ").strip()
@@ -71,6 +150,8 @@ def main(argv=None):
         return 0
     finally:
         terminals.close_all()
+
+    return 0
 
 
 if __name__ == "__main__":

@@ -66,13 +66,6 @@
         "content": "Vaelor's internal Spellbook uses mana crystal terminology as a metaphor for tools and capabilities. The actual Wyldlands gameplay magic system should not be assumed to rely solely on mana crystals."
     },
     {
-        "id": "8abf66f2-3dd9-4aa3-a604-38d7cf3ce3a8",
-        "timestamp": "2026-07-29T13:46:30.350993",
-        "category": "rule",
-        "importance": 1,
-        "content": "Vaelor's internal Spellbook uses mana crystal terminology as a metaphor for tools and capabilities. The actual Wyldlands gameplay magic system should not be assumed to rely solely on mana crystals."
-    },
-    {
         "id": "9ab7ce97-9214-41f2-83fd-ba3f90186929",
         "timestamp": "2026-07-29T13:46:45.415959",
         "category": "technical",
@@ -176,5 +169,15 @@
         "category": "project",
         "importance": 1,
         "content": "Vaelor core lives at S:\\VeilorServer\\Workspace\\Core and serves WebUI on port 8000."
+    },
+    {
+        "id": "6dc0a9c4-9fd8-41c2-b127-f1143116db08",
+        "timestamp": "2026-09-17T14:48:00.836258+00:00",
+        "category": "project",
+        "importance": 10,
+        "content": "The Architect is building Vaelor inside Project Wyld.",
+        "source": "user_explicit",
+        "confidence": 1.0,
+        "tags": []
     }
 ]
