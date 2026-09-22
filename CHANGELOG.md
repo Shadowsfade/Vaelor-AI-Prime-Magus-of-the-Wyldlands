@@ -1,5 +1,55 @@
 # Changelog
 
+## 2026-09-22 — R0.2 Reliable local service guardian
+
+- Added an **out-of-process guardian** that probes liveness/readiness and
+  restarts the configured local Vaelor service within strict bounds. It is
+  deliberately outside the application process, since an internal thread
+  cannot restart the process containing it.
+- Restart policy: exponential backoff with jitter, a bounded restart budget,
+  a circuit breaker, and a stable healthy interval that must elapse before the
+  budget resets — so a crash loop cannot be laundered into an infinite restart
+  loop by briefly surviving.
+- **Recovery authority matrix** in trusted code: local process recovery is
+  automatic; Tailscale/firewall/packages/credentials/WoL/remote power/reboot/
+  service installation/canonical Git/unknown commands are approval-required;
+  ambiguous identity, contradictory evidence, and repeated crash loops are
+  diagnose-only. Unenumerated actions and any non-guardian command source
+  (model, task, memory, web, conversation) fail closed.
+- **Node identity and observation scope**: every observation records observer,
+  target, configured hostname, target Tailscale identity, probe type,
+  timestamp, timeout, and evidence scope. Local process/model evidence is never
+  attributed to a remote target — a remote request withholds local probes and
+  returns `UNKNOWN`.
+- New conditions distinguish `HOST_UNREACHABLE` from
+  `NETWORK_PATH_UNAVAILABLE`, `VAELOR_PROCESS_DOWN` from `VAELOR_UNHEALTHY`,
+  plus `MODEL_BACKEND_DOWN`, `MISCONFIGURED`, and `UNKNOWN`. Contradictory
+  evidence resolves to `UNKNOWN` with an explanation, never a confident DOWN.
+- **Health contract**: eight independent, bounded sections (process, API,
+  runtime, TaskStore, supervisor, scheduler, model backend, readiness) that
+  never call a model, never mutate, never hang, and expose no secrets. A downed
+  model backend yields `DEGRADED` rather than hiding status, approvals, or
+  diagnosis.
+- **Service-manager adapters** behind one narrow interface: systemd-user
+  renders/validates and plans exact argv with dry-run; the Windows adapter is a
+  planning contract that does not claim to validate Windows behavior on Linux.
+  No real service was installed or enabled.
+- Recovery events are structured, size-bounded, and redacted of credentials
+  before persistence; guardian state and PID files handle staleness and
+  corruption by failing closed.
+- Tests: `test_guardian.py` (crash/soak/backoff/budget/breaker/duplicates/
+  stale PID/corrupt state/shutdown/redaction) and `test_node_identity.py`
+  (local/remote separation, contradictions, missing config, partial failure,
+  timeouts, secret-free evidence). Full suite 660 passed, 1 skipped.
+- Made `test_memory_manager.py` import-safe: it is a manual script whose
+  top-level code wrote to `memory/archive.json` during pytest *collection*.
+  Side effects now run only under `__main__`, so collection can never modify
+  protected memory.
+- Fixed pre-existing platform-specific failures: approval-policy path scoping
+  now compares Windows-style paths with Windows semantics regardless of host
+  OS (mixed styles fail closed), and workspace-resolution tests use inputs
+  belonging to the running OS.
+
 ## 2026-09-14 — Stale agent worker fencing
 
 - Generic agent cancellation checkpoints now also verify the current worker lease.
