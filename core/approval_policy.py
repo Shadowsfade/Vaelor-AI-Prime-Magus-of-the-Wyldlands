@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 import hashlib
 import json
+import ntpath
 import os
 import re
 import threading
@@ -77,10 +78,47 @@ class ApprovalCapability:
     def consume(self):
         if self.max_uses is not None: self.used += 1
 
+def _windows_style(value: str) -> bool:
+    """True when a path is expressed in Windows form (drive or backslash)."""
+    return bool(re.match(r"^[A-Za-z]:[\\/]", value)) or "\\" in value
+
+
 def _under(path, root):
+    """True when ``path`` is strictly under (or equal to) ``root``.
+
+    Comparison must be deterministic and host-independent: governance scope
+    cannot change meaning just because the suite runs on a different OS.
+
+    Windows-style operands are always compared with Windows semantics
+    (backslash segments, case-insensitive), matching what Windows
+    ``os.path.normcase`` + ``commonpath`` already do on a Windows host.
+
+    Mixed styles fail closed to False rather than guessing, so a posix
+    workspace can never be satisfied by a Windows-shaped path or vice
+    versa.
+    """
+    if not path or not root:
+        return False
+
+    path_s, root_s = str(path), str(root)
+    if _windows_style(path_s) or _windows_style(root_s):
+        if not (_windows_style(path_s) and _windows_style(root_s)):
+            return False  # mixed styles: fail closed
+        try:
+            candidate = ntpath.normpath(path_s).lower()
+            trusted = ntpath.normpath(root_s).lower()
+            if candidate == trusted:
+                return True
+            prefix = trusted if trusted.endswith("\\") else trusted + "\\"
+            # Segment-aware prefix: C:\Work\Project must not cover
+            # C:\Work\Project2, and C:\Work\Project must not cover C:\Work.
+            return candidate.startswith(prefix)
+        except (TypeError, ValueError, OSError):
+            return False
+
     try:
-        candidate = os.path.normcase(os.path.abspath(os.path.normpath(path)))
-        trusted = os.path.normcase(os.path.abspath(os.path.normpath(root)))
+        candidate = os.path.normcase(os.path.abspath(os.path.normpath(path_s)))
+        trusted = os.path.normcase(os.path.abspath(os.path.normpath(root_s)))
         return candidate == trusted or os.path.commonpath((candidate, trusted)) == trusted
     except (TypeError, ValueError, OSError):
         return False
