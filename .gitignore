@@ -65,3 +65,14 @@ _write_*.py
 # Full originals preserved by context compaction
 memory/conversation_archive.json
 memory/conversation_archive.json.tmp
+
+# Local runtime locks (never publish)
+memory/.conversation.lock
+memory/tasks.json.lock
+*.lock
+*.lock.tmp
+
+# Guardian runtime state (local supervision, never publish)
+memory/guardian/
+config/nodes.json
+config/guardian.json

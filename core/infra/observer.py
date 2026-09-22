@@ -8,18 +8,19 @@ from typing import Optional
 
 from core.infra.status import NodeObservation, NodeState, ProbeEvidence
 from core.infra.classifier import classify_observation, is_vaelor_expected, NodeExpectations
-from core.infra.probes.windows import run_all_local_probes
+from core.infra.probes import run_all_local_probes
 
 
-def observe_local(node_name: str = "skyai",
+def observe_local(node_name: str = "legiongo",
                   observer_name: Optional[str] = None,
                   worktree_path: Optional[str] = None) -> NodeObservation:
     """Run all local probes and produce a classified NodeObservation.
 
     This is the primary entry point for R0.1 local observation.
+    The target node defaults to the current hostname.
     """
     observer = observer_name or platform.node()
-    target = node_name
+    target = node_name or platform.node()
 
     obs = NodeObservation(
         node=target,
@@ -28,7 +29,7 @@ def observe_local(node_name: str = "skyai",
         observed_at=datetime.now(timezone.utc),
     )
 
-    # Run all probes
+    # Run all local probes
     evidence_list = run_all_local_probes(observer, target, worktree_path)
 
     # Populate observation from evidence
@@ -113,7 +114,7 @@ def observe_remote(node_name: str, observer_name: str,
         node=node_name,
         observer_node=observer_name,
         state=NodeState.UNKNOWN,
-        observed_at=datetime.utcnow(),
+        observed_at=datetime.now(timezone.utc),
     )
     obs.host_reachable = None  # Not probed locally
     obs.tailscale_service = None
@@ -125,4 +126,3 @@ def observe_remote(node_name: str, observer_name: str,
     obs.supervisor = None
     obs.model_backend = None
     return obs
-
