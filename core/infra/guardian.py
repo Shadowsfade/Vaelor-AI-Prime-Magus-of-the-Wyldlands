@@ -282,7 +282,12 @@ class Guardian:
         self._child = proc
         pid = getattr(proc, "pid", None)
         if pid:
-            self.child_pid_file.write(PidRecord(pid=int(pid), role="child"))
+            # Record the identity too: without it the child record can only
+            # ever be proven stale by death, never by PID reuse.
+            self.child_pid_file.write(
+                PidRecord(pid=int(pid),
+                          identity=self.child_pid_file.identity_of(int(pid)),
+                          role="child"))
         self.state.child_pid = int(pid or 0)
         self.state.child_started_at = datetime.now(timezone.utc).isoformat()
         # Durable counter: survives this process, so recovery history is
@@ -298,12 +303,21 @@ class Guardian:
         """Terminate the child we own, then reap it. Bounded wait."""
         proc = self._child
         if proc is None:
+            # Adopted child (recovered after a guardian restart): we hold no
+            # Popen handle, so stop it by PID. The record must still be
+            # released — otherwise an intentional systemd stop shuts both
+            # processes down but leaves a stale `vaelor.pid` behind, which
+            # is exactly the state the next guardian inherits.
             rec = self.child_pid_file.read()
-            if rec and self._process_alive(rec.pid):
-                try:
-                    os.kill(rec.pid, signal.SIGTERM)
-                except OSError:
-                    pass
+            if rec is None:
+                return True
+            if self._process_alive(rec.pid) and not self._stop_pid(rec.pid, timeout):
+                # Never forget a process we failed to stop.
+                self.events.record("child_cleanup",
+                                   "adopted child survived stop; pid file kept",
+                                   data={"pid": rec.pid})
+                return False
+            self.child_pid_file.clear()
             return True
 
         try:
@@ -325,6 +339,26 @@ class Guardian:
         self._child = None
         self.child_pid_file.clear()
         return True
+
+    def _stop_pid(self, pid: int, timeout: float) -> bool:
+        """SIGTERM, then SIGKILL, an unowned PID. True once it is gone.
+
+        Used only for an adopted child, where no Popen handle exists.
+        Bounded, and it never reports success for a process that is still
+        running.
+        """
+        for sig, budget in ((signal.SIGTERM, max(float(timeout), 0.0)),
+                            (signal.SIGKILL, 5.0)):
+            try:
+                os.kill(pid, sig)
+            except OSError:
+                return True              # already reaped / never existed
+            deadline = time.monotonic() + budget
+            while time.monotonic() < deadline:
+                if not self._process_alive(pid):
+                    return True
+                time.sleep(0.1)
+        return not self._process_alive(pid)
 
     # ------------------------------------------------------------------
     # recovery decisions

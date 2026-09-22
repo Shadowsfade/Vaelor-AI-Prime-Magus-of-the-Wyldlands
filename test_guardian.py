@@ -931,8 +931,39 @@ class TestSystemdUserAdapter(unittest.TestCase):
         self.assertIn("[Service]", unit)
         self.assertIn(str(Path(self.tmp.name)), unit)
         self.assertIn("/usr/bin/python3 vaelor.py", unit)
-        # Guardian owns restarts; systemd must not race it.
-        self.assertIn("Restart=no", unit)
+
+    def test_restart_is_on_failure_with_delay_and_start_limit(self):
+        """systemd supervises the guardian; the guardian supervises the child."""
+        unit = self.adapter.render()
+        self.assertIn("Restart=on-failure", unit)
+        # Never `always`: an intentional `systemctl --user stop` must stay
+        # stopped, and `on-failure` excludes a clean SIGTERM exit (0).
+        self.assertNotIn("Restart=always", unit)
+        self.assertNotIn("Restart=no", unit)
+        self.assertIn("RestartSec=5s", unit)
+        self.assertIn("StartLimitIntervalSec=120", unit)
+        self.assertIn("StartLimitBurst=3", unit)
+
+    def test_start_limits_live_in_unit_section(self):
+        """StartLimit* were moved from [Service] to [Unit] in systemd v230."""
+        unit = self.adapter.render()
+        unit_section = unit.split("[Service]")[0]
+        self.assertIn("StartLimitIntervalSec=120", unit_section)
+        self.assertIn("StartLimitBurst=3", unit_section)
+
+    def test_supervision_boundary_comment_is_not_misleading(self):
+        """The old comment claimed systemd must not restart at all."""
+        unit = self.adapter.render()
+        self.assertNotIn("systemd must not race it", unit)
+        self.assertIn("systemd supervises the *guardian*", unit)
+        # Wrap-safe: the comment wraps between "the" and "guardian".
+        self.assertIn("guardian supervises the Vaelor API child", unit)
+
+    def test_stop_semantics_keep_cgroup_shutdown(self):
+        """An intentional stop must terminate guardian and child together."""
+        unit = self.adapter.render()
+        self.assertIn("KillMode=control-group", unit)
+        self.assertIn("TimeoutStopSec=20", unit)
 
     def test_exec_start_supervises_guardian_not_interactive_cli(self):
         # The unit must bring the *guardian* up at login. Starting
@@ -1745,6 +1776,83 @@ class TestGuardianSpawnAudit(unittest.TestCase):
             with patch("os.kill") as kill:
                 self.assertTrue(g.stop_child())
             kill.assert_not_called()
+
+    def test_stop_child_clears_adopted_child_record(self):
+        """Regression: an adopted child's record survived an intentional stop.
+
+        After a guardian restart the child is *adopted* — no Popen handle
+        exists — so ``stop_child`` must still release ``vaelor.pid``.
+        Otherwise the systemd stop that shuts both processes down leaves a
+        stale record for the next guardian to inherit.
+        """
+        with tempfile.TemporaryDirectory() as t:
+            child = subprocess.Popen(
+                ["/usr/bin/python3", "-c", "import time; time.sleep(60)"])
+            try:
+                g = make_guardian(Path(t), probe=_healthy_probe,
+                                  alive=_default_process_alive)
+                self.assertIsNone(g._child, "adopted, not spawned by us")
+                g.child_pid_file.write(PidRecord(pid=child.pid, role="child"))
+                self.assertTrue(g.stop_child(timeout=5))
+                child.wait(timeout=10)
+                self.assertFalse(g.child_pid_file.exists(),
+                                 "stale child PID file left behind")
+            finally:
+                if child.poll() is None:
+                    child.kill()
+                    child.wait(timeout=5)
+
+    def test_adopted_child_ignoring_sigterm_is_force_stopped(self):
+        """An adopted child gets the same TERM-then-KILL stop as a spawned one."""
+        with tempfile.TemporaryDirectory() as t:
+            child = subprocess.Popen(
+                ["/usr/bin/python3", "-c",
+                 "import signal, time; "
+                 "signal.signal(signal.SIGTERM, signal.SIG_IGN); "
+                 "time.sleep(60)"])
+            try:
+                g = make_guardian(Path(t), probe=_healthy_probe,
+                                  alive=_default_process_alive)
+                g.child_pid_file.write(PidRecord(pid=child.pid, role="child"))
+                self.assertTrue(g.stop_child(timeout=0.2))
+                child.wait(timeout=10)
+                self.assertFalse(g.child_pid_file.exists())
+            finally:
+                if child.poll() is None:
+                    child.kill()
+                    child.wait(timeout=5)
+
+    def test_stop_child_never_forgets_a_live_adopted_child(self):
+        """A child that cannot be stopped keeps its record — no silent orphan."""
+        with tempfile.TemporaryDirectory() as t:
+            g = make_guardian(Path(t), probe=_healthy_probe,
+                              alive=lambda _pid: True)
+            g.child_pid_file.write(PidRecord(pid=12345, role="child"))
+            with patch.object(g, "_stop_pid", return_value=False):
+                self.assertFalse(g.stop_child(timeout=0.01))
+            self.assertTrue(g.child_pid_file.exists(),
+                            "a live process must never be forgotten")
+            self.assertIn("adopted child survived stop; pid file kept",
+                          [e["detail"] for e in g.events.events()])
+
+    def test_start_child_records_child_identity(self):
+        """A child record with no identity can never be proven stale by reuse."""
+        with tempfile.TemporaryDirectory() as t:
+            tmp = Path(t)
+            g = make_guardian(tmp, probe=_absent_probe,
+                              alive=_default_process_alive,
+                              start_command=("/usr/bin/python3", "-c",
+                                             "import time; time.sleep(60)"))
+            try:
+                started, reason = g.start_child()
+                self.assertTrue(started, reason)
+                rec = g.child_pid_file.read()
+                self.assertIsNotNone(rec)
+                self.assertIsNotNone(rec.identity,
+                                     "child record must carry an identity")
+                self.assertEqual(g.child_pid_file.status(), "alive")
+            finally:
+                g.stop_child(timeout=5)
 
 
 if __name__ == "__main__":

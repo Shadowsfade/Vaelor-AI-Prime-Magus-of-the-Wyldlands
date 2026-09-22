@@ -25,11 +25,13 @@ internal thread cannot restart the process that contains that thread.
 |---|---|---|
 | **Guardian** | supervision loop, restart policy, its own PID file | independent process |
 | **Vaelor API child** | the API/runtime, its own PID file | spawned child of guardian |
-| **systemd --user (planned)** | bringing the *guardian* up at login | optional, approval-gated |
+| **systemd --user (planned)** | restarting the *guardian* after a failure, bringing it up at login | optional, approval-gated |
 
 Rules:
 
+- Systemd supervises **only the guardian** — the API child is not `ExecStart`.
 - The guardian **never restarts itself** — it supervises only the child.
+  On failure, *systemd* is what brings the guardian back.
 - The guardian may hold **at most one** instance lock (`guardian.pid`).
 - Vaelor may have **at most one** child instance (`vaelor.pid`).
 - PID files are acted upon **only after staleness is proven** (see §6).
@@ -174,6 +176,8 @@ can be "attempted".
 | shell injection | config rejects any string command — **argv arrays only** |
 | untrusted commands | authority matrix `source != "guardian"` → blocked |
 | clean shutdown | SIGTERM/SIGINT → stop child → persist state → release lock |
+| guardian recovery | systemd `Restart=on-failure` + `RestartSec=5s`, bounded by `StartLimitBurst=3` per `StartLimitIntervalSec=120` |
+| stop stays stopped | `on-failure` excludes the guardian's clean `SIGTERM` exit (`0`) — never `Restart=always` |
 
 Recovery events (`core/infra/guardian_events.py`) are structured, bounded
 (500 on disk, 400 chars/field), and **redacted of credentials before
@@ -202,8 +206,23 @@ raising during recovery.
    - `systemctl --user enable --now vaelor.service`
 4. Confirm: `systemctl --user status vaelor`
 
-The unit sets `Restart=no` because **the guardian owns restart policy**;
-systemd must not race it.
+The unit sets `Restart=on-failure` with `RestartSec=5s`, bounded by
+`StartLimitIntervalSec=120` / `StartLimitBurst=3`. **Systemd supervises the
+guardian process; the guardian supervises the Vaelor API child** — two nested
+supervisors, one owner per process:
+
+- a **crashed** guardian (non-zero exit, or killed by a signal such as
+  `SIGKILL`) is recovered by systemd after 5 s, up to 3 attempts per 120 s;
+- an **intentional** `systemctl --user stop` is a clean stop: the guardian
+  exits `0` on `SIGTERM`, which `on-failure` does not restart, so the service
+  stays stopped;
+- `KillMode=control-group` means an intentional stop also signals the API
+  child, so both processes shut down together;
+- `Restart=always` is deliberately **not** used, because it would resurrect
+  a service the operator explicitly stopped.
+
+The API child's restart policy (backoff, budget, circuit breaker) remains
+owned by the guardian alone — systemd's `Restart=` never acts on the child.
 
 ### Running the guardian
 

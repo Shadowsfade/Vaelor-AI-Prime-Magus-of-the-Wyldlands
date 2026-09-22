@@ -34,6 +34,14 @@
   renders/validates and plans exact argv with dry-run; the Windows adapter is a
   planning contract that does not claim to validate Windows behavior on Linux.
   No real service was installed or enabled.
+- **Two-level supervision boundary**: systemd supervises the *guardian*
+  (`Restart=on-failure`, `RestartSec=5s`, `StartLimitBurst=3` per
+  `StartLimitIntervalSec=120`), and the guardian supervises the API child.
+  `Restart=always` is deliberately avoided so an intentional
+  `systemctl --user stop` stays stopped, while `KillMode=control-group`
+  signals both processes together. Child PID records now carry a process
+  identity, and stopping an *adopted* child (recovered after a guardian
+  restart) releases its PID file instead of leaving it stale.
 - Recovery events are structured, size-bounded, and redacted of credentials
   before persistence; guardian state and PID files handle staleness and
   corruption by failing closed.

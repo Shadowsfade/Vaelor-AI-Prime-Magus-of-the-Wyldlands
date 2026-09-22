@@ -142,6 +142,17 @@ class PidFile:
     def exists(self) -> bool:
         return self.path.exists()
 
+    def identity_of(self, pid: int) -> Optional[str]:
+        """Best-effort identity for a PID, or None when unavailable.
+
+        Written into the record so a reused PID can be proven stale, which
+        is the second half of the documented staleness contract.
+        """
+        try:
+            return self._identity_of(pid)
+        except Exception:  # noqa: BLE001
+            return None
+
     def is_corrupt(self) -> bool:
         if not self.path.exists():
             return False

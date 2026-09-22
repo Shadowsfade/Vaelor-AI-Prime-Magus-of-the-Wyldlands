@@ -77,13 +77,20 @@ SYSTEMD_UNIT_TEMPLATE = """[Unit]
 Description=Vaelor local service (guarded)
 After=network-online.target
 Wants=network-online.target
+StartLimitIntervalSec=120
+StartLimitBurst=3
 
 [Service]
 Type=simple
 WorkingDirectory={worktree}
 ExecStart={exec_start}
-Restart=no
-# The out-of-process guardian owns restart policy; systemd must not race it.
+# Two nested supervisors: systemd supervises the *guardian*, and the
+# guardian supervises the Vaelor API child. on-failure (never `always`)
+# recovers a crashed guardian while leaving an intentional
+# `systemctl --user stop` stopped; the API child's restart policy is
+# governed by the guardian, not by systemd's Restart= directive.
+Restart=on-failure
+RestartSec=5s
 KillMode=control-group
 TimeoutStopSec=20
 
