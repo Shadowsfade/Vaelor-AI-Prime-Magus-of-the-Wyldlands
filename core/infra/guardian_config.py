@@ -203,16 +203,33 @@ def load_guardian_config(root: Optional[Path] = None, *,
     if not isinstance(python_exe, str) or not python_exe:
         raise GuardianConfigError("python_executable must be a non-empty string")
 
-    default_cmd = [python_exe, str(base / "vaelor.py")]
+    # The port must be resolved before the default argv is built so the
+    # supervised child listens on exactly the port the health probes use.
+    port = _default_port(base)
+
+    # The supervised child is the FastAPI application server, never the
+    # interactive CLI. ``vaelor.py`` with no arguments blocks on an
+    # ``input()`` prompt and never binds the health port. Binding is
+    # loopback-only by default: the guardian supervises a local service,
+    # it does not publish one.
+    default_cmd = [
+        python_exe,
+        "-m",
+        "uvicorn",
+        "api.server:app",
+        "--host",
+        _loopback(),
+        "--port",
+        str(port),
+    ]
     if "start_command" in data and data["start_command"] is not None:
         # An explicitly present but empty/invalid value must be rejected,
         # not silently replaced by the default.
         start_command = _coerce_argv(
             data["start_command"], field_name="start_command")
     else:
-        start_command = tuple(default_cmd)
+        start_command = _coerce_argv(default_cmd, field_name="start_command")
 
-    port = _default_port(base)
     health_url = data.get("health_url") or f"http://{_loopback()}:{port}/health"
     readiness_url = (data.get("readiness_url")
                      or f"http://{_loopback()}:{port}/readiness")

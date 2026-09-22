@@ -101,6 +101,11 @@ class SystemdUserAdapter(ServiceManagerAdapter):
     worktree: Path = field(default_factory=Path)
     python_executable: str = "python"
     entry_script: str = "vaelor.py"
+    # The unit brings the *guardian* up at login — not the interactive
+    # CLI and not the API directly. The guardian owns restart policy for
+    # the API child. Running ``vaelor.py`` with no arguments blocks on
+    # the interactive ``input()`` prompt and supervises nothing.
+    entry_args: tuple = ("infra", "guardian", "run")
     systemctl: str = "systemctl"
     dry_run: bool = True          # installation requires explicit approval
 
@@ -109,9 +114,11 @@ class SystemdUserAdapter(ServiceManagerAdapter):
 
     # -- rendering -------------------------------------------------------
     def exec_start(self) -> str:
-        # systemd requires a single string; quote only the known worktree
-        # path, and never interpolate anything model-supplied.
-        return f"{self.python_executable} {self.entry_script}"
+        # systemd requires a single string; each element is a fixed,
+        # repository-owned token. Nothing model-supplied is interpolated.
+        return " ".join(
+            [self.python_executable, self.entry_script, *self.entry_args]
+        )
 
     def render(self) -> str:
         return SYSTEMD_UNIT_TEMPLATE.format(

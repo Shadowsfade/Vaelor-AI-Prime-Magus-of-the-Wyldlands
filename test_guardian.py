@@ -10,8 +10,13 @@ from __future__ import annotations
 import json
 import os
 import random
+import socket
+import subprocess
 import tempfile
+import time
 import unittest
+import urllib.error
+import urllib.request
 from pathlib import Path
 from unittest.mock import patch
 
@@ -822,6 +827,20 @@ class TestSystemdUserAdapter(unittest.TestCase):
         # Guardian owns restarts; systemd must not race it.
         self.assertIn("Restart=no", unit)
 
+    def test_exec_start_supervises_guardian_not_interactive_cli(self):
+        # The unit must bring the *guardian* up at login. Starting
+        # ``vaelor.py`` with no arguments blocks on ``input("Vaelor > ")``
+        # and supervises nothing.
+        exec_start = self.adapter.exec_start()
+        self.assertEqual(
+            exec_start,
+            f"{self.adapter.python_executable} vaelor.py infra guardian run",
+        )
+        self.assertTrue(exec_start.endswith("infra guardian run"))
+        # It must not be the bare interactive CLI.
+        self.assertNotEqual(exec_start,
+                            f"{self.adapter.python_executable} vaelor.py")
+
     def test_plan_start_is_exact_argv(self):
         plan = self.adapter.plan("start", unit="vaelor.service")
         self.assertEqual(plan.argv,
@@ -1130,6 +1149,70 @@ class TestGuardianConfig(unittest.TestCase):
         self.assertEqual(cfg.start_command,
                          ("/usr/bin/python3", "vaelor.py"))
 
+    # -- default supervised child: the API server, never the CLI --------
+
+    def test_missing_config_generates_uvicorn_api_argv(self):
+        # ``vaelor.py`` with no args blocks on ``input("Vaelor > ")`` and
+        # never binds the health port, so it must never be the default.
+        with tempfile.TemporaryDirectory() as t:
+            cfg = load_guardian_config(root=Path(t))
+        argv = cfg.start_command
+        self.assertEqual(argv[0], cfg.python_executable)
+        self.assertEqual(argv[1:5], ("-m", "uvicorn", "api.server:app",
+                                     "--host"))
+        self.assertNotIn("vaelor.py", argv)
+
+    def test_default_argv_includes_resolved_configured_port(self):
+        # The port must be resolved *before* argv is built so the child
+        # listens where the health probes point.
+        with tempfile.TemporaryDirectory() as t:
+            p = Path(t)
+            (p / "config").mkdir()
+            (p / "config" / "network.json").write_text(
+                json.dumps({"port": 8899}), encoding="utf-8")
+            cfg = load_guardian_config(root=p)
+        self.assertIn("--port", cfg.start_command)
+        idx = cfg.start_command.index("--port")
+        self.assertEqual(cfg.start_command[idx + 1], "8899")
+        self.assertIn(":8899/health", cfg.health_url)
+        self.assertIn(":8899/readiness", cfg.readiness_url)
+
+    def test_default_argv_binds_loopback_only(self):
+        with tempfile.TemporaryDirectory() as t:
+            cfg = load_guardian_config(root=Path(t))
+        argv = cfg.start_command
+        host_idx = argv.index("--host")
+        self.assertEqual(argv[host_idx + 1], "127.0.0.1")
+        # No wildcard bind anywhere in the default command.
+        for forbidden in ("0.0.0.0", "::", "[::]"):
+            self.assertNotIn(forbidden, argv)
+        self.assertTrue(cfg.health_url.startswith("http://127.0.0.1:"))
+
+    def test_bare_string_default_fails_closed(self):
+        # A shell string must be rejected, never silently coerced.
+        with tempfile.TemporaryDirectory() as t:
+            p = Path(t)
+            cfg_file = p / "guardian.json"
+            cfg_file.write_text(
+                json.dumps({"start_command": "python vaelor.py && reboot"}),
+                encoding="utf-8")
+            with self.assertRaises(GuardianConfigError) as ctx:
+                load_guardian_config(root=p, explicit=cfg_file)
+        self.assertIn("argv array", str(ctx.exception))
+
+    def test_explicit_uvicorn_override_is_supported(self):
+        # A valid explicit argv array still wins over the built-in default.
+        with tempfile.TemporaryDirectory() as t:
+            p = Path(t)
+            cfg_file = p / "guardian.json"
+            override = ["/x/python", "-m", "uvicorn", "other.app:app",
+                        "--host", "127.0.0.1", "--port", "9001"]
+            cfg_file.write_text(json.dumps({"start_command": override}),
+                                encoding="utf-8")
+            cfg = load_guardian_config(root=p, explicit=cfg_file)
+        self.assertEqual(cfg.start_command, tuple(override))
+        self.assertEqual(cfg.start_command[3], "other.app:app")
+
 
 # ---------------------------------------------------------------------------
 # Shutdown and loop behaviour
@@ -1247,6 +1330,193 @@ class TestNoGovernanceBypass(unittest.TestCase):
         m = RecoveryAuthorityMatrix()
         d = m.consult("restart_local_vaelor", source="guardian")
         self.assertEqual(d.authority, Authority.AUTOMATIC)
+
+
+class TestDefaultLaunchIntegration(unittest.TestCase):
+    """Launch the real built-in default child and require it to serve.
+
+    This is the regression that catches the interactive-CLI defect: a
+    ``vaelor.py`` child would block on ``input("Vaelor > ")``, never bind
+    the health port, and — because stdin is ``/dev/null`` — immediately
+    exit on EOF instead of becoming ready.
+    """
+
+    STARTUP_BUDGET_SECONDS = 45.0
+
+    def _free_port(self) -> int:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("127.0.0.1", 0))
+            return s.getsockname()[1]
+
+    def _get_json(self, url: str, timeout: float):
+        try:
+            with urllib.request.urlopen(url, timeout=timeout) as resp:
+                return resp.getcode(), json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            # 503 is a legitimate "not ready" answer from /readiness.
+            body = exc.read().decode("utf-8", "replace")
+            try:
+                return exc.code, json.loads(body)
+            except ValueError:
+                return exc.code, {}
+        except Exception:      # noqa: BLE001
+            return None, None
+
+    def _cmdline(self, pid: int) -> str:
+        try:
+            raw = Path(f"/proc/{pid}/cmdline").read_bytes()
+        except OSError:
+            return ""
+        return raw.replace(b"\x00", b" ").decode("utf-8", "replace")
+
+    def test_default_launch_serves_health_and_readiness_without_cli(self):
+        repo = Path(__file__).resolve().parent
+        port = self._free_port()
+
+        with tempfile.TemporaryDirectory() as t:
+            base = Path(t)
+            (base / "config").mkdir()
+            (base / "config" / "network.json").write_text(
+                json.dumps({"port": port}), encoding="utf-8")
+            # Worktree must be the real repository so uvicorn can import
+            # api.server:app; state stays inside the temp dir.
+            (base / "config" / "guardian.json").write_text(
+                json.dumps({"worktree": str(repo)}), encoding="utf-8")
+
+            g = build_guardian(root=base)
+            # Prove the default argv is the API server, not the CLI.
+            self.assertNotIn("vaelor.py", g.config.start_command)
+            self.assertIn("api.server:app", g.config.start_command)
+            self.assertIn(str(port), g.config.start_command)
+
+            health_url = g.config.health_url
+            ready_url = g.config.readiness_url
+            proc = None
+            try:
+                started, reason = g.start_child()
+                self.assertTrue(started, f"spawn refused: {reason}")
+                proc = g._child
+                self.assertIsNotNone(proc)
+
+                deadline = time.monotonic() + self.STARTUP_BUDGET_SECONDS
+                code = None
+                while time.monotonic() < deadline:
+                    code, _ = self._get_json(health_url, timeout=2.0)
+                    if code == 200:
+                        break
+                    # A CLI child exits on EOF; that is a hard failure.
+                    self.assertIsNone(
+                        proc.poll(),
+                        "child exited before serving — it was the CLI")
+                    time.sleep(0.25)
+                self.assertEqual(code, 200, "/health never returned 200")
+
+                rcode, report = (None, None)
+                while time.monotonic() < deadline:
+                    rcode, report = self._get_json(ready_url, timeout=2.0)
+                    if rcode in (200, 503) and isinstance(report, dict):
+                        break
+                    time.sleep(0.25)
+                self.assertIn(rcode, (200, 503),
+                              "/readiness never answered")
+                self.assertIn("ready", report)
+
+                # Exactly one guardian-owned child, running the API.
+                self.assertIsNone(proc.poll())
+                cmd = self._cmdline(proc.pid)
+                self.assertIn("uvicorn", cmd)
+                self.assertIn("api.server:app", cmd)
+                self.assertNotIn("vaelor.py", cmd)
+                self.assertEqual(g.child_pid_file.status(), "alive")
+
+                # stdin cannot bind the child to an interactive terminal.
+                fd0 = Path(f"/proc/{proc.pid}/fd/0")
+                if fd0.exists():          # /proc is Linux-only
+                    self.assertEqual(os.readlink(fd0), "/dev/null")
+
+                # Termination targets only this guardian-owned child.
+                before = os.getpid()
+                self.assertTrue(g.stop_child())
+                self.assertNotEqual(proc.pid, before)
+                proc.wait(timeout=15)
+                self.assertIsNotNone(proc.poll())
+                self.assertFalse(g.child_pid_file.exists())
+                self.assertIsNone(self._get_json(health_url, timeout=2.0)[0],
+                                  "port still owned after clean stop")
+            finally:
+                # Never leak a child, even when an assertion fails.
+                try:
+                    g.stop_child(timeout=5)
+                except Exception:      # noqa: BLE001
+                    pass
+                if proc is not None and proc.poll() is None:
+                    proc.kill()
+                    try:
+                        proc.wait(timeout=5)
+                    except Exception:  # noqa: BLE001
+                        pass
+
+
+class TestGuardianSpawnAudit(unittest.TestCase):
+    """Spawn must be cwd-scoped, terminal-free, and deadlock-free."""
+
+    def test_spawn_uses_worktree_cwd_and_devnull_streams(self):
+        with tempfile.TemporaryDirectory() as t:
+            tmp = Path(t)
+            cfg = make_config(tmp, start_command=(
+                "/usr/bin/python3", "-m", "uvicorn", "api.server:app",
+                "--host", "127.0.0.1", "--port", "8765"))
+            g = Guardian(cfg)
+            with patch("subprocess.Popen") as popen:
+                g._default_spawn(cfg.start_command)
+            kwargs = popen.call_args.kwargs
+            args = popen.call_args.args[0]
+
+            self.assertEqual(kwargs["cwd"], str(cfg.worktree))
+            # DEVNULL (not PIPE): nothing can fill a pipe and deadlock,
+            # and stdin can never attach to an interactive terminal.
+            self.assertIs(kwargs["stdin"], subprocess.DEVNULL)
+            self.assertIs(kwargs["stdout"], subprocess.DEVNULL)
+            self.assertIs(kwargs["stderr"], subprocess.DEVNULL)
+            self.assertNotIn("shell", kwargs)
+            self.assertTrue(kwargs["start_new_session"])
+            # argv array, passed as-is; never a joined shell string.
+            self.assertIsInstance(args, list)
+            self.assertEqual(tuple(args), cfg.start_command)
+
+    def test_spawn_rejects_shell_keyword(self):
+        # _default_spawn takes **kwargs but never allows shell=True in.
+        with tempfile.TemporaryDirectory() as t:
+            cfg = make_config(Path(t))
+            g = Guardian(cfg)
+            with patch("subprocess.Popen") as popen:
+                with self.assertRaises(TypeError):
+                    g._default_spawn(cfg.start_command, shell=True)
+            popen.assert_not_called()
+
+    def test_stop_child_targets_only_the_owned_child(self):
+        with tempfile.TemporaryDirectory() as t:
+            tmp = Path(t)
+            fake = FakeProc(pid=4242)
+            g = make_guardian(tmp, probe=_healthy_probe)
+            g._child = fake
+            g.child_pid_file.write(PidRecord(pid=4242, role="child"))
+            with patch("os.kill") as kill:
+                ok = g.stop_child()
+            self.assertTrue(ok)
+            self.assertTrue(fake.terminated)
+            # Owned Popen was used directly: no raw signal to any PID.
+            kill.assert_not_called()
+            self.assertFalse(g.child_pid_file.exists())
+            self.assertIsNone(g._child)
+
+    def test_stop_child_without_recorded_pid_signals_nothing(self):
+        with tempfile.TemporaryDirectory() as t:
+            g = make_guardian(Path(t), probe=_healthy_probe)
+            self.assertIsNone(g._child)
+            with patch("os.kill") as kill:
+                self.assertTrue(g.stop_child())
+            kill.assert_not_called()
 
 
 if __name__ == "__main__":

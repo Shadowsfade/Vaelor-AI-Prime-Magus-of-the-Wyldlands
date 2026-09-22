@@ -159,6 +159,10 @@ class Guardian:
 
     def _default_spawn(self, argv, **kwargs) -> "subprocess.Popen":
         # argv arrays only; never shell=True, never string interpolation.
+        # ``shell`` is rejected outright rather than merely left unset, so
+        # no future caller can reintroduce shell interpretation.
+        if "shell" in kwargs:
+            raise TypeError("guardian spawn never uses a shell")
         return subprocess.Popen(
             list(argv),
             cwd=str(self.config.worktree),
