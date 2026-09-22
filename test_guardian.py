@@ -39,6 +39,7 @@ from core.infra.guardian_state import (
     InstanceGuard,
     PidFile,
     PidRecord,
+    _default_identity,
 )
 from core.infra.health_contract import HealthSection, assess_health
 from core.infra.recovery_authority import (
@@ -613,6 +614,29 @@ class TestStalePidHandling(unittest.TestCase):
             self.assertTrue(pf.release(5))
             self.assertFalse(pf.exists())
 
+    def test_default_identity_uses_starttime_and_is_stable(self):
+        # Regression: identity was built from the scheduling state and the
+        # thread count (stat fields 3 and 20), so a live guardian's own
+        # lock read "stale" the moment its state flipped R -> S, and
+        # claim() would then replace a live guardian's lock.
+        pid = os.getpid()
+        first = _default_identity(pid)
+        self.assertIsNotNone(first)
+        with open(f"/proc/{pid}/stat", "r", errors="replace") as fh:
+            fields = fh.read().rsplit(")", 1)[-1].split()
+        self.assertEqual(first, fields[19], "identity must be starttime")
+        time.sleep(0.05)   # let scheduling state churn underneath us
+        self.assertEqual(_default_identity(pid), first,
+                         "identity must not follow the R/S state flag")
+
+    def test_live_process_lock_is_not_reported_stale(self):
+        with tempfile.TemporaryDirectory() as t:
+            pf = PidFile(Path(t) / "guardian.pid", role="guardian")
+            ok, _ = pf.claim(os.getpid())
+            self.assertTrue(ok)
+            self.assertEqual(pf.status(), "alive",
+                             "our own live PID must not read stale")
+
     def test_clearing_stale_child_pid_is_recorded(self):
         with tempfile.TemporaryDirectory() as t:
             tmp = Path(t)
@@ -717,6 +741,37 @@ class TestEventBoundsAndRedaction(unittest.TestCase):
         log.record("restart_attempt", "b")
         log.record("guardian_stop", "c")
         self.assertEqual(log.count("restart_attempt"), 2)
+
+    def test_event_history_survives_a_new_process(self):
+        with tempfile.TemporaryDirectory() as t:
+            path = Path(t) / "e.json"
+            first = RecoveryEventLog(path=path)
+            first.record("restart_attempt", "first process")
+            second = RecoveryEventLog(path=path)   # separate process view
+            self.assertEqual(len(second.events()), 1)
+            second.record("restart_attempt", "second process")
+            on_disk = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual([e["detail"] for e in on_disk],
+                             ["first process", "second process"])
+
+    def test_adopted_event_history_is_capped(self):
+        with tempfile.TemporaryDirectory() as t:
+            path = Path(t) / "e.json"
+            writer = RecoveryEventLog(path=path, max_events=50)
+            for i in range(30):
+                writer.record("probe_result", f"event {i}")
+            reader = RecoveryEventLog(path=path, max_events=10)
+            self.assertEqual(len(reader.events()), 10)
+            self.assertEqual(reader.events()[-1]["detail"], "event 29")
+
+    def test_corrupt_event_history_starts_clean(self):
+        with tempfile.TemporaryDirectory() as t:
+            path = Path(t) / "e.json"
+            path.write_text("{not json", encoding="utf-8")
+            log = RecoveryEventLog(path=path)
+            self.assertEqual(log.events(), [])
+            log.record("probe_result", "recovered")
+            self.assertEqual(len(log.events()), 1)
 
 
 # ---------------------------------------------------------------------------
@@ -1258,6 +1313,84 @@ class TestGracefulShutdown(unittest.TestCase):
             self.assertTrue(g.state_path_absent() if hasattr(
                 g, "state_path_absent") else True)
             self.assertFalse(g.child_pid_file.exists())
+
+    def test_guardian_exit_stops_child_and_persists_shutdown(self):
+        """Doc line 176: SIGTERM -> stop child -> persist state -> release lock."""
+        with tempfile.TemporaryDirectory() as t:
+            tmp = Path(t)
+            proc = FakeProc(pid=8082)
+            g = make_guardian(tmp)
+            spawned = {"done": False}
+
+            def spawn(argv):
+                spawned["done"] = True
+                return proc
+
+            # Absent until we have a child (start_child runs an extra probe
+            # via _supervisor_duplicate_child), then healthy + SIGTERM.
+            def probe():
+                if not spawned["done"]:
+                    return _absent_probe()
+                g.request_stop()
+                return _healthy_probe()
+
+            g._spawner = spawn
+            g._probe_fn = probe
+            code = g.run(max_cycles=10)
+            self.assertEqual(code, 0)
+            self.assertTrue(spawned["done"], "child must be started")
+            self.assertTrue(proc.terminated,
+                            "guardian exit must stop its child")
+            self.assertFalse(g.child_pid_file.exists(),
+                             "stale vaelor.pid must be cleared")
+            self.assertEqual(g.state.last_transition, "shutdown")
+            self.assertFalse(g.instance_guard.pid_file.exists(),
+                             "lock must be released on exit")
+            self.assertIn("guardian_stop",
+                          [e["type"] for e in g.events.events()])
+
+    def test_restart_counter_increments_and_persists(self):
+        with tempfile.TemporaryDirectory() as t:
+            tmp = Path(t)
+            g = make_guardian(tmp, probe=_absent_probe,
+                              spawn=lambda a: FakeProc(pid=8083))
+            started, _ = g.start_child()
+            self.assertTrue(started)
+            self.assertEqual(g.state.restarts, 1)
+            started, _ = g.start_child()
+            self.assertTrue(started)
+            self.assertEqual(g.state.restarts, 2)
+            # A fresh process reading the same state file sees the count.
+            reread = GuardianState.load(g.config.state_path)
+            self.assertEqual(reread.restarts, 2)
+            # A failed spawn must not be counted as a restart.
+            def boom(_argv):
+                raise OSError("spawn failed")
+
+            g2 = make_guardian(tmp, probe=_absent_probe, spawn=boom)
+            started2, _ = g2.start_child()
+            self.assertFalse(started2)
+            self.assertEqual(
+                GuardianState.load(g.config.state_path).restarts, 2)
+
+    def test_status_reports_recorded_guardian_pid_not_own_pid(self):
+        with tempfile.TemporaryDirectory() as t:
+            tmp = Path(t)
+            g = make_guardian(tmp, probe=_healthy_probe)
+            self.assertEqual(g.status()["guardian_pid"], 0,
+                             "no running guardian means no guardian PID")
+            guard = InstanceGuard(tmp / "guardian.pid",
+                                  alive=lambda pid: True,
+                                  identity_of=lambda pid: "id")
+            # Guaranteed distinct from this observer process's PID.
+            held_pid = os.getpid() + 1
+            guard.pid_file.write(PidRecord(pid=held_pid, identity="id",
+                                           role="guardian"))
+            g.instance_guard = guard
+            reported = g.status()["guardian_pid"]
+            self.assertEqual(reported, held_pid)
+            self.assertNotEqual(reported, os.getpid(),
+                                "must not report the observer's own PID")
 
     def test_stop_child_reaps_after_timeout(self):
         with tempfile.TemporaryDirectory() as t:

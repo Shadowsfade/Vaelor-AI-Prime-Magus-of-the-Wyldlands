@@ -43,14 +43,19 @@ def _default_process_alive(pid: int) -> bool:
 
 
 def _default_identity(pid: int) -> Optional[str]:
-    """Read a stable identity for a PID, or None if unavailable."""
+    """Read a stable identity for a PID, or None if unavailable.
+
+    Uses ``starttime`` (field 22) of ``/proc/<pid>/stat``: it is fixed for
+    the life of the process, so identity does not churn the way scheduling
+    state or thread count does, yet it changes whenever a PID is reused.
+    """
     try:
         with open(f"/proc/{pid}/stat", "r", encoding="utf-8", errors="replace") as fh:
             fields = fh.read().rsplit(")", 1)[-1].split()
-        if len(fields) > 3:
-            # starttime is field 20 (index 19) of stat, minus the 2 leading
-            # fields already consumed by the rsplit above -> index 17.
-            return f"{fields[0]}:{fields[17] if len(fields) > 17 else ''}"
+        # The rsplit drops `pid (comm)`, so fields[0] is field 3 (state)
+        # and field N sits at index N - 3: starttime (22) -> index 19.
+        if len(fields) > 19:
+            return fields[19]
     except (OSError, IndexError):
         return None
     return None

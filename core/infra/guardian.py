@@ -287,6 +287,9 @@ class Guardian:
             self.child_pid_file.write(PidRecord(pid=int(pid), role="child"))
         self.state.child_pid = int(pid or 0)
         self.state.child_started_at = datetime.now(timezone.utc).isoformat()
+        # Durable counter: survives this process, so recovery history is
+        # not lost every time the guardian is invoked afresh.
+        self.state.restarts += 1
         self.state.save()
 
         self.events.record("restart_attempt", "child spawned",
@@ -456,10 +459,17 @@ class Guardian:
     # ------------------------------------------------------------------
     def status(self) -> dict:
         probe = self.probe()
+        # Report the PID that actually holds the guardian lock, not this
+        # observer's own PID: ``status`` runs in its own short-lived
+        # process and would otherwise print a misleading PID.
+        instance = self.instance_guard.status()
+        held = (self.instance_guard.pid_file.read()
+                if instance == "alive" else None)
         return {
             "enabled": self.config.enabled,
-            "guardian_pid": os.getpid(),
-            "instance": self.instance_guard.status(),
+            "guardian_pid": (held.pid if held and held.role == "guardian"
+                             else 0),
+            "instance": instance,
             "child_pid_status": self.child_pid_file.status(),
             "last_state": self._last_state,
             "probe": probe.to_dict(),
@@ -520,16 +530,24 @@ class Guardian:
         finally:
             self.events.record("guardian_stop",
                                f"stopped after {cycles} cycles")
-            self.release()
+            # Every exit path lands here. Releasing only the lock would
+            # orphan a live child nobody supervises and leave a stale
+            # ``vaelor.pid`` behind — the documented clean shutdown is
+            # stop child -> persist state -> release lock.
+            self._teardown()
         return 0
 
-    def shutdown(self) -> None:
-        """Graceful teardown: stop the child, persist state, release lock."""
-        self.request_stop()
+    def _teardown(self) -> None:
+        """Stop the supervised child, persist state, then release the lock."""
         self.stop_child()
         self.state.last_transition = "shutdown"
         self.state.save()
         self.release()
+
+    def shutdown(self) -> None:
+        """Graceful teardown: stop the child, persist state, release lock."""
+        self.request_stop()
+        self._teardown()
 
     # ------------------------------------------------------------------
     # signal wiring

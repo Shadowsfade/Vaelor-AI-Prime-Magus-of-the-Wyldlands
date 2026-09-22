@@ -88,9 +88,38 @@ class RecoveryEventLog:
                  max_events: int = MAX_EVENTS_ON_DISK):
         self.path = Path(path) if path else None
         self.max_events = max(1, int(max_events))
-        self._events: list = []
         self._lock = threading.Lock()
         self._persist_ok = True
+        # Adopt history already on disk: recovery events are an audit
+        # trail, and a log that starts empty in every new process would
+        # silently discard it on the first flush.
+        self._events: list = self._load_existing()
+
+    def _load_existing(self) -> list:
+        if self.path is None:
+            return []
+        try:
+            raw = json.loads(self.path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            # Absent or corrupt history must never break recovery: start
+            # fresh and let the next flush repair the file.
+            return []
+        if not isinstance(raw, list):
+            return []
+        loaded = []
+        for item in raw[-self.max_events:]:
+            if not isinstance(item, dict):
+                continue
+            event_type = str(item.get("type") or "probe_result")
+            if event_type not in EVENT_TYPES:
+                event_type = "probe_result"
+            loaded.append(RecoveryEvent(
+                type=event_type,
+                detail=str(item.get("detail") or ""),
+                data=dict(item.get("data") or {}),
+                at=str(item.get("at") or _now_iso()),
+            ))
+        return loaded
 
     def record(self, event_type: str, detail: str = "", *,
                data: Optional[dict] = None) -> RecoveryEvent:
