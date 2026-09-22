@@ -41,7 +41,13 @@ from core.infra.guardian_backoff import (
 )
 from core.infra.guardian_config import GuardianConfig, GuardianConfigError, load_guardian_config
 from core.infra.guardian_events import RecoveryEventLog
-from core.infra.guardian_state import GuardianState, InstanceGuard, PidFile, PidRecord
+from core.infra.guardian_state import (
+    GuardianState,
+    InstanceGuard,
+    PidFile,
+    PidRecord,
+    _default_process_alive,
+)
 from core.infra.health_contract import HealthReport, assess_health
 from core.infra.recovery_authority import Authority, RecoveryAuthorityMatrix
 from core.infra.service_adapters import ServiceManagerAdapter
@@ -145,17 +151,9 @@ class Guardian:
     # ------------------------------------------------------------------
     @staticmethod
     def _default_alive(pid: int) -> bool:
-        if pid <= 0:
-            return False
-        try:
-            os.kill(pid, 0)
-        except ProcessLookupError:
-            return False
-        except PermissionError:
-            return True
-        except OSError:
-            return False
-        return True
+        # Delegates to the shared check so the guardian loop and the PID
+        # files always agree — in particular that a zombie is dead.
+        return _default_process_alive(pid)
 
     def _default_spawn(self, argv, **kwargs) -> "subprocess.Popen":
         # argv arrays only; never shell=True, never string interpolation.
@@ -382,6 +380,27 @@ class Guardian:
                 "authority": Authority.AUTOMATIC.value,
                 "delay_seconds": round(self.controller.next_delay(), 3)}
 
+    def _reap_child(self) -> Optional[int]:
+        """Reap an exited child so it cannot linger as a zombie.
+
+        Returns the exit code when the child had already exited, else
+        None. Without this a crashed child stays in the process table as
+        a zombie that still answers ``kill(pid, 0)``, and the PID file
+        keeps reporting it as a live child — wedging recovery exactly
+        when supervision matters most.
+        """
+        proc = self._child
+        if proc is None:
+            return None
+        code = proc.poll()
+        if code is None:
+            return None
+        self._child = None
+        self.child_pid_file.clear()
+        self.events.record("child_cleanup", "reaped exited child",
+                           data={"exit_code": code})
+        return code
+
     # ------------------------------------------------------------------
     # one cycle
     # ------------------------------------------------------------------
@@ -391,6 +410,7 @@ class Guardian:
         Read-only with respect to anything outside this guardian's own
         child process and state files.
         """
+        self._reap_child()
         probe = self.probe()
         decision = self.decide(probe)
         self.events.record("probe_result",

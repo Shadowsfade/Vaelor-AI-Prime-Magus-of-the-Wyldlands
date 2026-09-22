@@ -40,6 +40,7 @@ from core.infra.guardian_state import (
     PidFile,
     PidRecord,
     _default_identity,
+    _default_process_alive,
 )
 from core.infra.health_contract import HealthSection, assess_health
 from core.infra.recovery_authority import (
@@ -69,12 +70,16 @@ class FakeClock:
 class FakeProc:
     """Stand-in for subprocess.Popen."""
 
-    def __init__(self, pid: int = 4242):
+    def __init__(self, pid: int = 4242, exit_code=None):
         self.pid = pid
+        self.exit_code = exit_code    # None means "still running"
         self.terminated = False
         self.killed = False
         self.wait_calls = 0
         self._raise_timeout = False
+
+    def poll(self):
+        return self.exit_code
 
     def terminate(self):
         self.terminated = True
@@ -629,6 +634,53 @@ class TestStalePidHandling(unittest.TestCase):
         self.assertEqual(_default_identity(pid), first,
                          "identity must not follow the R/S state flag")
 
+    def test_zombie_child_is_not_alive(self):
+        # Regression: both liveness checks used os.kill(pid, 0), which
+        # succeeds for an unreaped zombie. The guardian then reported a
+        # crashed child as "live child PID already recorded" and refused
+        # to replace it — wedged recovery, the very case it exists for.
+        proc = subprocess.Popen(["/usr/bin/python3", "-c", "pass"])
+        try:
+            state = ""
+            for _ in range(200):
+                try:
+                    with open(f"/proc/{proc.pid}/stat", "r",
+                              errors="replace") as fh:
+                        state = fh.read().rsplit(")", 1)[-1].split()[0]
+                except OSError:
+                    state = "?"
+                if state == "Z":
+                    break
+                time.sleep(0.01)
+            self.assertEqual(state, "Z",
+                             "unreaped child should be a zombie")
+            self.assertFalse(_default_process_alive(proc.pid),
+                             "a zombie is not alive")
+            self.assertFalse(Guardian._default_alive(proc.pid),
+                             "guardian loop must agree with the PID files")
+        finally:
+            proc.wait(timeout=10)
+
+    def test_exited_child_is_reaped_and_replaced(self):
+        with tempfile.TemporaryDirectory() as t:
+            tmp = Path(t)
+            dead = FakeProc(pid=9101, exit_code=-9)
+            g = make_guardian(tmp, probe=_absent_probe,
+                              spawn=lambda a: FakeProc(pid=9102))
+            g._child = dead
+            g.child_pid_file.write(PidRecord(pid=9101))
+            outcome = g.run_once()
+            self.assertEqual(outcome["performed"], "restart",
+                             "a crashed child must not read as duplicate")
+            self.assertIsNotNone(g._child)
+            self.assertNotEqual(g._child.pid, 9101,
+                                "crashed child must be replaced")
+            rec = g.child_pid_file.read()
+            self.assertIsNotNone(rec)
+            self.assertEqual(rec.pid, 9102)
+            self.assertIn("child_cleanup",
+                          [e["type"] for e in g.events.events()])
+
     def test_live_process_lock_is_not_reported_stale(self):
         with tempfile.TemporaryDirectory() as t:
             pf = PidFile(Path(t) / "guardian.pid", role="guardian")
@@ -919,6 +971,49 @@ class TestSystemdUserAdapter(unittest.TestCase):
 
     def test_validate_accepts_good_config(self):
         self.assertEqual(self.adapter.validate(), [])
+
+    def test_default_python_resolves_worktree_venv(self):
+        # Regression: the default was bare "python", i.e. the *system*
+        # interpreter, which cannot import uvicorn — so a unit started
+        # that way brought up a guardian that could never start the API.
+        with tempfile.TemporaryDirectory() as t:
+            wt = Path(t)
+            venv_py = wt / ".venv" / "bin" / "python"
+            venv_py.parent.mkdir(parents=True)
+            venv_py.write_text("", encoding="utf-8")
+            a = SystemdUserAdapter(worktree=wt)
+            self.assertEqual(a.python_executable, str(venv_py))
+            self.assertTrue(a.exec_start().startswith(str(venv_py)))
+            self.assertEqual(a.validate(), [])
+
+    def test_explicit_python_is_not_overridden(self):
+        with tempfile.TemporaryDirectory() as t:
+            wt = Path(t)
+            venv_py = wt / ".venv" / "bin" / "python"
+            venv_py.parent.mkdir(parents=True)
+            venv_py.write_text("", encoding="utf-8")
+            a = SystemdUserAdapter(worktree=wt, python_executable="/opt/py")
+            self.assertEqual(a.python_executable, "/opt/py")
+
+    def test_missing_venv_falls_back_to_python(self):
+        with tempfile.TemporaryDirectory() as t:
+            a = SystemdUserAdapter(worktree=Path(t))
+            self.assertEqual(a.python_executable, "python")
+
+    def test_exec_start_interpreter_can_run_the_supervised_child(self):
+        repo = Path(__file__).resolve().parent
+        if not (repo / ".venv" / "bin" / "python").exists():
+            self.skipTest("no .venv in this checkout")
+        a = SystemdUserAdapter(worktree=repo)
+        proc = subprocess.run(
+            [a.python_executable, "-c", "import uvicorn"],
+            capture_output=True, timeout=60,
+        )
+        self.assertEqual(
+            proc.returncode, 0,
+            "the unit's interpreter must have uvicorn, or the guardian "
+            "can never bring the API child up",
+        )
 
     def test_validate_rejects_bad_unit_name(self):
         bad = SystemdUserAdapter(worktree=Path(self.tmp.name),

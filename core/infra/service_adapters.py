@@ -99,7 +99,7 @@ class SystemdUserAdapter(ServiceManagerAdapter):
     name = "systemd-user"
     unit_name: str = "vaelor.service"
     worktree: Path = field(default_factory=Path)
-    python_executable: str = "python"
+    python_executable: Optional[str] = None   # None -> resolve the venv
     entry_script: str = "vaelor.py"
     # The unit brings the *guardian* up at login — not the interactive
     # CLI and not the API directly. The guardian owns restart policy for
@@ -111,6 +111,23 @@ class SystemdUserAdapter(ServiceManagerAdapter):
 
     def __post_init__(self):
         self.worktree = Path(self.worktree)
+        if self.python_executable is None:
+            self.python_executable = self._resolve_python()
+
+    def _resolve_python(self) -> str:
+        """Prefer the worktree venv interpreter.
+
+        Bare ``python`` is the *system* interpreter, which does not have
+        the application's dependencies — the supervised child imports
+        ``uvicorn`` — so a unit started with it would bring up a
+        guardian that can never bring up the API. An explicit value is
+        always honoured; ``None`` means auto-resolve.
+        """
+        for rel in (".venv/bin/python", ".venv/Scripts/python.exe"):
+            candidate = self.worktree / rel
+            if candidate.exists():
+                return str(candidate)
+        return "python"
 
     # -- rendering -------------------------------------------------------
     def exec_start(self) -> str:

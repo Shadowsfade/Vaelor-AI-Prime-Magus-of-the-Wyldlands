@@ -26,6 +26,22 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _is_zombie(pid: int) -> bool:
+    """True only when /proc proves the PID is an exited, unreaped zombie.
+
+    A zombie still answers ``os.kill(pid, 0)`` because its PID remains in
+    the table, but it is dead: a supervisor must not mistake it for a
+    running child and refuse to replace it.
+    """
+    try:
+        with open(f"/proc/{pid}/stat", "r", encoding="utf-8",
+                  errors="replace") as fh:
+            fields = fh.read().rsplit(")", 1)[-1].split()
+        return bool(fields) and fields[0] == "Z"
+    except (OSError, IndexError):
+        return False
+
+
 def _default_process_alive(pid: int) -> bool:
     """Best-effort liveness check that never signals the process."""
     if pid <= 0:
@@ -35,11 +51,13 @@ def _default_process_alive(pid: int) -> bool:
     except ProcessLookupError:
         return False
     except PermissionError:
-        # Exists but not ours: treat as alive, which is the safe answer.
-        return True
+        # Exists but not ours: fall through to the zombie check so a
+        # dead-but-unreaped PID is still reported correctly.
+        pass
     except OSError:
         return False
-    return True
+    # os.kill(pid, 0) succeeds for zombies too, which are already dead.
+    return not _is_zombie(pid)
 
 
 def _default_identity(pid: int) -> Optional[str]:
