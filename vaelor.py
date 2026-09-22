@@ -32,25 +32,50 @@ def build_parser():
     parser.add_argument("--infra", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--infra-command", dest="infra_command", help=argparse.SUPPRESS)
     parser.add_argument("--infra-node", dest="infra_node", help=argparse.SUPPRESS)
+    parser.add_argument("--guardian-action", dest="guardian_action",
+                        help=argparse.SUPPRESS)
     return parser
 
 
 def handle_infra_status(args):
     """Handle 'vaelor infra status' command."""
-    from core.infra.observer import observe_local
     from core.infra.classifier import get_state_summary
+    from core.infra.node_config import NodeConfigError, load_node_registry
+    from core.infra.observation import build_local_observation
     from core.infra.recovery import get_recovery_policy
 
     worktree_root = _discover_worktree_root()
-    obs = observe_local(node_name=args.infra_node or "skyai", worktree_path=str(worktree_root))
+
+    try:
+        registry = load_node_registry(root=worktree_root)
+    except NodeConfigError as exc:
+        print(f"MISCONFIGURED: {exc}", file=sys.stderr)
+        return 1
+
+    # Default to observing the local observer node. A remote target is
+    # refused rather than silently mixing local evidence into it.
+    target = args.infra_node or None
+
+    try:
+        scoped = build_local_observation(
+            registry, target_name=target, worktree_path=str(worktree_root))
+    except NodeConfigError as exc:
+        print(f"MISCONFIGURED: {exc}", file=sys.stderr)
+        return 1
+
+    obs = scoped.observation
 
     if args.json:
-        print(json.dumps(obs.to_dict(), indent=2))
+        print(json.dumps(scoped.to_dict(), indent=2, default=str))
         return 0
 
     summary = get_state_summary(obs)
-    print(f"{summary['node'].upper()}")
-    print(f"State: {summary['state']}")
+    print(f"{summary['node'].upper()}  [{scoped.scope}]")
+    print(f"State:     {summary['state']}")
+    print(f"Condition: {scoped.condition.value}")
+    print(f"Observer:  {scoped.observer.name}"
+          f"  Target host: {scoped.target.hostname}")
+    print(f"Detail:    {scoped.explanation}")
     print()
     print(f"Host             {summary['host']}")
     print(f"Tailscale        {summary['tailscale']}")
@@ -62,6 +87,11 @@ def handle_infra_status(args):
     print(f"Supervisor       {summary['supervisor']}")
     print(f"Model Backend    {summary['model_backend']}")
     print()
+    if scoped.contradictions:
+        print("Contradictions:")
+        for line in scoped.contradictions:
+            print(f"  - {line}")
+        print()
     if summary['uptime_seconds']:
         print(f"Uptime: {summary['uptime_seconds']:.0f}s")
     if summary['git_branch']:
@@ -77,7 +107,7 @@ def handle_infra_status(args):
         hint_str = f" ({hint})" if hint else ""
         print(f"  {port} -> {exe} (PID {pid}){hint_str}")
     print()
-    policy = get_recovery_policy(observation_only=True)
+    get_recovery_policy(observation_only=True)
     print("Recovery:")
     print("  observation-only")
     print("  no actions taken")
@@ -87,30 +117,123 @@ def handle_infra_status(args):
 def handle_infra_diagnose(args):
     """Handle 'vaelor infra diagnose' command."""
     # Create args with proper node
-    args.infra_node = args.prompt[0] if args.prompt else "skyai"
+    args.infra_node = args.prompt[0] if args.prompt else "legiongo"
     return handle_infra_status(args)
+
+
+def handle_infra_guardian(args):
+    """Handle 'vaelor infra guardian <status|run-once|run>' commands.
+
+    These only observe, evaluate, or supervise the *local* configured
+    Vaelor process. They never install an OS service, never touch
+    Tailscale/firewall/power, and never execute a model-supplied command.
+    """
+    from core.infra.guardian import (
+        GuardianConfigError,
+        guardian_run,
+        guardian_run_once,
+        guardian_status,
+    )
+
+    worktree_root = _discover_worktree_root()
+    action = args.guardian_action or "status"
+
+    if action == "status":
+        result = guardian_status(root=worktree_root)
+        if args.json:
+            print(json.dumps(result, indent=2, default=str))
+            return 0 if "error" not in result else 1
+        _print_guardian_status(result)
+        return 0 if "error" not in result else 1
+
+    if action == "run-once":
+        result = guardian_run_once(root=worktree_root)
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if "error" not in result else 1
+
+    if action == "run":
+        code = guardian_run(root=worktree_root)
+        return code
+
+    print(f"unknown guardian action: {action}", file=sys.stderr)
+    return 1
+
+
+def _print_guardian_status(result: dict) -> None:
+    if "error" in result:
+        print(f"GUARDIAN ERROR: {result['error']}")
+        return
+    probe = result.get("probe", {})
+    decision = result.get("decision", {})
+    controller = result.get("controller", {})
+    budget = controller.get("budget", {})
+    breaker = controller.get("circuit_breaker", {})
+
+    print("VAELOR GUARDIAN")
+    print(f"Enabled          {'yes' if result.get('enabled') else 'no'}")
+    print(f"Guardian PID     {result.get('guardian_pid')}")
+    print(f"Guardian lock    {result.get('instance')}")
+    print(f"Child PID file   {result.get('child_pid_status')}")
+    print(f"Observed state   {probe.get('state')}")
+    print(f"Decision         {decision.get('action')} ({decision.get('reason')})")
+    print(f"Authority        {decision.get('authority')}")
+    print()
+    print(f"Process alive    {probe.get('process_alive')}")
+    print(f"API responsive   {probe.get('api_responsive')}")
+    print(f"Ready            {probe.get('ready')}")
+    print()
+    print(f"Restart budget   {budget.get('used')}/{budget.get('max_restarts')}"
+          f" (exhausted={budget.get('exhausted')})")
+    print(f"Circuit breaker  {breaker.get('state')}"
+          f" failures={breaker.get('consecutive_failures')}"
+          f"/{breaker.get('failure_threshold')}")
+    print(f"Blocked reason   {controller.get('blocked_reason')}")
+    print(f"Next delay       {controller.get('backoff', {}).get('next_delay_seconds')}s")
+    print()
+    health = probe.get("health")
+    if health:
+        print(f"Overall health   {health.get('overall')}")
+        for reason in health.get("degraded_reasons", [])[:8]:
+            print(f"  - {reason}")
+        print()
+    recent = result.get("recent_events", [])
+    if recent:
+        print("Recent events:")
+        for ev in recent[-6:]:
+            print(f"  {ev.get('at')} {ev.get('type')}: {ev.get('detail')}")
+        print()
+    print("Note: this command observes and plans only.")
+    print("No OS service was installed and no system state was changed.")
 
 
 def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
 
-    # Detect infra subcommand: first positional arg is 'infra' and second is 'status'/'diagnose'
+    # Detect infra subcommand: first positional arg is 'infra'
     if args.prompt and args.prompt[0] == "infra":
-        if len(args.prompt) >= 2 and args.prompt[1] in ("status", "diagnose"):
-            # Rewrite args for infra handling
-            args.infra_command = args.prompt[1]
-            if args.infra_command == "diagnose" and len(args.prompt) >= 3:
-                args.infra_node = args.prompt[2]
-            else:
-                args.infra_node = "skyai"
-            if args.infra_command == "status":
-                return handle_infra_status(args)
-            elif args.infra_command == "diagnose":
-                return handle_infra_diagnose(args)
-        else:
+        sub = args.prompt[1] if len(args.prompt) >= 2 else None
+
+        if sub == "guardian":
+            action = args.prompt[2] if len(args.prompt) >= 3 else "status"
+            if action in ("status", "run-once", "run"):
+                args.guardian_action = action
+                return handle_infra_guardian(args)
             parser.print_help()
             return 1
+
+        if sub in ("status", "diagnose"):
+            args.infra_command = sub
+            if sub == "diagnose" and len(args.prompt) >= 3:
+                args.infra_node = args.prompt[2]
+            else:
+                args.infra_node = None
+            if sub == "status":
+                return handle_infra_status(args)
+            return handle_infra_diagnose(args)
+
+        parser.print_help()
+        return 1
 
     runtime = VaelorRuntime()
     if args.prompt:
